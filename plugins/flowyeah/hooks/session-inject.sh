@@ -48,25 +48,30 @@ else
     exit 0
 fi
 
+# Detect session type
+SESSION_TYPE=$(grep -m1 '^Type:' "$SESSION_DIR/state.md" 2>/dev/null | sed 's/^Type: //' || echo "build")
+
 # Inject session state
-echo "───── flowyeah:build session ─────"
+echo "───── flowyeah:${SESSION_TYPE} session ─────"
 echo ""
 
-echo "## MISSION"
-if [ -f "$SESSION_DIR/mission.md" ]; then
-    cat "$SESSION_DIR/mission.md"
-else
-    echo "(not set)"
-fi
-echo ""
+if [ "$SESSION_TYPE" = "build" ]; then
+    echo "## MISSION"
+    if [ -f "$SESSION_DIR/mission.md" ]; then
+        cat "$SESSION_DIR/mission.md"
+    else
+        echo "(not set)"
+    fi
+    echo ""
 
-echo "## PROGRESS"
-if [ -f "$SESSION_DIR/progress.md" ]; then
-    cat "$SESSION_DIR/progress.md"
-else
-    echo "(not set)"
+    echo "## PROGRESS"
+    if [ -f "$SESSION_DIR/progress.md" ]; then
+        cat "$SESSION_DIR/progress.md"
+    else
+        echo "(not set)"
+    fi
+    echo ""
 fi
-echo ""
 
 echo "## STATE"
 if [ -f "$SESSION_DIR/state.md" ]; then
@@ -76,17 +81,20 @@ else
 fi
 echo ""
 
-echo "## FINDINGS"
-if [ -f "$SESSION_DIR/findings.md" ]; then
-    SUMMARY=$(awk '/^## Summary$/{found=1;next} /^## /{found=0} found' "$SESSION_DIR/findings.md")
-    if [ -n "$SUMMARY" ]; then
-        echo "$SUMMARY"
+if [ "$SESSION_TYPE" = "build" ]; then
+    echo "## FINDINGS"
+    if [ -f "$SESSION_DIR/findings.md" ]; then
+        SUMMARY=$(awk '/^## Summary$/{found=1;next} /^## /{found=0} found' "$SESSION_DIR/findings.md")
+        if [ -n "$SUMMARY" ]; then
+            echo "$SUMMARY"
+        else
+            echo "(no summary yet)"
+        fi
+        echo "(full details: $SESSION_DIR/findings.md)"
     else
-        echo "(no summary yet)"
+        echo "(none yet)"
     fi
-    echo "(full details: $SESSION_DIR/findings.md)"
-else
-    echo "(none yet)"
+    echo ""
 fi
 
 echo "──────────────────────────────────────────────"

@@ -61,6 +61,24 @@ If sub-issues exist, use them as the task list.
 
 **If the issue description is prose** (no task list, no sub-issues), return the raw content. The core skill brainstorms with the user and generates a task plan.
 
+## Create Issue
+
+```
+mcp__plugin_linear_linear__save_issue(
+  title: "<title>",
+  description: "<description>",
+  team: "<team>"
+)
+```
+
+The `team` is required when creating. Infer from project context or ask the user.
+
+**Response fields:**
+- `identifier` — issue identifier (e.g., `PROJ-456`)
+- `url` — URL to show the user
+
+After creation, use the returned `identifier` for branch naming and issue linkage as if the issue had been fetched.
+
 ## Branch Naming
 
 The identifier becomes the branch slug: `<type>/<identifier>`

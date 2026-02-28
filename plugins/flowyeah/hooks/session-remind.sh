@@ -1,6 +1,6 @@
 #!/bin/bash
 # Reminds Claude to update session state after Edit/Write operations.
-# Runs on PostToolUse for Write|Edit|MultiEdit. Silent when no active session.
+# Runs on PostToolUse for Write|Edit|NotebookEdit. Silent when no active session.
 
 set -euo pipefail
 

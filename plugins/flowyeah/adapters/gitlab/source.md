@@ -42,6 +42,24 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 
 **If the issue description is prose** (no task list), return the raw content to the core skill. The core skill will brainstorm with the user and generate a task plan.
 
+## Create Issue
+
+**Endpoint:** `POST /projects/<project_id>/issues`
+
+```bash
+TOKEN=$(grep "^<token_env>=" <token_source> | cut -d= -f2- | tr -d '"') && \
+curl -s --request POST -H "Authorization: Bearer $TOKEN" \
+  --form "title=<title>" \
+  --form "description=<description>" \
+  "<url>/api/v4/projects/<project_id>/issues"
+```
+
+**Response fields:**
+- `iid` — issue number (use for linkage)
+- `web_url` — URL to show the user
+
+After creation, use the returned `iid` for branch naming and issue linkage as if the issue had been fetched.
+
 ## Branch Naming
 
 The issue number becomes the branch slug: `<type>/<iid>`

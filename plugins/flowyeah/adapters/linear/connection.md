@@ -5,11 +5,26 @@ Shared setup for all Linear adapters.
 ## Required Config (`flowyeah.yml`)
 
 ```yaml
-sources:
-  linear: {}
+adapters:
+  linear:
+    # linear uses MCP — no extra config needed
 ```
 
 No adapter-specific config needed — Linear uses the MCP integration.
+
+## Prerequisites
+
+**The Linear MCP plugin MUST be available.** Before any Linear operation, verify:
+
+```
+mcp__plugin_linear_linear__list_teams(limit: 1)
+```
+
+If this call fails or the tool is not found, **STOP immediately** and tell the user:
+
+> Linear MCP plugin is not available. Install and enable the Linear plugin in Claude Code settings before using the Linear adapter.
+
+Do NOT attempt to fall back to API calls or other workarounds.
 
 ## Authentication
 

@@ -65,6 +65,8 @@ curl -s --request POST -H "Authorization: Bearer $TOKEN" \
 
 Read operations (GET) don't need `--form`.
 
+**Exception:** The discussions API (used by `review.md`) requires JSON with `Content-Type: application/json` because the `position` parameter is a nested object that can't be expressed with `--form`.
+
 ## Detecting GitLab
 
 When auto-detecting the platform from the git remote:

@@ -15,20 +15,20 @@ flowyeah:build [from <source>] [--continuous]
 
 | Source | Example | Adapter |
 |--------|---------|---------|
-| No argument | `flowyeah:build` | Search `docs/plans/*.md` or ask |
+| No argument | `flowyeah:build` | Resume from `tmp/flowyeah/plans/` or ask |
 | Conversation | `flowyeah:build` (mid-conversation) | Use current context |
 | File | `flowyeah:build from docs/plans/redesign.md` | Read file directly |
 | Prefix-based | `flowyeah:build from PREFIX:ID` | Load `adapters/<prefix>/source.md` |
 
 **Prefix-based sources** match the command prefix to a source adapter and config in `flowyeah.yml`:
 
-- `flowyeah:build from GITLAB:#5588` → reads `sources.gitlab` config → loads `adapters/gitlab/source.md` (+ `connection.md`)
-- `flowyeah:build from GITHUB:#45` → reads `sources.github` config → loads `adapters/github/source.md` (+ `connection.md`)
-- `flowyeah:build from LINEAR:PROJ-123` → reads `sources.linear` config → loads `adapters/linear/source.md` (+ `connection.md`)
-- `flowyeah:build from BUGSINK:45678` → reads `sources.bugsink` config → loads `adapters/bugsink/source.md` (+ `connection.md`)
-- `flowyeah:build from NEWRELIC:MXxBUE18...` → reads `sources.newrelic` config → loads `adapters/newrelic/source.md` (+ `connection.md`)
+- `flowyeah:build from GITLAB:#5588` → reads `adapters.gitlab` config → loads `adapters/gitlab/source.md` (+ `connection.md`)
+- `flowyeah:build from GITHUB:#45` → reads `adapters.github` config → loads `adapters/github/source.md` (+ `connection.md`)
+- `flowyeah:build from LINEAR:PROJ-123` → reads `adapters.linear` config → loads `adapters/linear/source.md` (+ `connection.md`)
+- `flowyeah:build from BUGSINK:45678` → reads `adapters.bugsink` config → loads `adapters/bugsink/source.md` (+ `connection.md`)
+- `flowyeah:build from NEWRELIC:MXxBUE18...` → reads `adapters.newrelic` config → loads `adapters/newrelic/source.md` (+ `connection.md`)
 
-New source? Create an adapter directory with `connection.md` + `source.md`, add config to `flowyeah.yml`. Zero changes to this skill.
+New source? Create an adapter directory with `connection.md` + `source.md`, add config to `flowyeah.yml` under `adapters`. Zero changes to this skill.
 
 If source is prose without tasks: brainstorm with the user, generate a task plan, save as canonical format.
 
@@ -94,7 +94,7 @@ digraph pipeline {
 
 Parse command arguments, read content, convert to canonical plan format. Save to `tmp/flowyeah/plans/<key>.md`.
 
-- **Prefix source (e.g., `GITLAB:#5588`):** load `adapters/<prefix>/connection.md` + `adapters/<prefix>/source.md`, read its config from `flowyeah.yml` `sources.<prefix>`, follow the adapter's instructions to fetch and convert to canonical format. Key: `<prefix>-<id>` (e.g., `gitlab-5588`).
+- **Prefix source (e.g., `GITLAB:#5588`):** verify prefix is listed in `flowyeah.yml` `sources`. Load `adapters/<prefix>/connection.md` + `adapters/<prefix>/source.md`, read its config from `flowyeah.yml` `adapters.<prefix>`, follow the adapter's instructions to fetch and convert to canonical format. Key: `<prefix>-<id>` (e.g., `gitlab-5588`).
 - **File source:** read file, convert to canonical format. Key: slugified filename without extension. The source file is never mutated — the plan is a copy in `tmp/`.
 - **Prose/idea:** brainstorm with user, generate tasks. Key: slugified description of the work (ask or infer from conversation).
 - **No source + plans exist in `tmp/flowyeah/plans/`:**
@@ -104,7 +104,7 @@ Parse command arguments, read content, convert to canonical plan format. Save to
 
 ### 2. Pick Task(s)
 
-- Find first unchecked `[ ]` task in the active plan (`tmp/flowyeah/plans/<key>.md`)
+- Find first unchecked `[ ]` task in the active plan (`tmp/flowyeah/plans/<key>.md`, from main checkout)
 - Check claims: `git branch -a` — branch with task slug exists → skip to next
 - Nested tasks: pick first unchecked leaf
 - **No tasks remaining:** Report "Plan complete" and exit
@@ -119,7 +119,6 @@ Create worktree and branch. **Always worktree, always branch.**
 git checkout $DEFAULT_BRANCH && git pull origin $DEFAULT_BRANCH
 mkdir -p .flowyeah/worktrees tmp/flowyeah/plans
 git check-ignore -q .flowyeah 2>/dev/null || echo ".flowyeah/" >> .gitignore
-git check-ignore -q tmp 2>/dev/null || echo "tmp/" >> .gitignore
 git worktree add .flowyeah/worktrees/<type>-<slug> -b <type>/<slug>
 ```
 
@@ -194,7 +193,7 @@ git push -u origin $BRANCH --force-with-lease
 
 ### 7. Create PR/MR
 
-Load the sink adapter from `adapters/<sink.adapter>/connection.md` + `adapters/<sink.adapter>/sink.md`, read its config from `flowyeah.yml` `sink.*`, and follow the adapter's instructions to create the PR/MR.
+Load the sink adapter from `adapters/<sink>/connection.md` + `adapters/<sink>/sink.md`, read its config from `flowyeah.yml` `adapters.<sink>`, and follow the adapter's instructions to create the PR/MR.
 
 **The skill provides these values to the adapter:**
 - **Source branch:** current branch
@@ -282,11 +281,12 @@ Must have parseable header lines for crash recovery summaries:
 ```markdown
 # Current State
 
+Type: build
 Status: Implementing
 Step: 4 (Implement) — TDD phase
 Task: Webhook retry logic
 Source: GITLAB:#5588
-Plan: tmp/flowyeah/plans/gitlab-5588.md
+Plan: tmp/flowyeah/plans/gitlab-5588.md  # relative to main checkout
 Branch: feat/5588
 Worktree: .flowyeah/worktrees/feat-5588
 
@@ -434,11 +434,7 @@ All project conventions live in `flowyeah.yml` at the project root (versioned).
 
 ### First Run (no `flowyeah.yml`)
 
-If `flowyeah.yml` does not exist, the skill enters interactive setup:
-1. Ask each required question (hosting, test command, branch, etc.)
-2. Generate `flowyeah.yml` with the answers
-3. Tell the user to review and commit the file
-4. Then proceed with the pipeline
+If `flowyeah.yml` does not exist, load `setup.md` from the plugin root and follow its interactive setup instructions. Then proceed with the pipeline.
 
 ### Schema
 
@@ -476,36 +472,38 @@ issues:
   create_when_missing: ask        # ask | always | never
   platform: gitlab                # where to create issues (gitlab | github | linear)
 
-# ── Sink: one per project, adapter owns its keys ──
+# ── Adapters: connection config per integration, each adapter owns its keys ──
 
-sink:
-  adapter: gitlab                 # gitlab | github — loads adapters/<adapter>/{connection,sink}.md
-  # everything below is adapter-specific (gitlab's own schema)
-  url: https://gitlab.example.com
-  token_env: GITLAB_TOKEN
-  token_source: .env
-  project_id: 123
-
-# ── Sources: keyed by command prefix, each adapter owns its keys ──
-
-sources:
-  gitlab:                         # GITLAB:#N → loads adapters/gitlab/{connection,source}.md
+adapters:
+  gitlab:                         # loads adapters/gitlab/{connection,source,sink,review}.md
     url: https://gitlab.example.com
     token_env: GITLAB_TOKEN
     token_source: .env
     project_id: 123
-  bugsink:                        # BUGSINK:N → loads adapters/bugsink/{connection,source}.md
+  github:                         # loads adapters/github/{connection,source,sink,review}.md
+    # github uses gh CLI — no extra config needed
+  linear:                         # loads adapters/linear/{connection,source}.md
+    # linear uses MCP — no extra config needed
+  bugsink:                        # loads adapters/bugsink/{connection,source}.md
     url: https://bugsink.example.com
     token_env: BUGSINK_TOKEN
     token_source: .env
-  github:                         # GITHUB:#N → loads adapters/github/{connection,source}.md
-    # github uses gh CLI — no extra config needed
-  linear:                         # LINEAR:XX-N → loads adapters/linear/{connection,source}.md
-    # linear uses MCP — adapter-specific keys go here if needed
-  newrelic:                       # NEWRELIC:GUID → loads adapters/newrelic/{connection,source}.md
+  newrelic:                       # loads adapters/newrelic/{connection,source}.md
     token_env: NEW_RELIC_API_KEY
     token_source: .env
     account_id: 12345
+
+# ── Sources: which adapters can be used as input ──
+
+sources:                            # list of adapter keys usable as sources
+  - gitlab
+  - linear
+  - bugsink
+  - newrelic
+
+# ── Sink: which adapter handles PR/MR creation ──
+
+sink: gitlab                      # gitlab | github — points to adapters.<sink>
 ```
 
 ### Defaults (when key is absent)
@@ -513,7 +511,8 @@ sources:
 | Key | Default |
 |-----|---------|
 | `git.default_branch` | `main` |
-| `sink.adapter` | **Required — STOP if missing** |
+| `sources` | All adapter keys that have a `source.md` |
+| `sink` | **Required — STOP if missing** |
 | `testing.scope` | `related` |
 | `commits.language` | `en` |
 | `commits.conventions` | `conventional` |
@@ -525,7 +524,7 @@ sources:
 | `pull_requests.language` | Same as `commits.language` |
 | `code_review.agents` | **None — STOP and complain if empty** |
 | `issues.create_when_missing` | `ask` |
-| `issues.platform` | Same as `sink.adapter` |
+| `issues.platform` | Same as `sink` |
 
 ### Adapters
 

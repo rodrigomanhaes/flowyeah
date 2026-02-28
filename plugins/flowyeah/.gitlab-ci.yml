@@ -1,0 +1,11 @@
+stages:
+  - test
+
+test:hooks:
+  stage: test
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache bash git
+    - git config --global user.email "ci@test" && git config --global user.name "CI"
+  script:
+    - bash hooks/test-hooks.sh

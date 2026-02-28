@@ -38,6 +38,16 @@ gh issue view <issue_number> --json title,body,labels,milestone,state
 
 **If the issue body is prose** (no task list), return the raw content. The core skill brainstorms with the user and generates a task plan.
 
+## Create Issue
+
+```bash
+gh issue create --title "<title>" --body "<description>"
+```
+
+**Response:** prints the issue URL and number.
+
+After creation, use the returned issue number for branch naming and issue linkage as if the issue had been fetched.
+
 ## Branch Naming
 
 The issue number becomes the branch slug: `<type>/<issue_number>`

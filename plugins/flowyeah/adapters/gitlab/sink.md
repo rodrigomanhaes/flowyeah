@@ -77,6 +77,8 @@ curl -s --request PUT -H "Authorization: Bearer $TOKEN" \
 
 **Response:** check `state` field — should be `merged`.
 
+**Limitation:** GitLab's merge API only supports `squash` and regular merge. The `rebase` strategy is a project-level setting — it cannot be requested per merge request via API. If `merge_strategy: rebase` is set, warn the user that GitLab will use a regular merge unless the project is configured for rebase merges in GitLab settings.
+
 If merge fails (e.g., conflicts), report the error and ask the user.
 
 ## Update MR (optional)

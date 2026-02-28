@@ -3,12 +3,12 @@ name: review
 description: Use when reviewing a pull request or merge request - runs code review agents, validates requirements against issues, checks for critical patterns, and submits formal reviews with inline comments
 ---
 
-# /review — PR/MR Review Pipeline
+# flowyeah:review — PR/MR Review Pipeline
 
 Reviews a pull request or merge request. Runs review agents, validates requirements, checks for critical patterns, and submits a formal review with inline comments.
 
 ```
-/review [<number>]
+flowyeah:review [<number>]
 ```
 
 ## Pipeline
@@ -39,7 +39,7 @@ digraph review {
 
 ## Configuration
 
-Uses `flowyeah.yml` from the project root. **If missing, STOP and tell the user to run `flowyeah:build` first — it creates the config interactively.**
+Uses `flowyeah.yml` from the project root. **If missing, load `setup.md` from the plugin root and follow its interactive setup instructions before proceeding.**
 
 ```yaml
 # Review agents (same as flowyeah:build uses)
@@ -48,25 +48,30 @@ code_review:
     - pr-review-toolkit:code-reviewer
     - pr-review-toolkit:silent-failure-hunter
   optional_agents:
-    - pr-review-toolkit:code-quality-analyst
+    - pr-review-toolkit:comment-analyzer
+    - pr-review-toolkit:type-design-analyzer
+
+# Sources determine which adapters are available for issue detection
+sources:
+  - gitlab
+  - linear
 
 # Sink determines the review platform
-sink:
-  adapter: gitlab    # or github
+sink: gitlab          # gitlab | github — points to adapters.<sink>
 
 # Language for review comments
 pull_requests:
-  language: pt-br    # review content language
+  language: pt-br     # review content language
 ```
 
 **If `code_review.agents` is empty or missing: STOP and complain.**
 
 ## Platform Detection
 
-The review adapter is determined from `sink.adapter` in `flowyeah.yml`:
+The review adapter is determined from `sink` in `flowyeah.yml`:
 
-| `sink.adapter` | Review adapter |
-|-----------------|----------------|
+| `sink` | Review adapter |
+|--------|----------------|
 | `gitlab` | `adapters/gitlab/review.md` |
 | `github` | `adapters/github/review.md` |
 
@@ -79,6 +84,7 @@ Create `.flowyeah/state.md` for compaction resilience:
 ```markdown
 # Current State
 
+Type: review
 Status: Reviewing
 PR/MR: <number>
 Branch: <source_branch>
@@ -103,12 +109,12 @@ Display PR/MR summary: title, author, branch, additions/deletions, changed files
 
 Extract issue slug from the branch name. The patterns depend on the project's issue tracking:
 
-**From `flowyeah.yml` sources:**
-- If `sources.linear` is configured → try Linear patterns (e.g., `proj-eng-302`, `TEAM-123`)
-- If `sources.gitlab` is configured → try GitLab patterns (e.g., leading digits, `feat/42`)
-- If `sources.github` is configured → try GitHub patterns (e.g., `feat/42`)
+**From `flowyeah.yml` `sources` list:**
+- If `linear` is in `sources` → try Linear patterns (e.g., `proj-eng-302`, `TEAM-123`)
+- If `gitlab` is in `sources` → try GitLab patterns (e.g., leading digits, `feat/42`)
+- If `github` is in `sources` → try GitHub patterns (e.g., `feat/42`)
 
-Fetch issue details using the appropriate source adapter.
+Fetch issue details using the appropriate source adapter (load `adapters/<source>/connection.md` + `adapters/<source>/source.md`).
 
 **If no issue found:** ask the user. If they say "none", skip requirements validation (step 2b).
 
@@ -124,7 +130,7 @@ Collect in parallel:
 
 ### 2b. Requirements Validation
 
-**Skip if no issue was found in step 2b.**
+**Skip if no issue was found in step 1b.**
 
 Analyze in 3 dimensions:
 

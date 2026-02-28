@@ -57,12 +57,19 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 |---------|----------|
 | Leading digits | `42-add-pix`, `5588-fix-export` |
 | `feat/<digits>`, `fix/<digits>` | `feat/42`, `fix/5588` |
+| `(proj\|projx\|team\|web)-[a-z]+-\d+` (case-insensitive) | `proj-eng-302`, `TEAM-123` |
 
-**Fetch issue details:**
+**GitLab issues:**
 
 ```bash
 curl -s -H "Authorization: Bearer $TOKEN" \
   "<url>/api/v4/projects/<project_id>/issues/<iid>"
+```
+
+**Linear issues** (GitLab projects may use Linear for issue tracking):
+
+```
+mcp__plugin_linear_linear__get_issue(id: "<slug>")
 ```
 
 Extract: title, description, labels, comments (for requirements validation).

@@ -6,7 +6,7 @@ Plan-to-PR pipeline for Claude Code. Takes any source — issues, error trackers
 
 | Skill | Command | What it does |
 |-------|---------|--------------|
-| `flowyeah:build` | `flowyeah:build [from <source>]` | Full pipeline: source → plan → worktree → TDD → commit → PR → CI → merge |
+| `flowyeah:build` | `flowyeah:build [from <source>] [--continuous]` | Full pipeline: source → plan → worktree → TDD → commit → PR → CI → merge |
 | `flowyeah:review` | `flowyeah:review [<pr-number>]` | Formal code review with inline comments via platform API |
 
 ## Supported Sources
@@ -24,8 +24,9 @@ Plan-to-PR pipeline for Claude Code. Takes any source — issues, error trackers
 ## Setup
 
 1. Install the plugin in Claude Code
-2. Run `flowyeah:build` in your project — it will interactively create `flowyeah.yml` on first run
+2. Run `flowyeah:build` or `flowyeah:review` in your project — either will interactively create `flowyeah.yml` on first run
 3. Commit `flowyeah.yml` to your repo
+4. Add `tmp/` to your `.gitignore` — flowyeah stores plan files in `tmp/flowyeah/plans/`
 
 ## Project Configuration
 
@@ -33,12 +34,13 @@ All project conventions live in `flowyeah.yml` at the project root. See the sche
 
 ## Adding Integrations
 
-Each integration lives in `adapters/<name>/` with:
+Each integration lives in `adapters/<name>/` with `connection.md` (required) plus any combination of:
 
-- `connection.md` — authentication and base URL
 - `source.md` — fetch data and convert to canonical plan format
 - `sink.md` — create PR/MR, poll CI, merge
 - `review.md` — post formal reviews with inline comments
+
+Source-only integrations (Linear, Bugsink, New Relic) only need `connection.md` + `source.md`.
 
 Add an adapter directory, configure it in `flowyeah.yml`, and the pipeline picks it up automatically.
 
