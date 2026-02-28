@@ -8,14 +8,14 @@ Fetches error details from a Bugsink instance and converts to canonical plan for
 
 Command prefix: `BUGSINK:<issue_id>`
 
-Example: `/flowyeah from BUGSINK:45678`
+Example: `flowyeah:build from BUGSINK:45678`
 
 ## Fetch Error Details
 
 **Endpoint:** `GET /api/issues/<issue_id>/`
 
 ```bash
-TOKEN=$(grep "<token_env>" <token_source> | cut -d= -f2) && \
+TOKEN=$(grep "^<token_env>=" <token_source> | cut -d= -f2- | tr -d '"') && \
 curl -s -H "Authorization: Token $TOKEN" \
   "<url>/api/issues/<issue_id>/"
 ```

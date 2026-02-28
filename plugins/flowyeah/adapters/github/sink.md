@@ -54,11 +54,11 @@ gh run view <run_id> --log-failed
 ## Merge
 
 ```bash
-gh pr merge <source_branch> --squash --delete-branch
+gh pr merge <source_branch> --<merge_strategy> --delete-branch
 ```
 
 Flags:
-- `--squash` — squash merge (default strategy)
+- `--<merge_strategy>` — read from `pull_requests.merge_strategy`: `--squash`, `--merge`, or `--rebase`
 - `--delete-branch` — remove source branch after merge (if `delete_source_branch` is true)
 - Without `--delete-branch` if `delete_source_branch` is false
 

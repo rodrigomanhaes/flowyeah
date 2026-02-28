@@ -8,14 +8,14 @@ Fetches a GitLab issue and converts it to canonical plan format.
 
 Command prefix: `GITLAB:#<issue_number>`
 
-Example: `/flowyeah from GITLAB:#5588`
+Example: `flowyeah:build from GITLAB:#5588`
 
 ## Fetch Issue
 
 **Endpoint:** `GET /projects/<project_id>/issues/<issue_number>`
 
 ```bash
-TOKEN=$(grep "<token_env>" <token_source> | cut -d= -f2) && \
+TOKEN=$(grep "^<token_env>=" <token_source> | cut -d= -f2- | tr -d '"') && \
 curl -s -H "Authorization: Bearer $TOKEN" \
   "<url>/api/v4/projects/<project_id>/issues/<issue_number>"
 ```

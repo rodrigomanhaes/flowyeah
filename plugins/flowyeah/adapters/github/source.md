@@ -8,7 +8,7 @@ Fetches a GitHub issue via `gh` CLI and converts it to canonical plan format.
 
 Command prefix: `GITHUB:#<issue_number>`
 
-Example: `/flowyeah from GITHUB:#45`
+Example: `flowyeah:build from GITHUB:#45`
 
 ## Fetch Issue
 

@@ -11,7 +11,7 @@ Creates merge requests, polls CI, and merges via the GitLab API.
 **Use `--form` encoding** (see connection.md for why):
 
 ```bash
-TOKEN=$(grep "<token_env>" <token_source> | cut -d= -f2) && \
+TOKEN=$(grep "^<token_env>=" <token_source> | cut -d= -f2- | tr -d '"') && \
 curl -s --request POST -H "Authorization: Bearer $TOKEN" \
   --form "source_branch=<source_branch>" \
   --form "target_branch=<target_branch>" \
@@ -70,7 +70,7 @@ Use the trace output to diagnose the failure.
 
 ```bash
 curl -s --request PUT -H "Authorization: Bearer $TOKEN" \
-  --form "squash=true" \
+  --form "squash=<true if merge_strategy is squash, false otherwise>" \
   --form "should_remove_source_branch=<delete_source_branch>" \
   "<url>/api/v4/projects/<project_id>/merge_requests/<iid>/merge"
 ```

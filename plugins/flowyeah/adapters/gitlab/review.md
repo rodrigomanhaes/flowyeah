@@ -9,7 +9,7 @@ Fetches merge request details and submits formal code reviews with inline commen
 **From a PR number:**
 
 ```bash
-TOKEN=$(grep "<token_env>" <token_source> | cut -d= -f2) && \
+TOKEN=$(grep "^<token_env>=" <token_source> | cut -d= -f2- | tr -d '"') && \
 curl -s -H "Authorization: Bearer $TOKEN" \
   "<url>/api/v4/projects/<project_id>/merge_requests/<iid>" | \
   jq '{iid, title, state, source_branch, target_branch, web_url, author: .author.username, diff_refs}'
@@ -19,7 +19,7 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 
 ```bash
 BRANCH=$(git branch --show-current)
-TOKEN=$(grep "<token_env>" <token_source> | cut -d= -f2) && \
+TOKEN=$(grep "^<token_env>=" <token_source> | cut -d= -f2- | tr -d '"') && \
 curl -s -H "Authorization: Bearer $TOKEN" \
   "<url>/api/v4/projects/<project_id>/merge_requests?source_branch=$BRANCH&state=opened" | \
   jq '.[0] | {iid, title, state, source_branch, target_branch, web_url, author: .author.username, diff_refs}'

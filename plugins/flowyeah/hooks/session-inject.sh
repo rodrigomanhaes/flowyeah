@@ -9,27 +9,29 @@ TOPLEVEL=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
 # Only run in projects that use flowyeah
 [ -f "$TOPLEVEL/flowyeah.yml" ] || exit 0
 
-# Find session: either in current worktree or scan .worktrees/
+# Find session: either in current worktree or scan .flowyeah/worktrees/
 SESSION_DIR=""
 
-if [ -d "$TOPLEVEL/.flowyeah" ]; then
+if [ -f "$TOPLEVEL/.flowyeah/state.md" ]; then
     # We're inside a worktree with an active session
     SESSION_DIR="$TOPLEVEL/.flowyeah"
-elif [ -d "$TOPLEVEL/.worktrees" ]; then
+elif [ -d "$TOPLEVEL/.flowyeah/worktrees" ]; then
     # We're in the main checkout — count active sessions
     SESSIONS=()
-    for dir in "$TOPLEVEL"/.worktrees/*/.flowyeah; do
-        [ -d "$dir" ] && SESSIONS+=("$dir")
+    shopt -s nullglob
+    for dir in "$TOPLEVEL"/.flowyeah/worktrees/*/.flowyeah; do
+        SESSIONS+=("$dir")
     done
+    shopt -u nullglob
 
     if [ ${#SESSIONS[@]} -eq 0 ]; then
         exit 0
     elif [ ${#SESSIONS[@]} -eq 1 ]; then
         SESSION_DIR="${SESSIONS[0]}"
-        echo "───── FlowyYeah: Active session found in $(dirname "$SESSION_DIR" | xargs basename) ─────"
+        echo "───── flowyeah:build: Active session found in $(dirname "$SESSION_DIR" | xargs basename) ─────"
         echo ""
     else
-        echo "───── FlowyYeah: ${#SESSIONS[@]} active sessions ─────"
+        echo "───── flowyeah:build: ${#SESSIONS[@]} active sessions ─────"
         echo ""
         for dir in "${SESSIONS[@]}"; do
             WT_NAME=$(dirname "$dir" | xargs basename)
@@ -38,7 +40,7 @@ elif [ -d "$TOPLEVEL/.worktrees" ]; then
             echo "  - $WT_NAME → $TASK ($STEP)"
         done
         echo ""
-        echo "Run /flowyeah from the main checkout to choose, or cd into a worktree."
+        echo "Run flowyeah:build from the main checkout to choose, or cd into a worktree."
         echo "──────────────────────────────────────────────"
         exit 0
     fi
@@ -47,7 +49,7 @@ else
 fi
 
 # Inject session state
-echo "───── FlowyYeah Session ─────"
+echo "───── flowyeah:build session ─────"
 echo ""
 
 echo "## MISSION"

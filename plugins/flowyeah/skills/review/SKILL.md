@@ -18,19 +18,18 @@ digraph review {
     rankdir=TB;
     node [shape=box];
 
-    eligible [label="1. Eligibility Check"];
-    identify [label="2. Identify PR/MR"];
-    issue [label="2b. Detect Issue"];
-    context [label="3. Gather Context"];
-    requirements [label="3b. Requirements Validation" shape=diamond];
-    agents [label="4. Run Review Agents"];
-    checks [label="4b. Critical Checks"];
-    score [label="5. Score & Consolidate"];
-    approve [label="6. Interactive Approval"];
-    type [label="7. Choose Review Type"];
-    submit [label="8. Submit Formal Review"];
+    identify [label="1. Identify PR/MR"];
+    issue [label="1b. Detect Issue"];
+    context [label="2. Gather Context"];
+    requirements [label="2b. Requirements Validation" shape=diamond];
+    agents [label="3. Run Review Agents"];
+    checks [label="3b. Critical Checks"];
+    score [label="4. Score & Consolidate"];
+    approve [label="5. Interactive Approval"];
+    type [label="6. Choose Review Type"];
+    submit [label="7. Submit Formal Review"];
 
-    eligible -> identify -> issue -> context;
+    identify -> issue -> context;
     context -> requirements;
     requirements -> agents [label="issue found"];
     requirements -> agents [label="no issue\nskip"];
@@ -40,10 +39,10 @@ digraph review {
 
 ## Configuration
 
-Uses `flowyeah.yml` from the project root:
+Uses `flowyeah.yml` from the project root. **If missing, STOP and tell the user to run `flowyeah:build` first — it creates the config interactively.**
 
 ```yaml
-# Review agents (same as /flowyeah uses)
+# Review agents (same as flowyeah:build uses)
 code_review:
   agents:
     - pr-review-toolkit:code-reviewer
@@ -94,25 +93,13 @@ No `mission.md`, `progress.md`, or `findings.md` — reviews are short-lived and
 
 ## Steps
 
-### 1. Eligibility Check
-
-Use the review adapter to fetch PR/MR details.
-
-**Skip review if:**
-- PR/MR is closed or merged
-- PR/MR is a draft
-- PR/MR is trivial (automated dependency bump, typo fix with <5 lines changed)
-- You already reviewed this PR (check for existing comment with "Generated with Claude Code")
-
-If ineligible, explain why and ask if the user wants to proceed anyway.
-
-### 2. Identify PR/MR
+### 1. Identify PR/MR
 
 If `<number>` is provided, use it. Otherwise, detect from current branch via the review adapter.
 
 Display PR/MR summary: title, author, branch, additions/deletions, changed files.
 
-### 2b. Detect Associated Issue
+### 1b. Detect Associated Issue
 
 Extract issue slug from the branch name. The patterns depend on the project's issue tracking:
 
@@ -123,9 +110,9 @@ Extract issue slug from the branch name. The patterns depend on the project's is
 
 Fetch issue details using the appropriate source adapter.
 
-**If no issue found:** ask the user. If they say "none", skip requirements validation (step 3b).
+**If no issue found:** ask the user. If they say "none", skip requirements validation (step 2b).
 
-### 3. Gather Context
+### 2. Gather Context
 
 Collect in parallel:
 
@@ -135,7 +122,7 @@ Collect in parallel:
 4. **CLAUDE.md files** — find all: global (`~/.claude/CLAUDE.md`), project root, `.claude/CLAUDE.md`, `.claude/standards/*.md`
 5. **Git history** — for each changed file: `git log --oneline -10 <file>`
 
-### 3b. Requirements Validation
+### 2b. Requirements Validation
 
 **Skip if no issue was found in step 2b.**
 
@@ -147,7 +134,7 @@ Analyze in 3 dimensions:
 
 **Coerência (Coherence):** Does the implementation approach make sense to solve the described problem? Flag when the implementation seems to solve a different problem than what the issue describes.
 
-### 4. Run Review Agents
+### 3. Run Review Agents
 
 Launch agents from `code_review.agents` in parallel using the Task tool:
 
@@ -156,7 +143,7 @@ Launch agents from `code_review.agents` in parallel using the Task tool:
 
 **Conditional agents** from `code_review.optional_agents` — launch based on what changed (e.g., security analyst if auth code was touched). Use judgment.
 
-### 4b. Critical Checks
+### 3b. Critical Checks
 
 Run directly (not delegated to agents):
 
@@ -168,7 +155,7 @@ Run directly (not delegated to agents):
 
 **Naming Consistency:** Flag semantic inconsistencies — names that contradict each other, method names that don't match behavior.
 
-### 5. Score & Consolidate
+### 4. Score & Consolidate
 
 **Confidence scoring (0-100):**
 
@@ -195,7 +182,7 @@ Run directly (not delegated to agents):
 
 **"Touched it, own it":** If the PR touches a file (even for refactoring), the author is responsible for issues in that code. Only truly untouched lines are excluded.
 
-### 6. Interactive Approval
+### 5. Interactive Approval
 
 For each finding, present to the user:
 
@@ -224,7 +211,7 @@ Comment (Conventional Comments format):
 4. **Skip all below [severity]** — skip remaining findings below threshold
 5. **Stop** — finalize with approved findings so far
 
-### 7. Choose Review Type
+### 6. Choose Review Type
 
 After all findings are processed, ask the user:
 
@@ -232,7 +219,7 @@ After all findings are processed, ask the user:
 2. **Comment** — formal review with comments only
 3. **Approve** — approve with observations
 
-### 8. Submit Formal Review
+### 7. Submit Formal Review
 
 **MANDATORY:** Always submit as a formal platform review with inline comments. Never post a generic timeline comment.
 
@@ -240,7 +227,7 @@ Load the review adapter and follow its instructions to:
 
 1. Build inline comments array (each approved finding with file:line)
 2. Build review body (consolidated summary + findings without specific lines)
-3. Submit the formal review with the event type chosen in step 7
+3. Submit the formal review with the event type chosen in step 6
 
 **All inline comments use [Conventional Comments](https://conventionalcomments.org/) format:**
 
@@ -258,6 +245,8 @@ Load the review adapter and follow its instructions to:
 
 Ask for final confirmation before posting.
 
+After posting (or if the user discards), remove `.flowyeah/state.md` to end the session.
+
 ### Review Body Template
 
 ```markdown
@@ -274,9 +263,6 @@ Ask for final confirmation before posting.
 
 ### Code Review Summary
 [consolidated summary of findings]
-
----
-🤖 Generated with [Claude Code](https://claude.ai/code)
 ```
 
 ## Comment Language

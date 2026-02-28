@@ -3,29 +3,30 @@ name: build
 description: Use when starting work from any source - ideas, issues, conversation context, or plan files - that needs implementation with git isolation, TDD, code review, and CI verification
 ---
 
-# /flowyeah — Plan-to-PR Pipeline
+# flowyeah:build — Plan-to-PR Pipeline
 
 Single command. Takes any source, produces tested, reviewed, merged PRs.
 
 ```
-/flowyeah [from <source>] [--continuous]
+flowyeah:build [from <source>] [--continuous]
 ```
 
 ## Sources
 
 | Source | Example | Adapter |
 |--------|---------|---------|
-| No argument | `/flowyeah` | Search `docs/plans/*.md` or ask |
-| Conversation | `/flowyeah` (mid-conversation) | Use current context |
-| File | `/flowyeah from docs/plans/redesign.md` | Read file directly |
-| Prefix-based | `/flowyeah from PREFIX:ID` | Load `adapters/<prefix>/source.md` |
+| No argument | `flowyeah:build` | Search `docs/plans/*.md` or ask |
+| Conversation | `flowyeah:build` (mid-conversation) | Use current context |
+| File | `flowyeah:build from docs/plans/redesign.md` | Read file directly |
+| Prefix-based | `flowyeah:build from PREFIX:ID` | Load `adapters/<prefix>/source.md` |
 
 **Prefix-based sources** match the command prefix to a source adapter and config in `flowyeah.yml`:
 
-- `/flowyeah from GITLAB:#5588` → reads `sources.gitlab` config → loads `adapters/gitlab/source.md` (+ `connection.md`)
-- `/flowyeah from LINEAR:PROJ-123` → reads `sources.linear` config → loads `adapters/linear/source.md` (+ `connection.md`)
-- `/flowyeah from BUGSINK:45678` → reads `sources.bugsink` config → loads `adapters/bugsink/source.md` (+ `connection.md`)
-- `/flowyeah from NEWRELIC:MXxBUE18...` → reads `sources.newrelic` config → loads `adapters/newrelic/source.md` (+ `connection.md`)
+- `flowyeah:build from GITLAB:#5588` → reads `sources.gitlab` config → loads `adapters/gitlab/source.md` (+ `connection.md`)
+- `flowyeah:build from GITHUB:#45` → reads `sources.github` config → loads `adapters/github/source.md` (+ `connection.md`)
+- `flowyeah:build from LINEAR:PROJ-123` → reads `sources.linear` config → loads `adapters/linear/source.md` (+ `connection.md`)
+- `flowyeah:build from BUGSINK:45678` → reads `sources.bugsink` config → loads `adapters/bugsink/source.md` (+ `connection.md`)
+- `flowyeah:build from NEWRELIC:MXxBUE18...` → reads `sources.newrelic` config → loads `adapters/newrelic/source.md` (+ `connection.md`)
 
 New source? Create an adapter directory with `connection.md` + `source.md`, add config to `flowyeah.yml`. Zero changes to this skill.
 
@@ -42,7 +43,20 @@ If source is prose without tasks: brainstorm with the user, generate a task plan
 - [x] Completed task
 ```
 
-Saved to `progress.md` in the working directory.
+Saved to `tmp/flowyeah/plans/<key>.md` in the main checkout.
+
+**Plan key derivation:**
+
+| Source | Key | Example path |
+|--------|-----|--------------|
+| `GITLAB:#5588` | `gitlab-5588` | `tmp/flowyeah/plans/gitlab-5588.md` |
+| `LINEAR:PROJ-123` | `linear-proj-123` | `tmp/flowyeah/plans/linear-proj-123.md` |
+| `GITHUB:#45` | `github-45` | `tmp/flowyeah/plans/github-45.md` |
+| `BUGSINK:45678` | `bugsink-45678` | `tmp/flowyeah/plans/bugsink-45678.md` |
+| File source | slugified filename | `tmp/flowyeah/plans/redesign.md` |
+| Conversation (no source) | slugified work description | `tmp/flowyeah/plans/webhook-retry.md` |
+
+The `tmp/` directory should be gitignored. Plans are developer process artifacts, not versioned deliverables.
 
 ## Pipeline
 
@@ -78,17 +92,19 @@ digraph pipeline {
 
 ### 1. Resolve Source
 
-Parse command arguments, read content, convert to canonical plan format.
+Parse command arguments, read content, convert to canonical plan format. Save to `tmp/flowyeah/plans/<key>.md`.
 
-- **Prefix source (e.g., `GITLAB:#5588`):** load `adapters/<prefix>/connection.md` + `adapters/<prefix>/source.md`, read its config from `flowyeah.yml` `sources.<prefix>`, follow the adapter's instructions to fetch and convert to canonical format.
-- **File source:** read file directly.
-- **Prose/idea:** brainstorm with user, then generate tasks.
-- **No source + `progress.md` exists:** resume from it.
-- **No source + no plan:** ask what the user wants to work on.
+- **Prefix source (e.g., `GITLAB:#5588`):** load `adapters/<prefix>/connection.md` + `adapters/<prefix>/source.md`, read its config from `flowyeah.yml` `sources.<prefix>`, follow the adapter's instructions to fetch and convert to canonical format. Key: `<prefix>-<id>` (e.g., `gitlab-5588`).
+- **File source:** read file, convert to canonical format. Key: slugified filename without extension. The source file is never mutated — the plan is a copy in `tmp/`.
+- **Prose/idea:** brainstorm with user, generate tasks. Key: slugified description of the work (ask or infer from conversation).
+- **No source + plans exist in `tmp/flowyeah/plans/`:**
+  - One plan with unchecked tasks → resume it.
+  - Multiple plans with unchecked tasks → show list, ask which to resume.
+- **No source + no plans:** ask what the user wants to work on.
 
 ### 2. Pick Task(s)
 
-- Find first unchecked `[ ]` task in `progress.md`
+- Find first unchecked `[ ]` task in the active plan (`tmp/flowyeah/plans/<key>.md`)
 - Check claims: `git branch -a` — branch with task slug exists → skip to next
 - Nested tasks: pick first unchecked leaf
 - **No tasks remaining:** Report "Plan complete" and exit
@@ -99,11 +115,12 @@ Parse command arguments, read content, convert to canonical plan format.
 Create worktree and branch. **Always worktree, always branch.**
 
 ```bash
-DEFAULT_BRANCH=$(yq '.git.default_branch // "main"' flowyeah.yml)
+# Read git.default_branch from flowyeah.yml (default: main)
 git checkout $DEFAULT_BRANCH && git pull origin $DEFAULT_BRANCH
-mkdir -p .worktrees
-git check-ignore -q .worktrees 2>/dev/null || echo ".worktrees/" >> .gitignore
-git worktree add .worktrees/<type>-<slug> -b <type>/<slug>
+mkdir -p .flowyeah/worktrees tmp/flowyeah/plans
+git check-ignore -q .flowyeah 2>/dev/null || echo ".flowyeah/" >> .gitignore
+git check-ignore -q tmp 2>/dev/null || echo "tmp/" >> .gitignore
+git worktree add .flowyeah/worktrees/<type>-<slug> -b <type>/<slug>
 ```
 
 **Branch naming:**
@@ -136,7 +153,7 @@ Write 4 session files (see Session Management section below).
 ### 3b. Verify Worktree Isolation
 
 ```bash
-git rev-parse --show-toplevel | grep -q '.worktrees/' || echo "NOT IN WORKTREE — STOP"
+git rev-parse --show-toplevel | grep -qF '.flowyeah/worktrees/' || echo "NOT IN WORKTREE — STOP"
 ```
 
 **NEVER write code outside a worktree.** Analysis and planning are OK. Code changes are not.
@@ -219,7 +236,7 @@ Code review results are reported in the terminal only — this is your current w
 ### 8. Mark Task Done + Close Session
 
 - Promote qualified findings from `.flowyeah/findings.md` to auto memory
-- Check `[x]` in `progress.md` (from main checkout, after merge)
+- Check `[x]` in `tmp/flowyeah/plans/<key>.md` (from main checkout, after merge)
 - If the source was an issue tracker, update the issue status per project conventions
 
 ### 9. Cleanup Worktree
@@ -250,7 +267,7 @@ Session state lives in `.flowyeah/` inside the worktree. It survives context com
 ### Session Files
 
 ```
-.worktrees/<type>-<slug>/
+.flowyeah/worktrees/<type>-<slug>/
 └── .flowyeah/
     ├── state.md       # WHERE — current position + decision context
     ├── mission.md     # WHY — goal, scope, success criteria
@@ -269,8 +286,9 @@ Status: Implementing
 Step: 4 (Implement) — TDD phase
 Task: Webhook retry logic
 Source: GITLAB:#5588
+Plan: tmp/flowyeah/plans/gitlab-5588.md
 Branch: feat/5588
-Worktree: .worktrees/feat-5588
+Worktree: .flowyeah/worktrees/feat-5588
 
 ## Key Decisions Made
 - Chose exponential backoff over linear retry (better for rate-limited APIs)
@@ -374,8 +392,8 @@ After compaction, the hook re-injects state automatically:
 
 ### Crash Recovery
 
-After a crash, the user returns to the main checkout. Run `/flowyeah`:
-1. Scan `.worktrees/*/.flowyeah/state.md` for active sessions
+After a crash, the user returns to the main checkout. Run `flowyeah:build`:
+1. Scan `.flowyeah/worktrees/*/.flowyeah/state.md` for active sessions
 2. If one session: resume it directly
 3. If multiple sessions: show summary and ask which to resume
    ```
@@ -404,7 +422,7 @@ Before claiming a task, check if another instance is already working on it:
 
 One task = one reasonable PR. If a task is too large:
 1. Brainstorm/plan the task
-2. Decompose into subtasks in `progress.md`
+2. Decompose into subtasks in `tmp/flowyeah/plans/<key>.md`
 3. Execute first subtask
 4. Next iteration picks next subtask
 
@@ -443,6 +461,7 @@ pull_requests:
   delete_source_branch: true
   rebase: true
   merge: auto                     # auto | manual | ask
+  merge_strategy: squash          # squash | merge | rebase
   language: pt-br                 # PR/MR title and body language
 
 code_review:
@@ -450,16 +469,17 @@ code_review:
     - pr-review-toolkit:code-reviewer
     - pr-review-toolkit:silent-failure-hunter
   optional_agents:                # AI decides based on what changed
-    - pr-review-toolkit:code-quality-analyst
-    - pr-review-toolkit:security-analyst
+    - pr-review-toolkit:comment-analyzer
+    - pr-review-toolkit:type-design-analyzer
 
 issues:
   create_when_missing: ask        # ask | always | never
+  platform: gitlab                # where to create issues (gitlab | github | linear)
 
 # ── Sink: one per project, adapter owns its keys ──
 
 sink:
-  adapter: gitlab                 # loads adapters/gitlab/{connection,sink}.md
+  adapter: gitlab                 # gitlab | github — loads adapters/<adapter>/{connection,sink}.md
   # everything below is adapter-specific (gitlab's own schema)
   url: https://gitlab.example.com
   token_env: GITLAB_TOKEN
@@ -478,8 +498,14 @@ sources:
     url: https://bugsink.example.com
     token_env: BUGSINK_TOKEN
     token_source: .env
+  github:                         # GITHUB:#N → loads adapters/github/{connection,source}.md
+    # github uses gh CLI — no extra config needed
   linear:                         # LINEAR:XX-N → loads adapters/linear/{connection,source}.md
     # linear uses MCP — adapter-specific keys go here if needed
+  newrelic:                       # NEWRELIC:GUID → loads adapters/newrelic/{connection,source}.md
+    token_env: NEW_RELIC_API_KEY
+    token_source: .env
+    account_id: 12345
 ```
 
 ### Defaults (when key is absent)
@@ -495,9 +521,11 @@ sources:
 | `pull_requests.delete_source_branch` | `false` |
 | `pull_requests.rebase` | `true` |
 | `pull_requests.merge` | `manual` |
+| `pull_requests.merge_strategy` | `squash` |
 | `pull_requests.language` | Same as `commits.language` |
 | `code_review.agents` | **None — STOP and complain if empty** |
 | `issues.create_when_missing` | `ask` |
+| `issues.platform` | Same as `sink.adapter` |
 
 ### Adapters
 

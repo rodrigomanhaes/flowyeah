@@ -8,7 +8,7 @@ Fetches a Linear issue via MCP and converts it to canonical plan format.
 
 Command prefix: `LINEAR:<identifier>`
 
-Example: `/flowyeah from LINEAR:PROJ-123`
+Example: `flowyeah:build from LINEAR:PROJ-123`
 
 ## Fetch Issue
 

@@ -8,14 +8,14 @@ Fetches error details from New Relic and converts to canonical plan format for d
 
 Command prefix: `NEWRELIC:<error_group_guid>`
 
-Example: `/flowyeah from NEWRELIC:MXxBUE18...`
+Example: `flowyeah:build from NEWRELIC:MXxBUE18...`
 
 ## Fetch Error Group Details
 
 **NerdGraph query:**
 
 ```bash
-TOKEN=$(grep "<token_env>" <token_source> | cut -d= -f2) && \
+TOKEN=$(grep "^<token_env>=" <token_source> | cut -d= -f2- | tr -d '"') && \
 curl -s -X POST "https://api.newrelic.com/graphql" \
   -H "Content-Type: application/json" \
   -H "Api-Key: $TOKEN" \

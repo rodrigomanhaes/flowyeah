@@ -17,7 +17,7 @@ sources:
 Extract the token directly from the configured file:
 
 ```bash
-TOKEN=$(grep "<token_env>" <token_source> | cut -d= -f2)
+TOKEN=$(grep "^<token_env>=" <token_source> | cut -d= -f2- | tr -d '"')
 ```
 
 **Note:** Bugsink uses `Token` authentication (not `Bearer`):
