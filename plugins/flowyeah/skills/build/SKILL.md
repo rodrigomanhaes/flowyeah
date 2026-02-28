@@ -1,5 +1,5 @@
 ---
-name: flowyeah
+name: build
 description: Use when starting work from any source - ideas, issues, conversation context, or plan files - that needs implementation with git isolation, TDD, code review, and CI verification
 ---
 
