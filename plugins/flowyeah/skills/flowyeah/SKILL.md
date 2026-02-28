@@ -25,6 +25,7 @@ Single command. Takes any source, produces tested, reviewed, merged PRs.
 - `/flowyeah from GITLAB:#5588` → reads `sources.gitlab` config → loads `adapters/sources/gitlab-issue.md`
 - `/flowyeah from LINEAR:PROJ-123` → reads `sources.linear` config → loads `adapters/sources/linear-issue.md`
 - `/flowyeah from BUGSINK:45678` → reads `sources.bugsink` config → loads `adapters/sources/bugsink-issue.md`
+- `/flowyeah from NEWRELIC:MXxBUE18...` → reads `sources.newrelic` config → loads `adapters/sources/newrelic-error.md`
 
 New source? Write an adapter file, add config to `flowyeah.yml`. Zero changes to this skill.
 
@@ -508,7 +509,8 @@ adapters/
 │   ├── gitlab-issue.md       # Fetch GitLab issue → canonical format
 │   ├── linear-issue.md       # Fetch Linear issue → canonical format
 │   ├── github-issue.md       # Fetch GitHub issue → canonical format
-│   └── bugsink-issue.md      # Fetch Bugsink error → canonical format
+│   ├── bugsink-issue.md      # Fetch Bugsink error → canonical format
+│   └── newrelic-error.md     # Fetch New Relic error group → canonical format
 └── sinks/
     ├── gitlab.md             # Create MR, poll CI, merge via GitLab API
     └── github.md             # Create PR, poll CI, merge via gh CLI
