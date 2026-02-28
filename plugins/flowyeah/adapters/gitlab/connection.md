@@ -4,25 +4,18 @@ Shared authentication and API conventions for all GitLab adapters.
 
 ## Required Config (`flowyeah.yml`)
 
-GitLab config appears in both `sink` and `sources.gitlab`. Use whichever is available:
+GitLab config lives under `adapters.gitlab`:
 
 ```yaml
-# As sink
-sink:
-  adapter: gitlab
-  url: https://gitlab.example.com
-  token_env: GITLAB_TOKEN
-  token_source: .env
-  project_id: 123
-
-# As source
-sources:
+adapters:
   gitlab:
     url: https://gitlab.example.com
     token_env: GITLAB_TOKEN
     token_source: .env
     project_id: 123
 ```
+
+The same config is used whether GitLab is a source, hosting, or both.
 
 ## Authentication
 
@@ -44,7 +37,7 @@ curl -s -H "Authorization: Bearer $TOKEN"
 <url>/api/v4/projects/<project_id>
 ```
 
-All endpoints in source, sink, and review adapters are relative to this base.
+All endpoints in source, hosting, and review adapters are relative to this base.
 
 ## Encoding
 

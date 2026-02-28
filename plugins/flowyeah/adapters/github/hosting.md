@@ -1,4 +1,4 @@
-# GitHub Sink Adapter
+# GitHub Hosting Adapter
 
 Creates pull requests, polls CI, and merges via the `gh` CLI.
 
@@ -54,11 +54,14 @@ gh run view <run_id> --log-failed
 ## Merge
 
 ```bash
-gh pr merge <source_branch> --<merge_strategy> --delete-branch
+gh pr merge <source_branch> --<merge_strategy> \
+  --subject "<PR title>" --body "<PR description>" \
+  --delete-branch
 ```
 
 Flags:
 - `--<merge_strategy>` — read from `pull_requests.merge_strategy`: `--squash`, `--merge`, or `--rebase`
+- `--subject` / `--body` — set the merge commit message to the PR title + description (instead of GitHub's default)
 - `--delete-branch` — remove source branch after merge (if `delete_source_branch` is true)
 - Without `--delete-branch` if `delete_source_branch` is false
 

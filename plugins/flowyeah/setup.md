@@ -10,7 +10,7 @@ If `flowyeah.yml` does not exist in the project root, run this interactive setup
 
 Ask each question in order. Use sensible defaults based on the project context.
 
-### 1. Sink platform
+### 1. Hosting platform
 
 > Where do you create PRs/MRs?
 
@@ -30,7 +30,7 @@ Options (multi-select):
 - **bugsink** — Bugsink errors (requires API token)
 - **newrelic** — New Relic errors (requires API key)
 
-Default: include the sink platform.
+Default: include the hosting platform.
 
 ### 3. Adapter config
 
@@ -68,9 +68,9 @@ Detect from project files:
 
 Options: `related` (default), `full`
 
-### 7. Commit conventions
+### 7. Language and commit conventions
 
-> Commit message language?
+> What language for commits, PRs, and review comments?
 
 Default: `en`
 
@@ -112,11 +112,25 @@ optional_agents:
 
 Ask if they want to customize the list.
 
+### 10. Issues
+
+> Which adapter handles issue tracking?
+
+Options: list the adapters selected in step 2 that have a `source.md` (gitlab, github, linear).
+
+This is required — the pipeline needs to know where to create issues when `create_when_missing` is `always` or `ask`.
+
+> Create issues automatically when the source wasn't an issue tracker?
+
+Options: `ask` (default), `always`, `never`
+
 ## Generate
 
 Build `flowyeah.yml` from answers and write to project root:
 
 ```yaml
+language: <answer>
+
 git:
   default_branch: <answer>
 
@@ -125,7 +139,6 @@ testing:
   scope: <answer>
 
 commits:
-  language: <answer>
   conventions: <answer>
 
 pull_requests:
@@ -133,13 +146,16 @@ pull_requests:
   rebase: <answer>
   merge: <answer>
   merge_strategy: <answer>
-  language: <answer>
 
 code_review:
   agents:
     - <answer>
   optional_agents:
     - <answer>
+
+issues:
+  adapter: <answer>
+  create_when_missing: <answer>
 
 adapters:
   <adapter>:
@@ -148,7 +164,7 @@ adapters:
 sources:
   - <adapter>
 
-sink: <answer>
+hosting: <answer>
 ```
 
 Tell the user to review and commit the file. Then proceed with the original command.

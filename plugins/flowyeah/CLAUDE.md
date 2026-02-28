@@ -10,8 +10,8 @@ plugins/flowyeah/
 │   ├── build/        # Main pipeline: source → plan → worktree → TDD → PR
 │   └── review/       # Formal code review with inline comments
 ├── adapters/         # Platform integrations (shared across skills)
-│   ├── gitlab/       # connection, source, sink, review
-│   ├── github/       # connection, source, sink, review
+│   ├── gitlab/       # connection, source, hosting, review
+│   ├── github/       # connection, source, hosting, review
 │   ├── linear/       # connection, source
 │   ├── bugsink/      # connection, source
 │   └── newrelic/     # connection, source
@@ -38,10 +38,10 @@ Tests run in isolated temp git repos. No external dependencies beyond bash and g
 ## Adding an Adapter
 
 1. Create `adapters/<name>/connection.md` (required — auth and API conventions)
-2. Add whichever roles apply: `source.md`, `sink.md`, `review.md`
+2. Add whichever roles apply: `source.md`, `hosting.md`, `review.md`
 3. Update the schema example in `skills/build/SKILL.md` if adding a new adapter type
 4. Update `setup.md` if the adapter needs interactive config questions
 
 ## Commits
 
-All commit messages and documentation in Portuguese (pt-BR).
+All commit messages and documentation in English.

@@ -5,7 +5,7 @@ Shared authentication and API conventions for all Bugsink adapters.
 ## Required Config (`flowyeah.yml`)
 
 ```yaml
-sources:
+adapters:
   bugsink:
     url: https://bugsink.example.com
     token_env: BUGSINK_TOKEN

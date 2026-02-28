@@ -28,13 +28,13 @@ elif [ -d "$TOPLEVEL/.flowyeah/worktrees" ]; then
         exit 0
     elif [ ${#SESSIONS[@]} -eq 1 ]; then
         SESSION_DIR="${SESSIONS[0]}"
-        echo "───── flowyeah:build: Active session found in $(dirname "$SESSION_DIR" | xargs basename) ─────"
+        echo "───── flowyeah:build: Active session found in $(basename "$(dirname "$SESSION_DIR")") ─────"
         echo ""
     else
         echo "───── flowyeah:build: ${#SESSIONS[@]} active sessions ─────"
         echo ""
         for dir in "${SESSIONS[@]}"; do
-            WT_NAME=$(dirname "$dir" | xargs basename)
+            WT_NAME=$(basename "$(dirname "$dir")")
             TASK=$(grep -m1 '^Task:' "$dir/state.md" 2>/dev/null | sed 's/^Task: //' || echo "unknown")
             STEP=$(grep -m1 '^Step:' "$dir/state.md" 2>/dev/null | sed 's/^Step: //' || echo "unknown")
             echo "  - $WT_NAME → $TASK ($STEP)"

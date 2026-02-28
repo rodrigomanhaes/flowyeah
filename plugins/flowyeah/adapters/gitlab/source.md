@@ -68,7 +68,7 @@ Example: `GITLAB:#5588` → `feat/5588`
 
 ## Issue Linkage
 
-Pass these values to the sink adapter:
+Pass these values to the hosting adapter:
 - **Close keyword:** `Closes #<iid>` (for MR description)
 - **Title suffix:** `(#<iid>)` (for MR title)
 - **Source reference:** `GITLAB:#<iid>` (for state.md tracking)

@@ -42,7 +42,7 @@ gh pr view <number> --json commits --jq '.commits[] | {oid: .oid, messageHeadlin
 
 | Pattern | Examples |
 |---------|----------|
-| `(proj\|projx\|team\|web)-[a-z]+-\d+` (case-insensitive) | `proj-eng-302`, `TEAM-123` |
+| `(proj\|projx\|team\|web)(-[a-z]+)?-\d+` (case-insensitive) | `PROJ-123`, `proj-eng-302`, `TEAM-456` |
 | Leading digits or `feat/\d+`, `fix/\d+` | `feat/42`, `42-add-pix` |
 
 **Linear issues** (GitHub projects often use Linear):

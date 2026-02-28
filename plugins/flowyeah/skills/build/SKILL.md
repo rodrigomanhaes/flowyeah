@@ -114,6 +114,8 @@ Parse command arguments, read content, convert to canonical plan format. Save to
 
 Create worktree and branch. **Always worktree, always branch.**
 
+**Before creating the worktree**, verify `flowyeah.yml` is committed. If it's untracked or modified, commit it first — worktrees are created from the current branch HEAD, so uncommitted files won't be present in the worktree and the injection hook will silently fail.
+
 ```bash
 # Read git.default_branch from flowyeah.yml (default: main)
 git checkout $DEFAULT_BRANCH && git pull origin $DEFAULT_BRANCH
@@ -157,6 +159,14 @@ git rev-parse --show-toplevel | grep -qF '.flowyeah/worktrees/' || echo "NOT IN 
 
 **NEVER write code outside a worktree.** Analysis and planning are OK. Code changes are not.
 
+**Resolving the main checkout path** (needed for plan files in `tmp/` and cleanup):
+
+```bash
+MAIN_WORKTREE=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+```
+
+Use `$MAIN_WORKTREE/tmp/flowyeah/plans/<key>.md` to access plan files from inside a worktree.
+
 ### 4. Implement
 
 **Trivial tasks** (single config change, rename, docs-only): TDD directly.
@@ -170,7 +180,7 @@ git rev-parse --show-toplevel | grep -qF '.flowyeah/worktrees/' || echo "NOT IN 
 ### 5. Commit
 
 Commit using project conventions from `flowyeah.yml`:
-- Language: `commits.language`
+- Language: `language`
 - Conventions: `commits.conventions`
 - Writer agent: `commits.writer` (if set, delegate to that agent; otherwise commit manually)
 
@@ -193,17 +203,17 @@ git push -u origin $BRANCH --force-with-lease
 
 ### 7. Create PR/MR
 
-Load the sink adapter from `adapters/<sink>/connection.md` + `adapters/<sink>/sink.md`, read its config from `flowyeah.yml` `adapters.<sink>`, and follow the adapter's instructions to create the PR/MR.
+Load the hosting adapter from `adapters/<hosting>/connection.md` + `adapters/<hosting>/hosting.md`, read its config from `flowyeah.yml` `adapters.<hosting>`, and follow the adapter's instructions to create the PR/MR.
 
 **The skill provides these values to the adapter:**
 - **Source branch:** current branch
 - **Target branch:** `git.default_branch`
-- **Title:** descriptive, in `pull_requests.language`. Include issue reference if from issue source.
+- **Title:** descriptive, in `language`. Include issue reference if from issue source.
 - **Body:** summary of changes. Include `Closes #<issue>` when from an issue source (default close keyword).
 - **Delete source branch:** `pull_requests.delete_source_branch`
 
 **After CI + review pass:**
-- `pull_requests.merge: auto` → use the sink adapter to merge
+- `pull_requests.merge: auto` → use the hosting adapter to merge
 - `pull_requests.merge: manual` → report PR URL and stop
 - `pull_requests.merge: ask` → ask the user
 
@@ -211,7 +221,7 @@ Code review results are reported in the terminal only — this is your current w
 
 ### 7b. CI + Code Review Loop
 
-**Do NOT give the prompt back.** Stay in the loop until CI passes and reviews are clean. Use the sink adapter for CI polling.
+**Do NOT give the prompt back.** Stay in the loop until CI passes and reviews are clean. Use the hosting adapter for CI polling.
 
 **While waiting for CI:**
 
@@ -222,7 +232,7 @@ Code review results are reported in the terminal only — this is your current w
 
 2. **Issue creation opportunity.** If the source was NOT an issue tracker, check `issues.create_when_missing`:
    - `ask` — ask the user if an issue should be created
-   - `always` — create one automatically on `issues.platform`
+   - `always` — create one automatically via `issues.adapter`
    - `never` — skip
 
 **When results come back:**
@@ -441,6 +451,8 @@ If `flowyeah.yml` does not exist, load `setup.md` from the plugin root and follo
 ```yaml
 # ── Core pipeline config (schema-defined) ──
 
+language: pt-br                   # used for commits, PRs, and review comments
+
 git:
   default_branch: develop
 
@@ -449,7 +461,6 @@ testing:
   scope: related                  # related | full
 
 commits:
-  language: pt-br                 # commit message language
   conventions: conventional       # conventional | freeform
   writer: git-commit-writer       # agent name, or null for manual
 
@@ -458,7 +469,6 @@ pull_requests:
   rebase: true
   merge: auto                     # auto | manual | ask
   merge_strategy: squash          # squash | merge | rebase
-  language: pt-br                 # PR/MR title and body language
 
 code_review:
   agents:                         # always run these
@@ -470,17 +480,17 @@ code_review:
 
 issues:
   create_when_missing: ask        # ask | always | never
-  platform: gitlab                # where to create issues (gitlab | github | linear)
+  adapter: gitlab                 # which adapter handles issue creation — points to adapters.<adapter>
 
 # ── Adapters: connection config per integration, each adapter owns its keys ──
 
 adapters:
-  gitlab:                         # loads adapters/gitlab/{connection,source,sink,review}.md
+  gitlab:                         # loads adapters/gitlab/{connection,source,hosting,review}.md
     url: https://gitlab.example.com
     token_env: GITLAB_TOKEN
     token_source: .env
     project_id: 123
-  github:                         # loads adapters/github/{connection,source,sink,review}.md
+  github:                         # loads adapters/github/{connection,source,hosting,review}.md
     # github uses gh CLI — no extra config needed
   linear:                         # loads adapters/linear/{connection,source}.md
     # linear uses MCP — no extra config needed
@@ -501,30 +511,29 @@ sources:                            # list of adapter keys usable as sources
   - bugsink
   - newrelic
 
-# ── Sink: which adapter handles PR/MR creation ──
+# ── Hosting: which adapter handles PR/MR creation ──
 
-sink: gitlab                      # gitlab | github — points to adapters.<sink>
+hosting: gitlab                   # gitlab | github — points to adapters.<hosting>
 ```
 
 ### Defaults (when key is absent)
 
 | Key | Default |
 |-----|---------|
+| `language` | `en` |
 | `git.default_branch` | `main` |
 | `sources` | All adapter keys that have a `source.md` |
-| `sink` | **Required — STOP if missing** |
+| `hosting` | **Required — STOP if missing. Must be an adapter that has a `hosting.md` file.** |
 | `testing.scope` | `related` |
-| `commits.language` | `en` |
 | `commits.conventions` | `conventional` |
 | `commits.writer` | `null` (manual) |
 | `pull_requests.delete_source_branch` | `false` |
 | `pull_requests.rebase` | `true` |
 | `pull_requests.merge` | `manual` |
 | `pull_requests.merge_strategy` | `squash` |
-| `pull_requests.language` | Same as `commits.language` |
 | `code_review.agents` | **None — STOP and complain if empty** |
 | `issues.create_when_missing` | `ask` |
-| `issues.platform` | Same as `sink` |
+| `issues.adapter` | **Required — STOP if missing. Must be an adapter that has a `source.md` file.** |
 
 ### Adapters
 
@@ -535,12 +544,12 @@ adapters/
 ├── gitlab/
 │   ├── connection.md    # Auth, base URL, --form encoding
 │   ├── source.md        # Fetch issue → canonical format
-│   ├── sink.md          # Create MR, poll CI, merge
+│   ├── hosting.md       # Create MR, poll CI, merge
 │   └── review.md        # Fetch MR, post formal review
 ├── github/
 │   ├── connection.md    # gh CLI auth
 │   ├── source.md        # Fetch issue → canonical format
-│   ├── sink.md          # Create PR, poll CI, merge
+│   ├── hosting.md       # Create PR, poll CI, merge
 │   └── review.md        # Fetch PR, post formal review
 ├── linear/
 │   ├── connection.md    # MCP setup
@@ -556,10 +565,10 @@ adapters/
 Each integration directory contains:
 - **`connection.md`** — shared authentication, base URL, encoding conventions
 - **`source.md`** — fetch data and convert to canonical format
-- **`sink.md`** — create PR/MR, poll CI, merge
+- **`hosting.md`** — create PR/MR, poll CI, merge
 - **`review.md`** — fetch PR/MR details, post formal review with inline comments
 
-The core skill reads the adapter and follows its instructions. Adapter-specific config keys in `flowyeah.yml` are schema-free — each adapter defines and validates its own keys.
+The core skill reads the adapter and follows its instructions. **Config lookup rule:** all adapter config is always under `adapters.<name>` in `flowyeah.yml`, regardless of whether the adapter is used as a source, hosting, or both. Adapter-specific config keys are schema-free — each adapter defines and validates its own keys.
 
 **Adding a new integration:** create an adapter directory with `connection.md` + the adapter types you need, add config to `flowyeah.yml`. No changes to core skills.
 

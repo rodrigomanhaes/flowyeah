@@ -57,7 +57,7 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 |---------|----------|
 | Leading digits | `42-add-pix`, `5588-fix-export` |
 | `feat/<digits>`, `fix/<digits>` | `feat/42`, `fix/5588` |
-| `(proj\|projx\|team\|web)-[a-z]+-\d+` (case-insensitive) | `proj-eng-302`, `TEAM-123` |
+| `(proj\|projx\|team\|web)(-[a-z]+)?-\d+` (case-insensitive) | `PROJ-123`, `proj-eng-302`, `TEAM-456` |
 
 **GitLab issues:**
 

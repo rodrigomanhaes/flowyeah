@@ -87,7 +87,7 @@ Example: `LINEAR:PROJ-123` → `feat/PROJ-123`
 
 ## Issue Linkage
 
-Pass these values to the sink:
+Pass these values to the hosting adapter:
 - **Source reference:** `LINEAR:<identifier>` (for state.md tracking)
 - **Title suffix:** `(<identifier>)` (for PR/MR title)
 

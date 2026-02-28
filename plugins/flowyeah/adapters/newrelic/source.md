@@ -88,11 +88,11 @@ The core skill should use `superpowers:systematic-debugging` for the investigati
 
 ## Branch Naming
 
-Use a short slug derived from the error class: `fix/<error-class-slug>`
+Use a short slug derived from the error class plus the first 6 characters of the GUID for disambiguation: `fix/<error-class-slug>-<guid-prefix>`
 
-Example: `NoMethodError` → `fix/no-method-error`
+Example: `NoMethodError` with GUID `MXxBUE18...` → `fix/no-method-error-mxxbue`
 
-The full error group GUID is too long for branch names — record it in `state.md` for reference.
+This prevents branch collisions when multiple error groups share the same exception class. Record the full GUID in `state.md` for reference.
 
 ## Issue Linkage
 

@@ -56,28 +56,39 @@ sources:
   - gitlab
   - linear
 
-# Sink determines the review platform
-sink: gitlab          # gitlab | github — points to adapters.<sink>
+# Hosting determines the review platform
+hosting: gitlab       # gitlab | github — points to adapters.<hosting>
 
-# Language for review comments
-pull_requests:
-  language: pt-br     # review content language
+# Language for all text output (commits, PRs, review comments)
+language: pt-br
 ```
 
 **If `code_review.agents` is empty or missing: STOP and complain.**
 
 ## Platform Detection
 
-The review adapter is determined from `sink` in `flowyeah.yml`:
+The review adapter is determined from `hosting` in `flowyeah.yml`:
 
-| `sink` | Review adapter |
-|--------|----------------|
+| `hosting` | Review adapter |
+|------------|----------------|
 | `gitlab` | `adapters/gitlab/review.md` |
 | `github` | `adapters/github/review.md` |
 
-Load the review adapter once at the start. All platform-specific operations (fetch PR, post review, detect issue) go through the adapter.
+Load the review adapter once at the start. **If the hosting adapter has no `review.md`, STOP** — that adapter doesn't support code reviews. All platform-specific operations (fetch PR, post review, detect issue) go through the adapter.
 
 ## Session (Lightweight)
+
+**Before creating the review session**, check for active build sessions:
+
+```bash
+shopt -s nullglob
+SESSIONS=(.flowyeah/worktrees/*/.flowyeah/state.md)
+shopt -u nullglob
+```
+
+If build worktree sessions exist, **warn the user** and ask whether to proceed. Creating a review session at the project root would make the build worktree sessions invisible to the injection hook.
+
+If running from inside a build worktree, **STOP** — do not create a review `state.md` that would overwrite the build session's state.
 
 Create `.flowyeah/state.md` for compaction resilience:
 
@@ -273,7 +284,7 @@ After posting (or if the user discards), remove `.flowyeah/state.md` to end the 
 
 ## Comment Language
 
-Review comments are written in the language configured in `pull_requests.language`. Default: `en`.
+Review comments are written in the language configured in `language`. Default: `en`.
 
 ## Error Handling
 

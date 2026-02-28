@@ -5,13 +5,9 @@ Shared authentication and conventions for all GitHub adapters.
 ## Required Config (`flowyeah.yml`)
 
 ```yaml
-# As sink
-sink:
-  adapter: github
-
-# As source
-sources:
-  github: {}
+adapters:
+  github:
+    # github uses gh CLI — no extra config needed
 ```
 
 No adapter-specific config needed — `gh` uses the local git remote and GitHub authentication.

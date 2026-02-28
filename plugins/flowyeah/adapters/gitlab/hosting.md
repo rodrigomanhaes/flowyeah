@@ -1,4 +1,4 @@
-# GitLab Sink Adapter
+# GitLab Hosting Adapter
 
 Creates merge requests, polls CI, and merges via the GitLab API.
 
@@ -71,9 +71,12 @@ Use the trace output to diagnose the failure.
 ```bash
 curl -s --request PUT -H "Authorization: Bearer $TOKEN" \
   --form "squash=<true if merge_strategy is squash, false otherwise>" \
+  --form "squash_commit_message=<squash_message>" \
   --form "should_remove_source_branch=<delete_source_branch>" \
   "<url>/api/v4/projects/<project_id>/merge_requests/<iid>/merge"
 ```
+
+**Squash commit message format:** `<MR title>\n\n<MR description>` — title on the first line, blank line, then the full MR description. This ensures the squash commit captures both the summary and the context rather than GitLab's default (concatenated commit messages).
 
 **Response:** check `state` field — should be `merged`.
 

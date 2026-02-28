@@ -5,7 +5,7 @@ Shared authentication and API conventions for all New Relic adapters.
 ## Required Config (`flowyeah.yml`)
 
 ```yaml
-sources:
+adapters:
   newrelic:
     account_id: 1234567
     token_env: NEW_RELIC_API_KEY
