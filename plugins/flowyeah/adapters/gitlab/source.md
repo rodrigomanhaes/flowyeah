@@ -1,29 +1,14 @@
-# GitLab Issue Source Adapter
+# GitLab Source Adapter
 
 Fetches a GitLab issue and converts it to canonical plan format.
+
+**Connection:** See `connection.md` for authentication and API conventions.
 
 ## Trigger
 
 Command prefix: `GITLAB:#<issue_number>`
 
 Example: `/flowyeah from GITLAB:#5588`
-
-## Required Config (`flowyeah.yml` → `sources.gitlab`)
-
-```yaml
-sources:
-  gitlab:
-    url: https://gitlab.example.com
-    token_env: GITLAB_TOKEN
-    token_source: .env
-    project_id: 123
-```
-
-## Authentication
-
-```bash
-TOKEN=$(grep "<token_env>" <token_source> | cut -d= -f2)
-```
 
 ## Fetch Issue
 

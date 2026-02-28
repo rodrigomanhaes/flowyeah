@@ -1,36 +1,14 @@
-# New Relic Error Source Adapter
+# New Relic Source Adapter
 
 Fetches error details from New Relic and converts to canonical plan format for debugging.
+
+**Connection:** See `connection.md` for NerdGraph authentication.
 
 ## Trigger
 
 Command prefix: `NEWRELIC:<error_group_guid>`
 
 Example: `/flowyeah from NEWRELIC:MXxBUE18...`
-
-## Required Config (`flowyeah.yml` → `sources.newrelic`)
-
-```yaml
-sources:
-  newrelic:
-    account_id: 1234567
-    token_env: NEW_RELIC_API_KEY
-    token_source: .env
-```
-
-## Authentication
-
-```bash
-TOKEN=$(grep "<token_env>" <token_source> | cut -d= -f2)
-```
-
-All API calls use New Relic's NerdGraph (GraphQL) endpoint:
-
-```
-https://api.newrelic.com/graphql
-```
-
-Header: `Api-Key: $TOKEN`
 
 ## Fetch Error Group Details
 

@@ -2,34 +2,13 @@
 
 Creates merge requests, polls CI, and merges via the GitLab API.
 
-## Required Config (`flowyeah.yml` → `sink`)
-
-```yaml
-sink:
-  adapter: gitlab
-  url: https://gitlab.example.com    # GitLab instance base URL
-  token_env: GITLAB_TOKEN            # env var name holding the API token
-  token_source: .env                 # file to read the env var from
-  project_id: 123                    # GitLab project ID (numeric)
-```
-
-## Authentication
-
-Extract the token directly from the configured file (do NOT `source` it):
-
-```bash
-TOKEN=$(grep "<token_env>" <token_source> | cut -d= -f2)
-```
-
-All API calls use: `curl -s -H "Authorization: Bearer $TOKEN"`
-
-Base URL for all endpoints: `<url>/api/v4/projects/<project_id>`
+**Connection:** See `connection.md` for authentication and API conventions.
 
 ## Create Merge Request
 
 **Endpoint:** `POST /projects/<project_id>/merge_requests`
 
-**Use `--form` encoding** (not JSON — GitLab may return 401 with JSON content-type):
+**Use `--form` encoding** (see connection.md for why):
 
 ```bash
 TOKEN=$(grep "<token_env>" <token_source> | cut -d= -f2) && \

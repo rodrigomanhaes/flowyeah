@@ -1,6 +1,8 @@
-# Linear Issue Source Adapter
+# Linear Source Adapter
 
 Fetches a Linear issue via MCP and converts it to canonical plan format.
+
+**Connection:** See `connection.md` for MCP setup.
 
 ## Trigger
 
@@ -8,18 +10,7 @@ Command prefix: `LINEAR:<identifier>`
 
 Example: `/flowyeah from LINEAR:PROJ-123`
 
-## Required Config (`flowyeah.yml` → `sources.linear`)
-
-```yaml
-sources:
-  linear: {}
-```
-
-No adapter-specific config needed — Linear uses the MCP integration (Linear plugin must be enabled in Claude Code).
-
 ## Fetch Issue
-
-Use the Linear MCP tool:
 
 ```
 mcp__plugin_linear_linear__get_issue(id: "<identifier>")

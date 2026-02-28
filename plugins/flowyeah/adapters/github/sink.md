@@ -2,24 +2,7 @@
 
 Creates pull requests, polls CI, and merges via the `gh` CLI.
 
-## Required Config (`flowyeah.yml` → `sink`)
-
-```yaml
-sink:
-  adapter: github
-```
-
-No additional config needed — `gh` uses the local git remote and GitHub authentication.
-
-## Authentication
-
-The `gh` CLI handles authentication. Verify it's available:
-
-```bash
-gh auth status
-```
-
-If not authenticated, ask the user to run `gh auth login`.
+**Connection:** See `connection.md` for authentication.
 
 ## Create Pull Request
 

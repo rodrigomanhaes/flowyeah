@@ -1,29 +1,14 @@
-# GitHub Issue Source Adapter
+# GitHub Source Adapter
 
 Fetches a GitHub issue via `gh` CLI and converts it to canonical plan format.
+
+**Connection:** See `connection.md` for authentication.
 
 ## Trigger
 
 Command prefix: `GITHUB:#<issue_number>`
 
 Example: `/flowyeah from GITHUB:#45`
-
-## Required Config (`flowyeah.yml` → `sources.github`)
-
-```yaml
-sources:
-  github: {}
-```
-
-No adapter-specific config needed — `gh` uses the local git remote and GitHub authentication.
-
-## Authentication
-
-The `gh` CLI handles authentication. Verify:
-
-```bash
-gh auth status
-```
 
 ## Fetch Issue
 

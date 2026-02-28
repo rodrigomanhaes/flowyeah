@@ -18,16 +18,16 @@ Single command. Takes any source, produces tested, reviewed, merged PRs.
 | No argument | `/flowyeah` | Search `docs/plans/*.md` or ask |
 | Conversation | `/flowyeah` (mid-conversation) | Use current context |
 | File | `/flowyeah from docs/plans/redesign.md` | Read file directly |
-| Prefix-based | `/flowyeah from PREFIX:ID` | Load `adapters/sources/<prefix>.md` |
+| Prefix-based | `/flowyeah from PREFIX:ID` | Load `adapters/<prefix>/source.md` |
 
-**Prefix-based sources** match the command prefix to a source adapter file and config in `flowyeah.yml`:
+**Prefix-based sources** match the command prefix to a source adapter and config in `flowyeah.yml`:
 
-- `/flowyeah from GITLAB:#5588` → reads `sources.gitlab` config → loads `adapters/sources/gitlab-issue.md`
-- `/flowyeah from LINEAR:PROJ-123` → reads `sources.linear` config → loads `adapters/sources/linear-issue.md`
-- `/flowyeah from BUGSINK:45678` → reads `sources.bugsink` config → loads `adapters/sources/bugsink-issue.md`
-- `/flowyeah from NEWRELIC:MXxBUE18...` → reads `sources.newrelic` config → loads `adapters/sources/newrelic-error.md`
+- `/flowyeah from GITLAB:#5588` → reads `sources.gitlab` config → loads `adapters/gitlab/source.md` (+ `connection.md`)
+- `/flowyeah from LINEAR:PROJ-123` → reads `sources.linear` config → loads `adapters/linear/source.md` (+ `connection.md`)
+- `/flowyeah from BUGSINK:45678` → reads `sources.bugsink` config → loads `adapters/bugsink/source.md` (+ `connection.md`)
+- `/flowyeah from NEWRELIC:MXxBUE18...` → reads `sources.newrelic` config → loads `adapters/newrelic/source.md` (+ `connection.md`)
 
-New source? Write an adapter file, add config to `flowyeah.yml`. Zero changes to this skill.
+New source? Create an adapter directory with `connection.md` + `source.md`, add config to `flowyeah.yml`. Zero changes to this skill.
 
 If source is prose without tasks: brainstorm with the user, generate a task plan, save as canonical format.
 
@@ -80,7 +80,7 @@ digraph pipeline {
 
 Parse command arguments, read content, convert to canonical plan format.
 
-- **Prefix source (e.g., `GITLAB:#5588`):** load the matching source adapter from `adapters/sources/`, read its config from `flowyeah.yml` `sources.<prefix>`, follow the adapter's instructions to fetch and convert to canonical format.
+- **Prefix source (e.g., `GITLAB:#5588`):** load `adapters/<prefix>/connection.md` + `adapters/<prefix>/source.md`, read its config from `flowyeah.yml` `sources.<prefix>`, follow the adapter's instructions to fetch and convert to canonical format.
 - **File source:** read file directly.
 - **Prose/idea:** brainstorm with user, then generate tasks.
 - **No source + `progress.md` exists:** resume from it.
@@ -177,7 +177,7 @@ git push -u origin $BRANCH --force-with-lease
 
 ### 7. Create PR/MR
 
-Load the sink adapter from `adapters/sinks/<sink.adapter>.md`, read its config from `flowyeah.yml` `sink.*`, and follow the adapter's instructions to create the PR/MR.
+Load the sink adapter from `adapters/<sink.adapter>/connection.md` + `adapters/<sink.adapter>/sink.md`, read its config from `flowyeah.yml` `sink.*`, and follow the adapter's instructions to create the PR/MR.
 
 **The skill provides these values to the adapter:**
 - **Source branch:** current branch
@@ -459,7 +459,7 @@ issues:
 # ── Sink: one per project, adapter owns its keys ──
 
 sink:
-  adapter: gitlab                 # loads adapters/sinks/gitlab.md
+  adapter: gitlab                 # loads adapters/gitlab/{connection,sink}.md
   # everything below is adapter-specific (gitlab's own schema)
   url: https://gitlab.example.com
   token_env: GITLAB_TOKEN
@@ -469,16 +469,16 @@ sink:
 # ── Sources: keyed by command prefix, each adapter owns its keys ──
 
 sources:
-  gitlab:                         # GITLAB:#N → loads adapters/sources/gitlab-issue.md
+  gitlab:                         # GITLAB:#N → loads adapters/gitlab/{connection,source}.md
     url: https://gitlab.example.com
     token_env: GITLAB_TOKEN
     token_source: .env
     project_id: 123
-  bugsink:                        # BUGSINK:N → loads adapters/sources/bugsink-issue.md
+  bugsink:                        # BUGSINK:N → loads adapters/bugsink/{connection,source}.md
     url: https://bugsink.example.com
     token_env: BUGSINK_TOKEN
     token_source: .env
-  linear:                         # LINEAR:XX-N → loads adapters/sources/linear-issue.md
+  linear:                         # LINEAR:XX-N → loads adapters/linear/{connection,source}.md
     # linear uses MCP — adapter-specific keys go here if needed
 ```
 
@@ -501,30 +501,40 @@ sources:
 
 ### Adapters
 
-Adapters live in `adapters/` relative to this skill's base directory:
+Adapters live in `adapters/` at the plugin level (shared across skills):
 
 ```
 adapters/
-├── sources/
-│   ├── gitlab-issue.md       # Fetch GitLab issue → canonical format
-│   ├── linear-issue.md       # Fetch Linear issue → canonical format
-│   ├── github-issue.md       # Fetch GitHub issue → canonical format
-│   ├── bugsink-issue.md      # Fetch Bugsink error → canonical format
-│   └── newrelic-error.md     # Fetch New Relic error group → canonical format
-└── sinks/
-    ├── gitlab.md             # Create MR, poll CI, merge via GitLab API
-    └── github.md             # Create PR, poll CI, merge via gh CLI
+├── gitlab/
+│   ├── connection.md    # Auth, base URL, --form encoding
+│   ├── source.md        # Fetch issue → canonical format
+│   ├── sink.md          # Create MR, poll CI, merge
+│   └── review.md        # Fetch MR, post formal review
+├── github/
+│   ├── connection.md    # gh CLI auth
+│   ├── source.md        # Fetch issue → canonical format
+│   ├── sink.md          # Create PR, poll CI, merge
+│   └── review.md        # Fetch PR, post formal review
+├── linear/
+│   ├── connection.md    # MCP setup
+│   └── source.md        # Fetch issue → canonical format
+├── bugsink/
+│   ├── connection.md    # API token auth
+│   └── source.md        # Fetch error → canonical format
+└── newrelic/
+    ├── connection.md    # NerdGraph auth
+    └── source.md        # Fetch error group → canonical format
 ```
 
-Each adapter is a markdown file that describes:
-- **Authentication:** how to get credentials (from `flowyeah.yml` config)
-- **API calls:** exact endpoints, methods, payload format
-- **Response parsing:** how to extract relevant data
-- **Conversion:** how to map platform data to/from canonical format
+Each integration directory contains:
+- **`connection.md`** — shared authentication, base URL, encoding conventions
+- **`source.md`** — fetch data and convert to canonical format
+- **`sink.md`** — create PR/MR, poll CI, merge
+- **`review.md`** — fetch PR/MR details, post formal review with inline comments
 
 The core skill reads the adapter and follows its instructions. Adapter-specific config keys in `flowyeah.yml` are schema-free — each adapter defines and validates its own keys.
 
-**Adding a new source or sink:** write an adapter file, add config to `flowyeah.yml`. No changes to the core skill.
+**Adding a new integration:** create an adapter directory with `connection.md` + the adapter types you need, add config to `flowyeah.yml`. No changes to core skills.
 
 ## Stop Conditions
 

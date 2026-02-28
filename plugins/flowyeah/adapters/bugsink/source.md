@@ -2,27 +2,13 @@
 
 Fetches error details from a Bugsink instance and converts to canonical plan format for debugging.
 
+**Connection:** See `connection.md` for authentication (uses `Token` auth, not `Bearer`).
+
 ## Trigger
 
 Command prefix: `BUGSINK:<issue_id>`
 
 Example: `/flowyeah from BUGSINK:45678`
-
-## Required Config (`flowyeah.yml` → `sources.bugsink`)
-
-```yaml
-sources:
-  bugsink:
-    url: https://bugsink.example.com
-    token_env: BUGSINK_TOKEN
-    token_source: .env
-```
-
-## Authentication
-
-```bash
-TOKEN=$(grep "<token_env>" <token_source> | cut -d= -f2)
-```
 
 ## Fetch Error Details
 
@@ -54,7 +40,7 @@ curl -s -H "Authorization: Token $TOKEN" \
 
 ## Convert to Canonical Format
 
-Bugsink errors are always prose — there's no task list to extract. Build a debugging-oriented plan:
+Bugsink errors are always prose — build a debugging-oriented plan:
 
 ```markdown
 # Plan: Fix <exception_type>: <error_message> (BUGSINK:<issue_id>)
