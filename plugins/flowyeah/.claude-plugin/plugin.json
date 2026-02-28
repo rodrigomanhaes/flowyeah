@@ -1,0 +1,7 @@
+{
+  "name": "flowyeah",
+  "version": "1.0.0",
+  "description": "Plan-to-PR pipeline. Takes any source, produces tested, reviewed, merged PRs with git worktree isolation, TDD, code review, and CI verification.",
+  "license": "MIT",
+  "keywords": ["workflow", "git", "tdd", "code-review", "ci", "worktree", "pipeline"]
+}
