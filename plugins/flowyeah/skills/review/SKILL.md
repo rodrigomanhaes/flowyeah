@@ -363,7 +363,7 @@ Review comments are written in the language configured in `language`. Default: `
 |-------|--------|
 | PR/MR not found | Ask user for number/URL |
 | Agent fails | Report which failed, continue with others |
-| Remote communication failure (401, 403, 429, 5xx, timeout) | **STOP and report the error to the user.** Do not retry silently. |
+| Remote communication failure (401, 403, 429, 5xx, timeout) | Retry up to 2 times with a short pause. If still failing, **STOP and report the error to the user.** Do not attempt alternative approaches or workarounds. |
 | Inline comment position not in diff | Move finding to review body |
 
 ## Never
