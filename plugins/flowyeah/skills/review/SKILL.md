@@ -181,6 +181,8 @@ Collect in parallel:
 3. **Commit messages** — via review adapter
 4. **CLAUDE.md files** — find all: global (`~/.claude/CLAUDE.md`), project root, `.claude/CLAUDE.md`, `.claude/standards/*.md`
 5. **Git history** — for each changed file: `git log --oneline -10 <file>`
+6. **Git blame** — for changed lines, run `git blame` on the base branch version to understand original intent and authorship
+7. **Previous PR/MR feedback** — search recent merged PRs/MRs that touched the same files, collect review comments (via review adapter). Look for recurring themes — if a reviewer flagged the same pattern before, it's worth flagging again
 
 ### 2b. Requirements Validation
 
@@ -339,6 +341,18 @@ After posting (or if the user discards), remove `.flowyeah/review-state.md` and 
 [consolidated summary of findings]
 ```
 
+## Timing
+
+After the review is submitted (or discarded), display a summary:
+
+```
+Review complete — N findings (M approved, K skipped)
+  Blockers: X | Important: X | Suggestions: X
+  Automated phases: ~Xs | Interactive approval: ~Xs
+```
+
+No per-phase instrumentation needed. Just track two timestamps: start of step 0 and start of step 5 (interactive approval). The difference gives automated time; wall clock from step 5 to end gives interactive time.
+
 ## Comment Language
 
 Review comments are written in the language configured in `language`. Default: `en`.
@@ -349,9 +363,7 @@ Review comments are written in the language configured in `language`. Default: `
 |-------|--------|
 | PR/MR not found | Ask user for number/URL |
 | Agent fails | Report which failed, continue with others |
-| Auth failed (401/403) | Guide to authentication setup. If token may have expired mid-operation, suggest refreshing and retrying. |
-| Rate limited (429) | Wait for the duration indicated in `Retry-After` header (or 60s if absent), then retry once. If still rate-limited, report and suggest waiting. |
-| Transient error (5xx, timeout) | Retry once after 5 seconds. If still failing, report the error. |
+| Remote communication failure (401, 403, 429, 5xx, timeout) | **STOP and report the error to the user.** Do not retry silently. |
 | Inline comment position not in diff | Move finding to review body |
 
 ## Never
