@@ -41,7 +41,7 @@ gh issue view <issue_number> --json title,body,labels,milestone,state
 ## Create Issue
 
 ```bash
-gh issue create --title "<title>" --body "<description>"
+gh issue create --title "<title>" --body "<description>" --assignee "@me"
 ```
 
 **Response:** prints the issue URL and number.

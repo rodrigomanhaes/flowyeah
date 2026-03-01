@@ -4,20 +4,46 @@ Creates merge requests, polls CI, and merges via the GitLab API.
 
 **Connection:** See `connection.md` for authentication and API conventions.
 
-## Create Merge Request
+## Get Current User
+
+Fetch the authenticated user's ID (needed for assignee):
+
+```bash
+TOKEN=$(grep "^<token_env>=" <token_source> | cut -d= -f2- | tr -d '"') && \
+curl -s -H "Authorization: Bearer $TOKEN" "<url>/api/v4/user" | jq '.id'
+```
+
+Save the user ID for MR creation and issue assignment.
+
+## Create or Reuse Merge Request
+
+### Check for Existing MR
+
+Before creating, check if an MR already exists for this branch:
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" \
+  "<url>/api/v4/projects/<project_id>/merge_requests?source_branch=<source_branch>&state=opened" | \
+  jq '.[0] | {iid, web_url, title}'
+```
+
+- **Result is not null** → MR already exists. Reuse it — save `iid` and `web_url`, skip creation.
+- **Result is null** → no MR exists, proceed with creation.
+
+### Create MR
 
 **Endpoint:** `POST /projects/<project_id>/merge_requests`
 
 **Use `--form` encoding** (see connection.md for why):
 
 ```bash
-TOKEN=$(grep "^<token_env>=" <token_source> | cut -d= -f2- | tr -d '"') && \
 curl -s --request POST -H "Authorization: Bearer $TOKEN" \
   --form "source_branch=<source_branch>" \
   --form "target_branch=<target_branch>" \
   --form "title=<title>" \
   --form "description=<body>" \
   --form "remove_source_branch=<delete_source_branch>" \
+  --form "assignee_id=<user_id>" \
   "<url>/api/v4/projects/<project_id>/merge_requests"
 ```
 
@@ -99,3 +125,13 @@ curl -s --request PUT -H "Authorization: Bearer $TOKEN" \
 When the source was a GitLab issue, include `Closes #<issue_number>` in the MR description. GitLab auto-closes the issue on merge.
 
 For MR title, append `(#<issue_number>)` at the end.
+
+## Issue Assignment
+
+When an issue is associated with this MR (either from the source or created via `issues.create_when_missing`), assign the issue to the current user:
+
+```bash
+curl -s --request PUT -H "Authorization: Bearer $TOKEN" \
+  --form "assignee_ids[]=<user_id>" \
+  "<url>/api/v4/projects/<project_id>/issues/<issue_number>"
+```

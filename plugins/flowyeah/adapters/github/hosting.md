@@ -4,14 +4,28 @@ Creates pull requests, polls CI, and merges via the `gh` CLI.
 
 **Connection:** See `connection.md` for authentication.
 
-## Create Pull Request
+## Create or Reuse Pull Request
+
+### Check for Existing PR
+
+Before creating, check if a PR already exists for this branch:
+
+```bash
+gh pr view <source_branch> --json number,url,title 2>/dev/null
+```
+
+- **Command succeeds** → PR already exists. Reuse it — save `number` and `url`, skip creation.
+- **Command fails** → no PR exists, proceed with creation.
+
+### Create PR
 
 ```bash
 gh pr create \
   --title "<title>" \
   --body "<body>" \
   --base "<target_branch>" \
-  --head "<source_branch>"
+  --head "<source_branch>" \
+  --assignee "@me"
 ```
 
 **Capture the PR URL** from `gh pr create` output for later reference.
@@ -72,3 +86,11 @@ If merge fails (e.g., conflicts, required reviews), report the error and ask the
 When the source was a GitHub issue, include `Closes #<issue_number>` in the PR body. GitHub auto-closes the issue on merge.
 
 For PR title, append `(#<issue_number>)` at the end.
+
+## Issue Assignment
+
+When an issue is associated with this PR (either from the source or created via `issues.create_when_missing`), assign the issue to the current user:
+
+```bash
+gh issue edit <issue_number> --add-assignee "@me"
+```

@@ -141,6 +141,19 @@ This is required when `create_when_missing` is `always` or `ask`. If the user ch
 
 Options: `ask` (default), `always`, `never`
 
+### 11. Hooks
+
+> Do you want to configure project-specific hooks for pipeline events?
+
+Hooks are markdown files with instructions that the AI follows at specific pipeline points. They let you plug in project-specific behavior (e.g., milestone association after merge).
+
+**Available hook points:**
+- `after_merge` — runs after a successful merge, before marking the task done
+
+If the user wants hooks, ask for the file path for each hook point (default: `.flowyeah/hooks/<hook-name>.md`). Remind the user they need to create the file with the instructions.
+
+If the user doesn't want hooks, skip this section entirely (no `hooks` key in YAML).
+
 ## Generate
 
 Build `flowyeah.yml` from answers and write to project root:
@@ -177,6 +190,9 @@ code_review:
 issues:
   adapter: <answer>
   create_when_missing: <answer>
+
+hooks:                             # omit section entirely if no hooks
+  after_merge: <answer>            # path to markdown file, e.g. .flowyeah/hooks/after-merge.md
 
 adapters:
   <adapter>:

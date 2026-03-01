@@ -80,8 +80,9 @@ digraph pipeline {
     deliver [label="6. Test → Rebase → Push"];
     pr [label="7. Create PR/MR"];
     ci_loop [label="7b. CI + Code Review Loop" shape=diamond];
-    mark [label="8. Mark Task Done"];
-    cleanup [label="9. Cleanup Worktree"];
+    hooks [label="8. Run Hooks\n(after_merge)"];
+    mark [label="9. Mark Task Done"];
+    cleanup [label="10. Cleanup Worktree"];
     next [label="Next task?" shape=diamond];
 
     validate -> resolve -> pick -> worktree -> verify_wt;
@@ -89,8 +90,8 @@ digraph pipeline {
     verify_wt -> worktree [label="NOT in worktree\nSTOP"];
     implement -> commit -> deliver -> pr -> ci_loop;
     ci_loop -> commit [label="issues found\nfix → commit → push\nskip review on retry"];
-    ci_loop -> mark [label="CI green +\nreview clean"];
-    mark -> cleanup -> next;
+    ci_loop -> hooks [label="CI green +\nreview clean"];
+    hooks -> mark -> cleanup -> next;
     next -> pick [label="--continuous"];
     next -> resolve [label="done"];
 }
@@ -274,14 +275,51 @@ Code review results are reported in the terminal only — this is your current w
 
 **When results come back:**
 
-- **CI passes AND review clean** → proceed to step 8
+- **CI passes AND review clean** → proceed to step 8 (hooks)
 - **CI fails** → investigate, fix, create a new commit (not amend), restart from step 5 (commit → test → push). Skip code review on retry. Any CI failure is YOUR failure. Assume CI is evergreen.
 - **Review agents find issues** → fix, create a new commit, restart from step 5 (commit → test → push). Skip code review on retry — the review already told you what to fix.
 - **CI fails 3 times** → STOP and ask for guidance
 
 **Git strategy for fixes:** Always create new commits, never amend. The PR will be squash-merged anyway (per `merge_strategy`), so individual fix commits don't clutter the final history. New commits also make it easier to review what changed between CI runs.
 
-### 8. Mark Task Done + Close Session
+### 8. Run Hooks
+
+After a successful merge, check `hooks` in `flowyeah.yml` for any configured hook points. Each hook is a path to a markdown file (relative to the project root) containing instructions for the AI to follow.
+
+**Available hook points:**
+
+| Hook | When it runs | Context available |
+|------|-------------|-------------------|
+| `after_merge` | After successful merge, before marking task done | Branch, MR/PR iid+url, issue number (if any), adapter config |
+
+**Execution:**
+
+1. Check if the hook point exists in `flowyeah.yml` `hooks` section
+2. If present, read the markdown file at the configured path
+3. Follow the instructions in the file, using the pipeline context (branch name, MR/PR details, issue reference, adapter config from `flowyeah.yml`)
+4. If the file doesn't exist, warn the user and continue
+
+**Hook files** are project-level artifacts, versioned with the project. They follow the same pattern as adapters: markdown instructions that the AI reads and follows.
+
+**Example `flowyeah.yml`:**
+```yaml
+hooks:
+  after_merge: .flowyeah/hooks/after-merge.md
+```
+
+**Example hook file** (`.flowyeah/hooks/after-merge.md`):
+```markdown
+# After Merge: Associate Milestone
+
+1. Read current version from line 5 of CHANGELOG
+2. Calculate next patch version
+3. Find or create milestone with that version
+4. Associate the MR and issue to the milestone
+```
+
+If no hooks are configured, this step is a no-op.
+
+### 9. Mark Task Done + Close Session
 
 - Promote qualified findings from `.flowyeah/findings.md` to auto memory
 - Check `[x]` in `tmp/flowyeah/plans/<key>.md` (from main checkout, after merge)
@@ -291,7 +329,7 @@ Code review results are reported in the terminal only — this is your current w
   - **Linear:** call `save_issue(id: "<id>", state: "Done")` via MCP
   - **Bugsink/New Relic:** no action — errors auto-resolve when the fix is deployed
 
-### 9. Cleanup Worktree
+### 10. Cleanup Worktree
 
 Removes the worktree and everything in it, including `.flowyeah/` session files.
 
@@ -329,7 +367,7 @@ On each `flowyeah:build` run, before resolving the source, check for stale plans
 
 ## Session Management
 
-Session state lives in `.flowyeah/` inside the worktree. It survives context compaction (via hook injection) and crashes (files persist on disk). Cleaned up with the worktree in step 9.
+Session state lives in `.flowyeah/` inside the worktree. It survives context compaction (via hook injection) and crashes (files persist on disk). Cleaned up with the worktree in step 10.
 
 ### Session Files
 
@@ -485,12 +523,12 @@ When a pipeline step fails irrecoverably (e.g., 3 CI failures, merge conflict th
 
 The aborted session artifacts in `tmp/flowyeah/aborted/` persist for review. **Cleanup:** delete aborted entries older than 30 days during the plan lifecycle check (same timing as orphaned plan cleanup). Warn the user before deleting.
 
-### Session End (step 8-9)
+### Session End (step 9-10)
 
 Before worktree cleanup:
 1. Read `findings.md` and identify insights worth keeping
 2. Promote qualified findings to auto memory (MEMORY.md or topic files)
-3. Worktree removal in step 9 deletes the `.flowyeah/` directory
+3. Worktree removal in step 10 deletes the `.flowyeah/` directory
 
 ## Parallel Coordination
 
@@ -556,6 +594,11 @@ issues:
   create_when_missing: ask        # ask | always | never
   adapter: gitlab                 # which adapter handles issue creation — points to adapters.<adapter>
 
+# ── Hooks: project-specific markdown files executed at pipeline points ──
+
+hooks:
+  after_merge: .flowyeah/hooks/after-merge.md  # optional, path relative to project root
+
 # ── Adapters: connection config per integration, each adapter owns its keys ──
 
 adapters:
@@ -611,6 +654,7 @@ hosting: gitlab                   # gitlab | github — points to adapters.<host
 | `code_review.agents` | **None — STOP and complain if empty** |
 | `issues.create_when_missing` | `ask` |
 | `issues.adapter` | **Required when `create_when_missing` is `ask` or `always`. Must be an adapter that supports issue creation (gitlab, github, or linear). Bugsink and New Relic are read-only sources — they cannot create issues.** |
+| `hooks.*` | No hooks configured (all hook points are optional) |
 
 ### Adapters
 

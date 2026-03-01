@@ -46,11 +46,15 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 
 **Endpoint:** `POST /projects/<project_id>/issues`
 
+Get the current user ID first (see `hosting.md` → "Get Current User"), then create the issue with assignment:
+
 ```bash
 TOKEN=$(grep "^<token_env>=" <token_source> | cut -d= -f2- | tr -d '"') && \
+USER_ID=$(curl -s -H "Authorization: Bearer $TOKEN" "<url>/api/v4/user" | jq '.id') && \
 curl -s --request POST -H "Authorization: Bearer $TOKEN" \
   --form "title=<title>" \
   --form "description=<description>" \
+  --form "assignee_ids[]=$USER_ID" \
   "<url>/api/v4/projects/<project_id>/issues"
 ```
 
