@@ -30,10 +30,16 @@ plugins/flowyeah/
 ## Testing
 
 ```bash
-bash hooks/test-hooks.sh
+bash plugins/flowyeah/hooks/test-hooks.sh
 ```
 
 Tests run in isolated temp git repos. No external dependencies beyond bash and git.
+
+## Hook Internals
+
+- **`${CLAUDE_PLUGIN_ROOT}`** — Claude Code sets this variable to the plugin's installation directory at runtime. The hooks use it to resolve script paths in `hooks.json`.
+- **`session-inject.sh`** — injects session files on every prompt. Build sessions use `state.md` (with mission, progress, findings summary). Review sessions use `review-state.md` (state only). Both can coexist without interference.
+- **`session-remind.sh`** — nudges to update state after Edit/Write/NotebookEdit operations. Detects both `state.md` (build) and `review-state.md` (review).
 
 ## Adding an Adapter
 

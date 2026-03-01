@@ -18,6 +18,7 @@ digraph review {
     rankdir=TB;
     node [shape=box];
 
+    validate [label="0. Validate Config\n(keys, adapters, auth)"];
     identify [label="1. Identify PR/MR"];
     issue [label="1b. Detect Issue"];
     context [label="2. Gather Context"];
@@ -29,7 +30,7 @@ digraph review {
     type [label="6. Choose Review Type"];
     submit [label="7. Submit Formal Review"];
 
-    identify -> issue -> context;
+    validate -> identify -> issue -> context;
     context -> requirements;
     requirements -> agents [label="issue found"];
     requirements -> agents [label="no issue\nskip"];
@@ -78,19 +79,7 @@ Load the review adapter once at the start. **If the hosting adapter has no `revi
 
 ## Session (Lightweight)
 
-**Before creating the review session**, check for active build sessions:
-
-```bash
-shopt -s nullglob
-SESSIONS=(.flowyeah/worktrees/*/.flowyeah/state.md)
-shopt -u nullglob
-```
-
-If build worktree sessions exist, **warn the user** and ask whether to proceed. Creating a review session at the project root would make the build worktree sessions invisible to the injection hook.
-
-If running from inside a build worktree, **STOP** — do not create a review `state.md` that would overwrite the build session's state.
-
-Create `.flowyeah/state.md` for compaction resilience:
+Create `.flowyeah/review-state.md` for compaction resilience:
 
 ```markdown
 # Current State
@@ -104,11 +93,34 @@ Findings: <count> total, <approved> approved
 Phase: <current_phase>
 ```
 
+Review sessions use `review-state.md` (not `state.md`) so they never interfere with build sessions in worktrees. Both can coexist — the injection hook handles them separately.
+
 Update after each phase transition. The hook injection ensures state survives compaction.
 
 No `mission.md`, `progress.md`, or `findings.md` — reviews are short-lived and don't need the full session.
 
+### Crash Recovery
+
+If a review session is interrupted (compaction, crash, user abort):
+
+1. The hook injects `review-state.md` into the next prompt
+2. Resume from the last recorded phase
+3. If the phase was before "Interactive Approval" (step 5), re-run from that phase
+4. If during or after approval, re-read approved findings and continue
+5. If the review was already submitted, clean up the state file
+
 ## Steps
+
+### 0. Validate Configuration
+
+Before starting the review, validate the loaded `flowyeah.yml`:
+
+1. **Required keys:** `hosting` must be present and point to an adapter with `review.md`. `code_review.agents` must be non-empty.
+2. **Adapter references:** the `hosting` value must have `adapters/<hosting>/review.md`. Each source in `sources` must have `adapters/<source>/source.md`.
+3. **Auth verification:** verify credentials for the hosting adapter and any source adapters that will be used for issue detection.
+4. **Report all issues at once** — collect validation failures and present together.
+
+If validation fails, STOP with actionable error messages.
 
 ### 1. Identify PR/MR
 
@@ -159,6 +171,8 @@ Launch agents from `code_review.agents` in parallel using the Task tool:
 - Each agent returns findings as: file, line, issue, severity, confidence (0-100)
 
 **Conditional agents** from `code_review.optional_agents` — launch based on what changed (e.g., security analyst if auth code was touched). Use judgment.
+
+**Note:** This is the same agent configuration used by `flowyeah:build` in step 7b (CI + Code Review Loop). Both skills share the `code_review.agents` and `code_review.optional_agents` lists from `flowyeah.yml`. The difference: build runs agents as a quality gate before merge; review produces a formal review artifact with inline comments.
 
 ### 3b. Critical Checks
 
@@ -262,7 +276,7 @@ Load the review adapter and follow its instructions to:
 
 Ask for final confirmation before posting.
 
-After posting (or if the user discards), remove `.flowyeah/state.md` to end the session.
+After posting (or if the user discards), remove `.flowyeah/review-state.md` to end the session.
 
 ### Review Body Template
 

@@ -9,7 +9,18 @@ TOPLEVEL=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
 # Only run in projects that use flowyeah
 [ -f "$TOPLEVEL/flowyeah.yml" ] || exit 0
 
-# Find session: either in current worktree or scan .flowyeah/worktrees/
+# ── Review session (separate file, never conflicts with build) ──
+if [ -f "$TOPLEVEL/.flowyeah/review-state.md" ]; then
+    echo "───── flowyeah:review session ─────"
+    echo ""
+    echo "## STATE"
+    cat "$TOPLEVEL/.flowyeah/review-state.md"
+    echo ""
+    echo "──────────────────────────────────────────────"
+    echo ""
+fi
+
+# ── Build session: either in current worktree or scan .flowyeah/worktrees/ ──
 SESSION_DIR=""
 
 if [ -f "$TOPLEVEL/.flowyeah/state.md" ]; then

@@ -90,12 +90,20 @@ OUTPUT=$(bash "$SCRIPT_DIR/session-remind.sh" 2>&1 || true)
 assert_empty "remind: silent outside git repo" "$OUTPUT"
 cd /; rm -rf "$TMPDIR"
 
-# Test: outputs reminder when session is active
+# Test: outputs reminder when build session is active
 setup_repo
 mkdir -p .flowyeah
 echo "# Current State" > .flowyeah/state.md
 OUTPUT=$(bash "$SCRIPT_DIR/session-remind.sh" 2>&1)
-assert_output_contains "remind: outputs reminder with active session" "Update .flowyeah/state.md" "$OUTPUT"
+assert_output_contains "remind: outputs reminder with build session" "Update .flowyeah/state.md" "$OUTPUT"
+teardown
+
+# Test: outputs reminder when review session is active
+setup_repo
+mkdir -p .flowyeah
+echo "# Current State" > .flowyeah/review-state.md
+OUTPUT=$(bash "$SCRIPT_DIR/session-remind.sh" 2>&1)
+assert_output_contains "remind: outputs reminder with review session" "Update .flowyeah/review-state.md" "$OUTPUT"
 teardown
 
 # ── session-inject.sh tests ─────────────────────────────
@@ -148,11 +156,11 @@ assert_output_contains "inject: shows state content" "Webhook retry" "$OUTPUT"
 assert_output_contains "inject: shows FINDINGS section" "## FINDINGS" "$OUTPUT"
 teardown
 
-# Test: review session skips MISSION, PROGRESS, FINDINGS
+# Test: review session uses review-state.md, skips MISSION, PROGRESS, FINDINGS
 setup_repo
 touch flowyeah.yml
 mkdir -p .flowyeah
-cat > .flowyeah/state.md <<'EOF'
+cat > .flowyeah/review-state.md <<'EOF'
 # Current State
 
 Type: review
@@ -162,9 +170,38 @@ EOF
 OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
 assert_output_contains "inject review: shows session type" "flowyeah:review session" "$OUTPUT"
 assert_output_contains "inject review: shows STATE" "## STATE" "$OUTPUT"
+assert_output_contains "inject review: shows PR number" "PR/MR: 42" "$OUTPUT"
 assert_output_not_contains "inject review: no MISSION" "## MISSION" "$OUTPUT"
 assert_output_not_contains "inject review: no PROGRESS" "## PROGRESS" "$OUTPUT"
 assert_output_not_contains "inject review: no FINDINGS" "## FINDINGS" "$OUTPUT"
+teardown
+
+# Test: review session coexists with build worktree sessions
+setup_repo
+touch flowyeah.yml
+mkdir -p .flowyeah/worktrees/feat-webhook/.flowyeah
+cat > .flowyeah/worktrees/feat-webhook/.flowyeah/state.md <<'EOF'
+Type: build
+Task: Webhook retry
+Step: 4
+EOF
+cat > .flowyeah/worktrees/feat-webhook/.flowyeah/mission.md <<'EOF'
+# Mission
+Implement webhook retry.
+EOF
+mkdir -p .flowyeah
+cat > .flowyeah/review-state.md <<'EOF'
+# Current State
+
+Type: review
+Status: Reviewing
+PR/MR: 99
+EOF
+OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+assert_output_contains "inject coexist: shows review session" "flowyeah:review session" "$OUTPUT"
+assert_output_contains "inject coexist: shows review PR" "PR/MR: 99" "$OUTPUT"
+assert_output_contains "inject coexist: shows build session" "Active session found" "$OUTPUT"
+assert_output_contains "inject coexist: shows build state" "Webhook retry" "$OUTPUT"
 teardown
 
 # Test: defaults to build when Type is missing

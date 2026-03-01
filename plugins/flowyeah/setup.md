@@ -96,6 +96,8 @@ Options: `manual` (default), `auto`, `ask`
 
 Options: `squash` (default), `merge`, `rebase`
 
+**Note:** If the hosting platform is GitLab, warn that `rebase` is a project-level setting in GitLab and cannot be requested per merge request via API. Recommend `squash` or `merge` for GitLab projects.
+
 ### 9. Code review agents
 
 > Which agents run code review?
@@ -118,7 +120,7 @@ Ask if they want to customize the list.
 
 Options: list the adapters selected in step 2 that have a `source.md` (gitlab, github, linear).
 
-This is required — the pipeline needs to know where to create issues when `create_when_missing` is `always` or `ask`.
+This is required when `create_when_missing` is `always` or `ask`. If the user chose `never`, skip this question.
 
 > Create issues automatically when the source wasn't an issue tracker?
 
@@ -129,6 +131,8 @@ Options: `ask` (default), `always`, `never`
 Build `flowyeah.yml` from answers and write to project root:
 
 ```yaml
+version: 1
+
 language: <answer>
 
 git:

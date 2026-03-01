@@ -96,10 +96,30 @@ gh api "repos/${REPO}/pulls/<number>/reviews" \
 
 The `line` MUST be a line that appears in the diff. If the finding is about a line not in the diff, include it only in the review body.
 
+### Large Payloads
+
+When the `comments` array is large (many findings), `--field` may hit shell argument limits. Use `--input -` with a JSON payload instead:
+
+```bash
+REPO=$(gh repo view --json owner,name --jq '"\\(.owner.login)/\\(.name)"')
+
+cat <<'JSON' | gh api "repos/${REPO}/pulls/<number>/reviews" --method POST --input -
+{
+  "event": "<EVENT>",
+  "body": "<review_summary>",
+  "comments": [
+    {"path": "<file>", "line": <n>, "body": "<finding>"},
+    {"path": "<file>", "line": <n>, "body": "<finding>"}
+  ]
+}
+JSON
+```
+
 ### Important
 
 - **ALWAYS use `gh api .../reviews`** — never use `gh pr review --comment --body` (that creates a generic timeline comment, not inline review comments)
 - All inline comments are submitted atomically with the review body
+- For many findings, prefer `--input -` over `--field` to avoid shell limits
 - Findings without specific file:line go in the review body only
 
 ## Review Types Mapping

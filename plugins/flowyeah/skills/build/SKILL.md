@@ -53,6 +53,7 @@ Saved to `tmp/flowyeah/plans/<key>.md` in the main checkout.
 | `LINEAR:PROJ-123` | `linear-proj-123` | `tmp/flowyeah/plans/linear-proj-123.md` |
 | `GITHUB:#45` | `github-45` | `tmp/flowyeah/plans/github-45.md` |
 | `BUGSINK:45678` | `bugsink-45678` | `tmp/flowyeah/plans/bugsink-45678.md` |
+| `NEWRELIC:MXxBUE18...` | `newrelic-mxxbue` | `tmp/flowyeah/plans/newrelic-mxxbue.md` |
 | File source | slugified filename | `tmp/flowyeah/plans/redesign.md` |
 | Conversation (no source) | slugified work description | `tmp/flowyeah/plans/webhook-retry.md` |
 
@@ -65,6 +66,7 @@ digraph pipeline {
     rankdir=TB;
     node [shape=box];
 
+    validate [label="0. Validate Config\n(keys, adapters, auth)"];
     resolve [label="1. Resolve Source\n(read-only, main checkout)"];
     pick [label="2. Pick Task(s)"];
     worktree [label="3. Worktree + Branch"];
@@ -78,7 +80,7 @@ digraph pipeline {
     cleanup [label="9. Cleanup Worktree"];
     next [label="Next task?" shape=diamond];
 
-    resolve -> pick -> worktree -> verify_wt;
+    validate -> resolve -> pick -> worktree -> verify_wt;
     verify_wt -> implement [label="in worktree"];
     verify_wt -> worktree [label="NOT in worktree\nSTOP"];
     implement -> commit -> deliver -> pr -> ci_loop;
@@ -89,6 +91,20 @@ digraph pipeline {
     next -> resolve [label="done"];
 }
 ```
+
+### 0. Validate Configuration
+
+Before any pipeline step, validate the loaded `flowyeah.yml`:
+
+1. **Required keys:** `hosting` must be present and point to an adapter with `hosting.md`. `code_review.agents` must be non-empty.
+2. **Adapter references:** every entry in `sources` must have a corresponding `adapters/<name>/source.md`. The `hosting` value must have `adapters/<hosting>/hosting.md`. If `issues.adapter` is set, it must have `adapters/<adapter>/source.md`.
+3. **Auth verification:** for each adapter that will be used in this run (determined by the source command and hosting), verify credentials are reachable:
+   - Adapters with `token_env` + `token_source` → check the env var exists (via the token source file)
+   - `github` → verify `gh auth status` succeeds
+   - `linear` → verify Linear MCP is available
+4. **Report all issues at once** — don't fail on the first error. Collect all validation failures and present them together so the user can fix everything in one pass.
+
+If validation fails, STOP with actionable error messages. Do not proceed with a broken config.
 
 ### 1. Resolve Source
 
@@ -121,6 +137,7 @@ Create worktree and branch. **Always worktree, always branch.**
 git checkout $DEFAULT_BRANCH && git pull origin $DEFAULT_BRANCH
 mkdir -p .flowyeah/worktrees tmp/flowyeah/plans
 git check-ignore -q .flowyeah 2>/dev/null || echo ".flowyeah/" >> .gitignore
+git check-ignore -q tmp 2>/dev/null || echo "tmp/" >> .gitignore
 git worktree add .flowyeah/worktrees/<type>-<slug> -b <type>/<slug>
 ```
 
@@ -193,8 +210,12 @@ Commit using project conventions from `flowyeah.yml`:
 # Rebase (if pull_requests.rebase is true)
 git fetch origin $DEFAULT_BRANCH && git rebase origin/$DEFAULT_BRANCH
 
-# Push
-git push -u origin $BRANCH --force-with-lease
+# Push (force-with-lease only after rebase; regular push otherwise)
+if pull_requests.rebase; then
+  git push -u origin $BRANCH --force-with-lease
+else
+  git push -u origin $BRANCH
+fi
 ```
 
 **Test scope** (`testing.scope`):
@@ -246,7 +267,11 @@ Code review results are reported in the terminal only — this is your current w
 
 - Promote qualified findings from `.flowyeah/findings.md` to auto memory
 - Check `[x]` in `tmp/flowyeah/plans/<key>.md` (from main checkout, after merge)
-- If the source was an issue tracker, update the issue status per project conventions
+- If the source was an issue tracker, update the issue status:
+  - **GitLab:** auto-closed via `Closes #<iid>` in MR description (no action needed)
+  - **GitHub:** auto-closed via `Closes #<number>` in PR body (no action needed)
+  - **Linear:** call `save_issue(id: "<id>", state: "Done")` via MCP
+  - **Bugsink/New Relic:** no action — errors auto-resolve when the fix is deployed
 
 ### 9. Cleanup Worktree
 
@@ -268,6 +293,16 @@ loop:
   4. Stop condition? → stop and ask
   5. Success? → back to step 1
 ```
+
+## Plan Lifecycle
+
+Plans in `tmp/flowyeah/plans/` accumulate over time. Cleanup rules:
+
+- **Completed plans** (all tasks `[x]`): keep for 7 days after last modification, then delete on next `flowyeah:build` invocation
+- **Active plans** (unchecked tasks remain): never auto-delete
+- **Orphaned plans** (no matching branches, no recent modification >30 days): warn the user and offer to delete
+
+On each `flowyeah:build` run, before resolving the source, check for stale completed plans and clean up silently. Log deletions to stdout so the user knows what was removed.
 
 ## Session Management
 
@@ -294,6 +329,7 @@ Must have parseable header lines for crash recovery summaries:
 Type: build
 Status: Implementing
 Step: 4 (Implement) — TDD phase
+Mode: single                          # single | continuous
 Task: Webhook retry logic
 Source: GITLAB:#5588
 Plan: tmp/flowyeah/plans/gitlab-5588.md  # relative to main checkout
@@ -414,6 +450,18 @@ After a crash, the user returns to the main checkout. Run `flowyeah:build`:
    ```
 4. `cd` into chosen worktree and continue from state.md
 
+### Pipeline Rollback
+
+When a pipeline step fails irrecoverably (e.g., 3 CI failures, merge conflict that can't be resolved):
+
+1. **Before worktree cleanup:** save `state.md` and `findings.md` to `tmp/flowyeah/aborted/<key>/` for post-mortem
+2. **Reset the plan task:** uncheck `[x]` → `[ ]` in `tmp/flowyeah/plans/<key>.md` if it was prematurely marked
+3. **Clean up remote:** delete the remote branch if the PR was already created but not merged
+4. **Clean up worktree:** remove with `git worktree remove`
+5. **Report:** summarize what happened, what was saved, and what the user should do next
+
+The aborted session artifacts in `tmp/flowyeah/aborted/` persist until manually deleted, so the user can review what went wrong.
+
 ### Session End (step 8-9)
 
 Before worktree cleanup:
@@ -449,6 +497,8 @@ If `flowyeah.yml` does not exist, load `setup.md` from the plugin root and follo
 ### Schema
 
 ```yaml
+version: 1                          # config schema version — bump when making breaking changes
+
 # ── Core pipeline config (schema-defined) ──
 
 language: pt-br                   # used for commits, PRs, and review comments
@@ -507,6 +557,7 @@ adapters:
 
 sources:                            # list of adapter keys usable as sources
   - gitlab
+  - github
   - linear
   - bugsink
   - newrelic
@@ -527,13 +578,13 @@ hosting: gitlab                   # gitlab | github — points to adapters.<host
 | `testing.scope` | `related` |
 | `commits.conventions` | `conventional` |
 | `commits.writer` | `null` (manual) |
-| `pull_requests.delete_source_branch` | `false` |
+| `pull_requests.delete_source_branch` | `true` |
 | `pull_requests.rebase` | `true` |
 | `pull_requests.merge` | `manual` |
 | `pull_requests.merge_strategy` | `squash` |
 | `code_review.agents` | **None — STOP and complain if empty** |
 | `issues.create_when_missing` | `ask` |
-| `issues.adapter` | **Required — STOP if missing. Must be an adapter that has a `source.md` file.** |
+| `issues.adapter` | **Required when `create_when_missing` is `ask` or `always`. Must be an adapter that has a `source.md` file.** |
 
 ### Adapters
 
