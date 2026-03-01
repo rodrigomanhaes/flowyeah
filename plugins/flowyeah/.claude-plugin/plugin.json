@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Plan-to-PR pipeline. Takes any source, produces tested, reviewed, merged PRs with git worktree isolation, TDD, code review, and CI verification.",
   "license": "MIT",
-  "author": "Rodrigo Manhães",
+  "author": {"name": "Rodrigo Manhães"},
   "repository": "https://gitlab.com/rodrigomanhaes/flowyeah",
   "keywords": ["workflow", "git", "tdd", "code-review", "ci", "worktree", "pipeline"]
 }

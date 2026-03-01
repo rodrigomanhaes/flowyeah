@@ -68,6 +68,15 @@ Detect from project files:
 
 Options: `related` (default), `full`
 
+### 6b. Brainstorming
+
+> Always brainstorm before implementing, or let AI decide?
+
+Options: `always`, `auto` (default)
+
+- **`always`** — every task goes through brainstorm → plan → TDD. Recommended for large or complex codebases where even small changes need discussion.
+- **`auto`** — AI assesses complexity: trivial tasks skip brainstorming, non-trivial tasks get the full cycle.
+
 ### 7. Language and commit conventions
 
 > What language for commits, PRs, and review comments?
@@ -145,6 +154,9 @@ git:
 testing:
   command: <answer>
   scope: <answer>
+
+implementation:
+  brainstorm: <answer>
 
 commits:
   conventions: <answer>

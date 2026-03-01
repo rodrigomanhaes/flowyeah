@@ -190,13 +190,20 @@ Use `$MAIN_WORKTREE/tmp/flowyeah/plans/<key>.md` to access plan files from insid
 
 ### 4. Implement
 
-**Trivial tasks** (single config change, rename, docs-only): TDD directly.
+**Check `implementation.brainstorm` in `flowyeah.yml`:**
 
-**Non-trivial tasks:**
+- **`always`** — brainstorm → plan → TDD for every task, regardless of apparent complexity. Use this for large or complex codebases where even small changes need discussion.
+- **`auto`** (default) — trivial tasks (single config change, rename, docs-only) go straight to TDD; non-trivial tasks go through the full brainstorm → plan → TDD cycle.
+
+**Full cycle (when brainstorming):**
 1. **Brainstorm** — explore task, constraints, edge cases. Use `superpowers:brainstorming`.
 2. **Plan** — create implementation steps. Use `superpowers:writing-plans`.
 3. **TDD** — test first, minimal code, refactor. Use `superpowers:test-driven-development`.
 4. Update `state.md` on every phase transition.
+
+**Direct TDD (when skipping brainstorm):**
+1. Write failing test → make pass → refactor. Use `superpowers:test-driven-development`.
+2. Update `state.md` after completion.
 
 ### 5. Commit
 
@@ -524,6 +531,9 @@ testing:
   command: bundle exec rspec
   scope: related                  # related | full
 
+implementation:
+  brainstorm: always              # always | auto
+
 commits:
   conventions: conventional       # conventional | freeform
   writer: git-commit-writer       # agent name, or null for manual
@@ -591,6 +601,7 @@ hosting: gitlab                   # gitlab | github — points to adapters.<host
 | `hosting` | **Required — STOP if missing. Must be an adapter that has a `hosting.md` file.** |
 | `testing.command` | **Required — STOP and ask the user if missing. Suggest based on project files (Gemfile → `bundle exec rspec`, package.json → `npm test`, etc.)** |
 | `testing.scope` | `related` |
+| `implementation.brainstorm` | `auto` |
 | `commits.conventions` | `conventional` |
 | `commits.writer` | `git-commit-writer` |
 | `pull_requests.delete_source_branch` | `true` |
