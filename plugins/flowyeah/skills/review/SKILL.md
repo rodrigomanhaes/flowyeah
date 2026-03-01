@@ -93,6 +93,19 @@ Findings: <count> total, <approved> approved
 Phase: <current_phase>
 ```
 
+**Valid `Phase` values** (map to steps, used for crash recovery):
+
+| Phase | Step | Recovery action |
+|-------|------|-----------------|
+| `Validating Config` | 0 | Re-run from start |
+| `Identifying PR` | 1-1b | Re-run from start |
+| `Gathering Context` | 2-2b | Re-run context gathering |
+| `Running Agents` | 3-3b | Re-run agents (results lost) |
+| `Scoring` | 4 | Re-run scoring (agent results lost) |
+| `Interactive Approval` | 5 | Read `review-approved.md`, continue from next unapproved finding |
+| `Choosing Review Type` | 6 | Re-ask review type question |
+| `Submitting Review` | 7 | Check if review was posted, retry or clean up |
+
 During interactive approval (step 5), persist each approval decision to `.flowyeah/review-approved.md`:
 
 ```markdown

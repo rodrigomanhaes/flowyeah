@@ -131,15 +131,17 @@ Ask if they want to customize the list.
 
 ### 10. Issues
 
-> Which adapter handles issue tracking?
-
-Options: list the adapters selected in step 2 that support issue creation (gitlab, github, linear). Bugsink and New Relic are read-only sources — they cannot create issues.
-
-This is required when `create_when_missing` is `always` or `ask`. If the user chose `never`, skip this question.
-
 > Create issues automatically when the source wasn't an issue tracker?
 
 Options: `ask` (default), `always`, `never`
+
+**If the user chose `always` or `ask`:**
+
+> Which adapter handles issue creation?
+
+Options: list the adapters selected in step 2 that support issue creation (gitlab, github, linear). Bugsink and New Relic are read-only sources — they cannot create issues.
+
+**If the user chose `never`:** skip the adapter question.
 
 ### 11. Hooks
 

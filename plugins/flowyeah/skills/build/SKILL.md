@@ -101,13 +101,15 @@ digraph pipeline {
 
 Before any pipeline step, validate the loaded `flowyeah.yml`:
 
-1. **Required keys:** `hosting` must be present and point to an adapter with `hosting.md`. `code_review.agents` must be non-empty.
+1. **Required keys:** `hosting` must be present and point to an adapter with `hosting.md`. `code_review.agents` must be non-empty. `testing.command` must be present — if missing, STOP and ask the user. Suggest based on project files (Gemfile → `bundle exec rspec`, package.json → `npm test`, Cargo.toml → `cargo test`).
 2. **Adapter references:** every entry in `sources` must have a corresponding `adapters/<name>/source.md`. The `hosting` value must have `adapters/<hosting>/hosting.md`. If `issues.adapter` is set, it must be an adapter that supports issue creation (gitlab, github, or linear) — bugsink and newrelic are read-only sources.
-3. **Auth verification:** for each adapter that will be used in this run (determined by the source command and hosting), verify credentials are reachable:
+3. **Compatibility checks:**
+   - If `hosting: gitlab` and `merge_strategy: rebase` → warn the user that GitLab's rebase is a project-level setting, not controllable per MR via API. Recommend `squash` or `merge`. Do not STOP — let the user decide whether to change the config.
+4. **Auth verification:** for each adapter that will be used in this run (determined by the source command and hosting), verify credentials are reachable:
    - Adapters with `token_env` + `token_source` → check the env var exists (via the token source file)
    - `github` → verify `gh auth status` succeeds
    - `linear` → verify Linear MCP is available
-4. **Report all issues at once** — don't fail on the first error. Collect all validation failures and present them together so the user can fix everything in one pass.
+5. **Report all issues at once** — don't fail on the first error. Collect all validation failures and present them together so the user can fix everything in one pass.
 
 If validation fails, STOP with actionable error messages. Do not proceed with a broken config.
 
@@ -164,6 +166,16 @@ git worktree add .flowyeah/worktrees/<type>-<slug> -b <type>/<slug>
 | "Refactor...", "Extract...", "Move..." | `refactor` |
 | "Update deps", "Configure..." | `chore` |
 | Ambiguous | Ask the user |
+
+**Claim issue (when source is an issue tracker):**
+
+If the source came from an issue tracker (GITLAB, GITHUB, LINEAR), assign the issue to the current dev now — before any implementation begins. This signals to the team that someone is working on it.
+
+- **GitLab:** use the hosting adapter's "Issue Assignment" section
+- **GitHub:** `gh issue edit <number> --add-assignee "@me"`
+- **Linear:** `save_issue(id: "<id>", assignee: "me")` via MCP
+
+If the source is not an issue tracker (prose, BUGSINK, NEWRELIC), skip — there's no issue to claim. Issue creation stays at Step 7b (`issues.create_when_missing`).
 
 Create session directory and state files in the worktree:
 
@@ -298,6 +310,8 @@ After a successful merge, check `hooks` in `flowyeah.yml` for any configured hoo
 2. If present, read the markdown file at the configured path
 3. Follow the instructions in the file, using the pipeline context (branch name, MR/PR details, issue reference, adapter config from `flowyeah.yml`)
 4. If the file doesn't exist, warn the user and continue
+
+**Hooks are best-effort.** The merge already happened — the code is delivered. If hook instructions fail (API error, resource not found, permission denied), report the failure to the user with details, suggest manual action, and continue to step 9. Do not retry, do not roll back the merge.
 
 **Hook files** are project-level artifacts, versioned with the project. They follow the same pattern as adapters: markdown instructions that the AI reads and follows.
 
@@ -536,6 +550,8 @@ Before claiming a task, check if another instance is already working on it:
 1. `git branch -a | grep -E 'feat/|fix/|refactor/|chore/'`
 2. Branch with task slug exists → task claimed → pick next
 3. Creating branch = claiming the task
+
+**Known limitation:** Two `--continuous` sessions working on the same plan file can race when marking tasks as `[x]`. Branch coordination prevents picking the same task, but concurrent file writes are unguarded. Recommend one `--continuous` session per plan.
 
 ## Task Sizing
 

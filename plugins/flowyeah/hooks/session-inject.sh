@@ -16,6 +16,15 @@ if [ -f "$TOPLEVEL/.flowyeah/review-state.md" ]; then
     echo "## STATE"
     cat "$TOPLEVEL/.flowyeah/review-state.md"
     echo ""
+
+    # Inject approved findings summary (survives compaction)
+    if [ -f "$TOPLEVEL/.flowyeah/review-approved.md" ]; then
+        echo "## APPROVED FINDINGS"
+        # Extract finding headers with file and label for quick reference
+        grep -E '^## Finding |^- File:|^- Label:' "$TOPLEVEL/.flowyeah/review-approved.md" 2>/dev/null || echo "(no approved findings yet)"
+        echo ""
+    fi
+
     echo "──────────────────────────────────────────────"
     echo ""
 fi

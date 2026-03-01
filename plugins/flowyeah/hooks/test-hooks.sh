@@ -186,6 +186,58 @@ assert_output_not_contains "inject review: no PROGRESS" "## PROGRESS" "$OUTPUT"
 assert_output_not_contains "inject review: no FINDINGS" "## FINDINGS" "$OUTPUT"
 teardown
 
+# Test: review session injects approved findings summary
+setup_repo
+touch flowyeah.yml
+mkdir -p .flowyeah
+cat > .flowyeah/review-state.md <<'EOF'
+# Current State
+
+Type: review
+Status: Interactive Approval
+PR/MR: 42
+Findings: 5 total, 2 approved
+Phase: Interactive Approval
+EOF
+cat > .flowyeah/review-approved.md <<'EOF'
+# Approved Findings
+
+## Finding 1
+- File: app/models/payment.rb:42
+- Label: issue (blocking)
+- Body: |
+    **issue (blocking):** Race condition
+
+## Finding 3
+- File: app/services/webhook.rb:15
+- Label: suggestion (non-blocking)
+- Body: |
+    **suggestion (non-blocking):** Extract method
+EOF
+OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+assert_output_contains "inject review approved: shows APPROVED section" "## APPROVED FINDINGS" "$OUTPUT"
+assert_output_contains "inject review approved: shows finding 1" "## Finding 1" "$OUTPUT"
+assert_output_contains "inject review approved: shows file" "app/models/payment.rb:42" "$OUTPUT"
+assert_output_contains "inject review approved: shows label" "issue (blocking)" "$OUTPUT"
+assert_output_contains "inject review approved: shows finding 3" "## Finding 3" "$OUTPUT"
+teardown
+
+# Test: review session without approved findings shows no APPROVED section
+setup_repo
+touch flowyeah.yml
+mkdir -p .flowyeah
+cat > .flowyeah/review-state.md <<'EOF'
+# Current State
+
+Type: review
+Status: Gathering Context
+PR/MR: 42
+Phase: Gathering Context
+EOF
+OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+assert_output_not_contains "inject review no approved: no APPROVED section" "## APPROVED FINDINGS" "$OUTPUT"
+teardown
+
 # Test: review session coexists with build worktree sessions
 setup_repo
 touch flowyeah.yml
