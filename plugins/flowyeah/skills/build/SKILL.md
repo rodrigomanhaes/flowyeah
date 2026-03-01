@@ -80,6 +80,7 @@ digraph pipeline {
     deliver [label="6. Test → Rebase → Push"];
     pr [label="7. Create PR/MR"];
     ci_loop [label="7b. CI + Code Review Loop" shape=diamond];
+    merge_decision [label="7c. Merge Decision\n(pull_requests.merge)" shape=diamond];
     hooks [label="8. Run Hooks\n(after_merge)"];
     mark [label="9. Mark Task Done"];
     cleanup [label="10. Cleanup Worktree"];
@@ -90,7 +91,11 @@ digraph pipeline {
     verify_wt -> worktree [label="NOT in worktree\nSTOP"];
     implement -> commit -> deliver -> pr -> ci_loop;
     ci_loop -> commit [label="issues found\nfix → commit → push\nskip review on retry"];
-    ci_loop -> hooks [label="CI green +\nreview clean"];
+    ci_loop -> merge_decision [label="CI green +\nreview clean"];
+    merge_decision -> hooks [label="auto:\nmerge via adapter"];
+    merge_decision -> cleanup [label="manual:\nSTOP, report URL"];
+    merge_decision -> hooks [label="ask:\nuser says yes"];
+    merge_decision -> cleanup [label="ask:\nuser says no"];
     hooks -> mark -> cleanup -> next;
     next -> pick [label="--continuous"];
     next -> resolve [label="done"];
@@ -257,16 +262,6 @@ Load the hosting adapter from `adapters/<hosting>/connection.md` + `adapters/<ho
 - **Body:** summary of changes. If `Issue-Close` exists in `state.md`, include it — e.g., `Closes #5588`.
 - **Delete source branch:** `pull_requests.delete_source_branch`
 
-**After CI + review pass:**
-- `pull_requests.merge: auto` → use the hosting adapter to merge
-- `pull_requests.merge: manual` → report PR URL and stop
-- `pull_requests.merge: ask` → ask the user
-
-**Merge failure recovery (auto mode):**
-- **Merge conflict** (target branch moved ahead): rebase onto target, resolve conflicts, push, wait for CI again
-- **Protected branch rejection** (insufficient permissions, required approvals): report the error and switch to `manual` mode — show the PR URL and let the user handle it
-- **Concurrent merge** (another PR merged first, branch is stale): same as merge conflict — rebase and retry once
-
 Code review results are reported in the terminal only — this is your current work session, not a team review artifact.
 
 ### 7b. CI + Code Review Loop
@@ -280,19 +275,41 @@ Code review results are reported in the terminal only — this is your current w
    - **`code_review.optional_agents`** — launch based on what changed (e.g., security-analyst if auth code was touched, code-quality-analyst for large refactors). Use judgment.
    - **If `code_review.agents` is empty or missing: STOP and complain. Do NOT continue without code review.**
 
-2. **Issue creation opportunity.** If the source was NOT an issue tracker, check `issues.create_when_missing`:
-   - `ask` — ask the user if an issue should be created
-   - `always` — create one automatically via `issues.adapter`
-   - `never` — skip
+2. **Issue creation opportunity.** If the source was NOT an issue tracker (i.e., it was a file or a conversation), you MUST check `issues.create_when_missing`:
+
+   | `issues.create_when_missing` | Action |
+   |------------------------------|--------|
+   | `ask` | **STOP and ask the user:** "Deseja criar uma issue para rastrear este trabalho?" If yes, create via `issues.adapter`. If no, skip. **You MUST ask — do not silently skip.** |
+   | `always` | Create one automatically via `issues.adapter`. |
+   | `never` | Skip silently. |
+
+   When creating an issue, use the source adapter pointed to by `issues.adapter` to create it. Save the resulting Issue Linkage values (`Issue-Ref`, `Issue-Close`) to `state.md` — they will be used for the PR title and body.
 
 **When results come back:**
 
-- **CI passes AND review clean** → proceed to step 8 (hooks)
+- **CI passes AND review clean** → proceed to step 7c (merge decision)
 - **CI fails** → investigate, fix, create a new commit (not amend), restart from step 5 (commit → test → push). Skip code review on retry. Any CI failure is YOUR failure. Assume CI is evergreen.
 - **Review agents find issues** → fix, create a new commit, restart from step 5 (commit → test → push). Skip code review on retry — the review already told you what to fix.
 - **CI fails 3 times** → STOP and ask for guidance
 
 **Git strategy for fixes:** Always create new commits, never amend. The PR will be squash-merged anyway (per `merge_strategy`), so individual fix commits don't clutter the final history. New commits also make it easier to review what changed between CI runs.
+
+### 7c. Merge Decision
+
+**CRITICAL — you MUST respect `pull_requests.merge` before merging anything:**
+
+| `pull_requests.merge` | Action | Can you merge? |
+|----------------------|--------|----------------|
+| `auto` | Use the hosting adapter to merge | Yes |
+| `manual` | **STOP.** Report the PR/MR URL and do NOT merge. Do NOT proceed to step 8. Skip directly to step 9 (mark task) and step 10 (cleanup). | **No. Never.** |
+| `ask` | **STOP.** Ask the user: "Merge agora?" with options Yes/No. Only merge if they say yes. If they say no, report the PR/MR URL, skip to step 9 and 10. | **Only if user says yes** |
+
+**If `pull_requests.merge` is `manual` or `ask` (and user says no), the pipeline ends here for this task.** Steps 8 (hooks) only run after a successful merge — skip them. Proceed to step 9 (mark task done in plan) and step 10 (cleanup worktree), then pick the next task.
+
+**Merge failure recovery (auto mode only):**
+- **Merge conflict** (target branch moved ahead): rebase onto target, resolve conflicts, push, wait for CI again
+- **Protected branch rejection** (insufficient permissions, required approvals): report the error and switch to `manual` mode — show the PR URL and let the user handle it
+- **Concurrent merge** (another PR merged first, branch is stale): same as merge conflict — rebase and retry once
 
 ### 8. Run Hooks
 
@@ -742,3 +759,6 @@ The core skill reads the adapter and follows its instructions. **Config lookup r
 - Ignore test failures, warnings, or errors
 - Assume requirements when unsure
 - Give back the prompt during CI wait
+- **Merge a PR/MR when `pull_requests.merge` is `manual`** — STOP and report the URL
+- **Merge a PR/MR when `pull_requests.merge` is `ask` without asking the user first**
+- **Skip the issue creation question when `issues.create_when_missing` is `ask`** — you MUST ask
