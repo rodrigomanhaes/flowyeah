@@ -26,7 +26,8 @@ Plan-to-PR pipeline for Claude Code. Takes any source — issues, error trackers
 1. Install the plugin in Claude Code
 2. Run `flowyeah:build` or `flowyeah:review` in your project — either will interactively create `flowyeah.yml` on first run
 3. Commit `flowyeah.yml` to your repo
-4. Add `tmp/` to your `.gitignore` — flowyeah stores plan files in `tmp/flowyeah/plans/`
+
+The build pipeline automatically adds `.flowyeah/` and `tmp/` to `.gitignore` when creating worktrees.
 
 ## Project Configuration
 

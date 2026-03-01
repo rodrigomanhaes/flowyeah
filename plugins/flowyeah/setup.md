@@ -78,6 +78,12 @@ Default: `en`
 
 Options: `conventional` (default), `freeform`
 
+> Use a commit writer agent?
+
+Options: `git-commit-writer` (default), `null` (write manually)
+
+If `git-commit-writer`, the pipeline delegates commit message authoring to that agent. If `null`, commits are written inline.
+
 ### 8. PR/MR preferences
 
 > Delete source branch after merge?
@@ -144,6 +150,7 @@ testing:
 
 commits:
   conventions: <answer>
+  writer: <answer>
 
 pull_requests:
   delete_source_branch: <answer>

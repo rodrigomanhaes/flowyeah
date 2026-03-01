@@ -93,11 +93,29 @@ Findings: <count> total, <approved> approved
 Phase: <current_phase>
 ```
 
+During interactive approval (step 5), persist each approval decision to `.flowyeah/review-approved.md`:
+
+```markdown
+# Approved Findings
+
+## Finding 1
+- File: app/models/payment.rb:42
+- Label: issue (blocking)
+- Body: |
+    **issue (blocking):** Race condition na criação de pagamento
+    ...
+
+## Finding 2
+...
+```
+
+This file ensures that if compaction or a crash interrupts the approval flow, previously approved findings are recoverable.
+
 Review sessions use `review-state.md` (not `state.md`) so they never interfere with build sessions in worktrees. Both can coexist — the injection hook handles them separately.
 
-Update after each phase transition. The hook injection ensures state survives compaction.
+Update `review-state.md` after each phase transition. The hook injection ensures state survives compaction.
 
-No `mission.md`, `progress.md`, or `findings.md` — reviews are short-lived and don't need the full session.
+No `mission.md`, `progress.md`, or full `findings.md` — reviews are short-lived. Only `review-approved.md` is needed for the approval checkpoint.
 
 ### Crash Recovery
 
@@ -106,8 +124,8 @@ If a review session is interrupted (compaction, crash, user abort):
 1. The hook injects `review-state.md` into the next prompt
 2. Resume from the last recorded phase
 3. If the phase was before "Interactive Approval" (step 5), re-run from that phase
-4. If during or after approval, re-read approved findings and continue
-5. If the review was already submitted, clean up the state file
+4. If during or after approval, read `review-approved.md` to recover previously approved findings and continue from the next unapproved finding
+5. If the review was already submitted, clean up both state files
 
 ## Steps
 
@@ -157,11 +175,11 @@ Collect in parallel:
 
 Analyze in 3 dimensions:
 
-**Completude (Completeness):** Does the implementation cover everything the issue asks for? For each requirement/acceptance criterion in the issue, check if the diff contains corresponding implementation. Generate a finding for unimplemented requirements.
+**Completeness:** Does the implementation cover everything the issue asks for? For each requirement/acceptance criterion in the issue, check if the diff contains corresponding implementation. Generate a finding for unimplemented requirements.
 
-**Pertinência (Scope Creep):** Is there code unrelated to what the issue asks for? Compare changed files/logic against the issue's scope. Use good judgment — refactoring needed for the feature IS pertinent.
+**Scope:** Is there code unrelated to what the issue asks for? Compare changed files/logic against the issue's scope. Use good judgment — refactoring needed for the feature IS pertinent.
 
-**Coerência (Coherence):** Does the implementation approach make sense to solve the described problem? Flag when the implementation seems to solve a different problem than what the issue describes.
+**Coherence:** Does the implementation approach make sense to solve the described problem? Flag when the implementation seems to solve a different problem than what the issue describes.
 
 ### 3. Run Review Agents
 
@@ -186,9 +204,21 @@ Run directly (not delegated to agents):
 
 **Naming Consistency:** Flag semantic inconsistencies — names that contradict each other, method names that don't match behavior.
 
+**Scoring for critical checks:** DB concurrency and API backward compatibility findings default to severity `issue (blocking)` with confidence 90. CLAUDE.md compliance defaults to severity `issue` with confidence 75. Naming consistency defaults to `suggestion (non-blocking)` with confidence 50. Adjust based on evidence.
+
 ### 4. Score & Consolidate
 
-**Confidence scoring (0-100):**
+**Severity** (determined by the Conventional Comments label):
+
+| Severity | Label | Description |
+|----------|-------|-------------|
+| Blocker | `issue (blocking)` | Must fix before merge. Will cause production bugs. |
+| Important | `issue` | Should be fixed. May cause problems. |
+| Suggestion | `suggestion (non-blocking)` | Nice to have. Improves code quality. |
+| Nitpick | `nitpick (non-blocking)` | Minor. Only mention if few other issues. |
+| Informational | `question`, `thought`, `note` | Not a fix request — seeks clarification or shares context. |
+
+**Confidence scoring (0-100)** — how certain you are that the finding is real:
 
 | Score | Meaning |
 |-------|---------|
@@ -200,7 +230,7 @@ Run directly (not delegated to agents):
 
 **Consolidate findings:**
 1. Remove duplicates (same file+line+issue from multiple sources)
-2. Sort by severity (blocker first), then by confidence
+2. Sort by severity (blocker first), then by confidence within each severity level
 3. Group by category
 
 **False positive rubric — do NOT flag:**
@@ -209,7 +239,7 @@ Run directly (not delegated to agents):
 - Issues linters/typecheckers/CI will catch
 - General quality issues unless explicitly in CLAUDE.md
 - Issues silenced with lint-ignore comments
-- Missing `frozen_string_literal` in migration files
+- Language-specific linter defaults in generated/migration files (e.g., Ruby's `frozen_string_literal` in migrations)
 
 **"Touched it, own it":** If the PR touches a file (even for refactoring), the author is responsible for issues in that code. Only truly untouched lines are excluded.
 
@@ -276,7 +306,7 @@ Load the review adapter and follow its instructions to:
 
 Ask for final confirmation before posting.
 
-After posting (or if the user discards), remove `.flowyeah/review-state.md` to end the session.
+After posting (or if the user discards), remove `.flowyeah/review-state.md` and `.flowyeah/review-approved.md` to end the session.
 
 ### Review Body Template
 
@@ -306,8 +336,9 @@ Review comments are written in the language configured in `language`. Default: `
 |-------|--------|
 | PR/MR not found | Ask user for number/URL |
 | Agent fails | Report which failed, continue with others |
-| Auth failed | Guide to authentication setup |
-| Rate limited | Report and suggest waiting |
+| Auth failed (401/403) | Guide to authentication setup. If token may have expired mid-operation, suggest refreshing and retrying. |
+| Rate limited (429) | Wait for the duration indicated in `Retry-After` header (or 60s if absent), then retry once. If still rate-limited, report and suggest waiting. |
+| Transient error (5xx, timeout) | Retry once after 5 seconds. If still failing, report the error. |
 | Inline comment position not in diff | Move finding to review body |
 
 ## Never

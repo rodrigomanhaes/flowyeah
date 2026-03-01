@@ -46,8 +46,8 @@ elif [ -d "$TOPLEVEL/.flowyeah/worktrees" ]; then
         echo ""
         for dir in "${SESSIONS[@]}"; do
             WT_NAME=$(basename "$(dirname "$dir")")
-            TASK=$(grep -m1 '^Task:' "$dir/state.md" 2>/dev/null | sed 's/^Task: //' || echo "unknown")
-            STEP=$(grep -m1 '^Step:' "$dir/state.md" 2>/dev/null | sed 's/^Step: //' || echo "unknown")
+            TASK=$(grep -m1 '^Task:' "$dir/state.md" 2>/dev/null | cut -d' ' -f2- || echo "unknown")
+            STEP=$(grep -m1 '^Step:' "$dir/state.md" 2>/dev/null | cut -d' ' -f2- || echo "unknown")
             echo "  - $WT_NAME → $TASK ($STEP)"
         done
         echo ""
@@ -59,8 +59,11 @@ else
     exit 0
 fi
 
-# Detect session type
-SESSION_TYPE=$(grep -m1 '^Type:' "$SESSION_DIR/state.md" 2>/dev/null | sed 's/^Type: //' || echo "build")
+# Detect and validate session type
+SESSION_TYPE=$(grep -m1 '^Type:' "$SESSION_DIR/state.md" 2>/dev/null | cut -d' ' -f2- || echo "build")
+if [ "$SESSION_TYPE" != "build" ] && [ "$SESSION_TYPE" != "review" ]; then
+    SESSION_TYPE="build"
+fi
 
 # Inject session state
 echo "───── flowyeah:${SESSION_TYPE} session ─────"

@@ -40,8 +40,12 @@ If source is prose without tasks: brainstorm with the user, generate a task plan
 ## Tasks
 - [ ] Task description
 - [ ] Another task
+  - [ ] Subtask A (leaf — this gets picked first)
+  - [ ] Subtask B
 - [x] Completed task
 ```
+
+Nesting uses standard markdown indentation (2 spaces). Only **leaf tasks** (no children) are picked for implementation. A parent task is automatically marked `[x]` when all its children are done.
 
 Saved to `tmp/flowyeah/plans/<key>.md` in the main checkout.
 
@@ -238,6 +242,11 @@ Load the hosting adapter from `adapters/<hosting>/connection.md` + `adapters/<ho
 - `pull_requests.merge: manual` → report PR URL and stop
 - `pull_requests.merge: ask` → ask the user
 
+**Merge failure recovery (auto mode):**
+- **Merge conflict** (target branch moved ahead): rebase onto target, resolve conflicts, push, wait for CI again
+- **Protected branch rejection** (insufficient permissions, required approvals): report the error and switch to `manual` mode — show the PR URL and let the user handle it
+- **Concurrent merge** (another PR merged first, branch is stale): same as merge conflict — rebase and retry once
+
 Code review results are reported in the terminal only — this is your current work session, not a team review artifact.
 
 ### 7b. CI + Code Review Loop
@@ -259,9 +268,11 @@ Code review results are reported in the terminal only — this is your current w
 **When results come back:**
 
 - **CI passes AND review clean** → proceed to step 8
-- **CI fails** → investigate, fix, restart from step 5 (commit → test → push). Skip code review on retry. Any CI failure is YOUR failure. Assume CI is evergreen.
-- **Review agents find issues** → fix, restart from step 5 (commit → test → push). Skip code review on retry — the review already told you what to fix.
+- **CI fails** → investigate, fix, create a new commit (not amend), restart from step 5 (commit → test → push). Skip code review on retry. Any CI failure is YOUR failure. Assume CI is evergreen.
+- **Review agents find issues** → fix, create a new commit, restart from step 5 (commit → test → push). Skip code review on retry — the review already told you what to fix.
 - **CI fails 3 times** → STOP and ask for guidance
+
+**Git strategy for fixes:** Always create new commits, never amend. The PR will be squash-merged anyway (per `merge_strategy`), so individual fix commits don't clutter the final history. New commits also make it easier to review what changed between CI runs.
 
 ### 8. Mark Task Done + Close Session
 
@@ -290,19 +301,24 @@ loop:
   1. Pick next task
   2. None left? → "Plan complete" → exit
   3. Worktree → implement → commit → test → push → PR → CI loop
-  4. Stop condition? → stop and ask
+  4. Stop condition hit? → stop and ask
   5. Success? → back to step 1
 ```
 
+**Stop conditions for continuous mode:**
+- Any stop condition from the general list (ambiguous task, 3x CI failure, architectural decision needed, etc.)
+- User sends an interrupt message
+- All tasks in the plan are complete
+
 ## Plan Lifecycle
 
-Plans in `tmp/flowyeah/plans/` accumulate over time. Cleanup rules:
+Plans in `tmp/flowyeah/plans/` accumulate over time. Cleanup rules (evaluated in order — first match wins):
 
-- **Completed plans** (all tasks `[x]`): keep for 7 days after last modification, then delete on next `flowyeah:build` invocation
-- **Active plans** (unchecked tasks remain): never auto-delete
-- **Orphaned plans** (no matching branches, no recent modification >30 days): warn the user and offer to delete
+1. **Completed plans** (all tasks `[x]`, last modified >7 days ago): delete silently, log to stdout
+2. **Active plans** (unchecked tasks remain): never auto-delete
+3. **Orphaned plans** (not completed, no matching branches, last modified >30 days ago): warn the user and offer to delete
 
-On each `flowyeah:build` run, before resolving the source, check for stale completed plans and clean up silently. Log deletions to stdout so the user knows what was removed.
+On each `flowyeah:build` run, before resolving the source, check for stale plans and clean up. First-match-wins means a completed plan is always cleaned up at 7 days — it never reaches the 30-day orphaned check.
 
 ## Session Management
 
@@ -575,6 +591,7 @@ hosting: gitlab                   # gitlab | github — points to adapters.<host
 | `git.default_branch` | `main` |
 | `sources` | All adapter keys that have a `source.md` |
 | `hosting` | **Required — STOP if missing. Must be an adapter that has a `hosting.md` file.** |
+| `testing.command` | **Required — STOP and ask the user if missing. Suggest based on project files (Gemfile → `bundle exec rspec`, package.json → `npm test`, etc.)** |
 | `testing.scope` | `related` |
 | `commits.conventions` | `conventional` |
 | `commits.writer` | `null` (manual) |
@@ -635,6 +652,9 @@ The core skill reads the adapter and follows its instructions. **Config lookup r
 | Architectural decision needed | Present options, ask |
 | Missing dependency | State what's needed |
 | No code review agents | STOP and complain |
+| Auth failure (401/403) | Token may have expired — report the error and ask for a fresh token |
+| Rate limited (429) | Wait for `Retry-After` duration (or 60s), retry once. If still limited, ask. |
+| Transient API error (5xx, timeout) | Retry once after 5 seconds. If still failing, report and ask. |
 
 **When stopping, always provide:**
 1. What you were trying to do

@@ -90,8 +90,17 @@ OUTPUT=$(bash "$SCRIPT_DIR/session-remind.sh" 2>&1 || true)
 assert_empty "remind: silent outside git repo" "$OUTPUT"
 cd /; rm -rf "$TMPDIR"
 
+# Test: silent when state.md exists but no flowyeah.yml
+setup_repo
+mkdir -p .flowyeah
+echo "# Current State" > .flowyeah/state.md
+OUTPUT=$(bash "$SCRIPT_DIR/session-remind.sh" 2>&1 || true)
+assert_empty "remind: silent without flowyeah.yml even with state.md" "$OUTPUT"
+teardown
+
 # Test: outputs reminder when build session is active
 setup_repo
+touch flowyeah.yml
 mkdir -p .flowyeah
 echo "# Current State" > .flowyeah/state.md
 OUTPUT=$(bash "$SCRIPT_DIR/session-remind.sh" 2>&1)
@@ -100,6 +109,7 @@ teardown
 
 # Test: outputs reminder when review session is active
 setup_repo
+touch flowyeah.yml
 mkdir -p .flowyeah
 echo "# Current State" > .flowyeah/review-state.md
 OUTPUT=$(bash "$SCRIPT_DIR/session-remind.sh" 2>&1)
@@ -254,6 +264,41 @@ assert_output_contains "inject multi: lists first session" "feat-webhook" "$OUTP
 assert_output_contains "inject multi: lists second session" "fix-payment" "$OUTPUT"
 teardown
 
+# Test: task names with special characters (/ and &)
+setup_repo
+touch flowyeah.yml
+mkdir -p .flowyeah/worktrees/feat-api/.flowyeah
+cat > .flowyeah/worktrees/feat-api/.flowyeah/state.md <<'EOF'
+Type: build
+Task: Fix API/webhook & retry handling
+Step: 4
+EOF
+mkdir -p .flowyeah/worktrees/fix-auth/.flowyeah
+cat > .flowyeah/worktrees/fix-auth/.flowyeah/state.md <<'EOF'
+Type: build
+Task: Auth/session cleanup
+Step: 2
+EOF
+OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+assert_output_contains "inject special chars: shows task with /" "API/webhook" "$OUTPUT"
+assert_output_contains "inject special chars: shows task with &" "& retry" "$OUTPUT"
+teardown
+
+# Test: invalid session type defaults to build
+setup_repo
+touch flowyeah.yml
+mkdir -p .flowyeah
+cat > .flowyeah/state.md <<'EOF'
+# Current State
+
+Type: garbage
+Status: Unknown
+EOF
+OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+assert_output_contains "inject invalid type: defaults to build" "flowyeah:build session" "$OUTPUT"
+assert_output_contains "inject invalid type: shows MISSION" "## MISSION" "$OUTPUT"
+teardown
+
 # Test: single session from main checkout
 setup_repo
 touch flowyeah.yml
@@ -270,6 +315,27 @@ EOF
 OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
 assert_output_contains "inject single remote: finds session" "Active session found" "$OUTPUT"
 assert_output_contains "inject single remote: injects state" "## STATE" "$OUTPUT"
+teardown
+
+# Test: inject works from inside a real git worktree
+setup_repo
+touch flowyeah.yml
+git add flowyeah.yml && git commit -q -m "add config"
+git worktree add -q wt-feat -b feat/test
+cd wt-feat
+mkdir -p .flowyeah
+cat > .flowyeah/state.md <<'EOF'
+# Current State
+
+Type: build
+Status: Implementing
+Task: Feature from worktree
+EOF
+OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+assert_output_contains "inject worktree: shows build session" "flowyeah:build session" "$OUTPUT"
+assert_output_contains "inject worktree: shows task" "Feature from worktree" "$OUTPUT"
+cd "$TMPDIR"
+git worktree remove wt-feat 2>/dev/null || true
 teardown
 
 # ── Results ──────────────────────────────────────────────
