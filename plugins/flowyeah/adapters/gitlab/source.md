@@ -72,7 +72,7 @@ Example: `GITLAB:#5588` → `feat/5588`
 
 ## Issue Linkage
 
-Pass these values to the hosting adapter:
-- **Close keyword:** `Closes #<iid>` (for MR description)
-- **Title suffix:** `(#<iid>)` (for MR title)
-- **Source reference:** `GITLAB:#<iid>` (for state.md tracking)
+Store these values in `state.md` for use throughout the pipeline:
+- **Issue-Ref:** `#<iid>` — appended in parentheses to PR/MR title
+- **Issue-Close:** `Closes #<iid>` — included in PR/MR body for auto-close
+- **Source:** `GITLAB:#<iid>` — for state.md tracking

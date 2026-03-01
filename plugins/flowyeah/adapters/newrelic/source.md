@@ -96,8 +96,8 @@ This prevents branch collisions when multiple error groups share the same except
 
 ## Issue Linkage
 
-Pass these values:
-- **Source reference:** `NEWRELIC:<error_group_guid>` (for state.md tracking)
+Store these values in `state.md` for use throughout the pipeline:
+- **Source:** `NEWRELIC:<error_group_guid>` — for state.md tracking
 - **Branch type override:** always `fix`
 
-Note: New Relic error groups auto-resolve when no new occurrences arrive after deployment. No API call needed to close them.
+Note: New Relic error groups auto-resolve when no new occurrences arrive after deployment. No `Issue-Ref` or `Issue-Close` fields. No API call needed to close them.

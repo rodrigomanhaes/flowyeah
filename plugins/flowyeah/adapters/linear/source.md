@@ -87,11 +87,11 @@ Example: `LINEAR:PROJ-123` → `feat/PROJ-123`
 
 ## Issue Linkage
 
-Pass these values to the hosting adapter:
-- **Source reference:** `LINEAR:<identifier>` (for state.md tracking)
-- **Title suffix:** `(<identifier>)` (for PR/MR title)
+Store these values in `state.md` for use throughout the pipeline:
+- **Issue-Ref:** `<identifier>` — appended in parentheses to PR/MR title
+- **Source:** `LINEAR:<identifier>` — for state.md tracking
 
-Note: Linear issues are not auto-closed by PR merge keywords. If the project wants to update Linear issue status on completion, that should happen in step 8 (Mark Task Done) via:
+Note: Linear issues are not auto-closed by PR merge keywords. No `Issue-Close` field. If the project wants to update Linear issue status on completion, that should happen in step 8 (Mark Task Done) via:
 
 ```
 mcp__plugin_linear_linear__save_issue(id: "<issue_id>", state: "Done")

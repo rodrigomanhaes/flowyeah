@@ -56,9 +56,9 @@ Example: `GITHUB:#45` → `feat/45`
 
 ## Issue Linkage
 
-Pass these values to the hosting adapter:
-- **Close keyword:** `Closes #<issue_number>` (for PR body)
-- **Title suffix:** `(#<issue_number>)` (for PR title)
-- **Source reference:** `GITHUB:#<issue_number>` (for state.md tracking)
+Store these values in `state.md` for use throughout the pipeline:
+- **Issue-Ref:** `#<issue_number>` — appended in parentheses to PR/MR title
+- **Issue-Close:** `Closes #<issue_number>` — included in PR/MR body for auto-close
+- **Source:** `GITHUB:#<issue_number>` — for state.md tracking
 
 GitHub auto-closes issues when a PR with `Closes #N` is merged into the default branch.

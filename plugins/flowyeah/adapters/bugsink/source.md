@@ -73,8 +73,8 @@ Bugsink issues are always `fix` type — they represent errors to resolve.
 
 ## Issue Linkage
 
-Pass these values:
-- **Source reference:** `BUGSINK:<issue_id>` (for state.md tracking)
+Store these values in `state.md` for use throughout the pipeline:
+- **Source:** `BUGSINK:<issue_id>` — for state.md tracking
 - **Branch type override:** always `fix`
 
-Note: Bugsink does not support auto-close via merge keywords. The error resolves when the fix is deployed and no new events arrive.
+Note: Bugsink does not support auto-close via merge keywords. No `Issue-Ref` or `Issue-Close` fields. The error resolves when the fix is deployed and no new events arrive.

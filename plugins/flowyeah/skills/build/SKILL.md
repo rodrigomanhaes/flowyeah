@@ -117,7 +117,7 @@ If validation fails, STOP with actionable error messages. Do not proceed with a 
 
 Parse command arguments, read content, convert to canonical plan format. Save to `tmp/flowyeah/plans/<key>.md`.
 
-- **Prefix source (e.g., `GITLAB:#5588`):** verify prefix is listed in `flowyeah.yml` `sources`. Load `adapters/<prefix>/connection.md` + `adapters/<prefix>/source.md`, read its config from `flowyeah.yml` `adapters.<prefix>`, follow the adapter's instructions to fetch and convert to canonical format. Key: `<prefix>-<id>` (e.g., `gitlab-5588`).
+- **Prefix source (e.g., `GITLAB:#5588`):** verify prefix is listed in `flowyeah.yml` `sources`. Load `adapters/<prefix>/connection.md` + `adapters/<prefix>/source.md`, read its config from `flowyeah.yml` `adapters.<prefix>`, follow the adapter's instructions to fetch and convert to canonical format. Key: `<prefix>-<id>` (e.g., `gitlab-5588`). **Save the adapter's Issue Linkage values** (`Issue-Ref`, `Issue-Close`) — these will be written to `state.md` in Step 3 and used for PR/MR title and body in Step 7.
 - **File source:** read file, convert to canonical format. Key: slugified filename without extension. The source file is never mutated — the plan is a copy in `tmp/`.
 - **Prose/idea:** brainstorm with user, generate tasks. Key: slugified description of the work (ask or infer from conversation).
 - **No source + plans exist in `tmp/flowyeah/plans/`:**
@@ -253,8 +253,8 @@ Load the hosting adapter from `adapters/<hosting>/connection.md` + `adapters/<ho
 **The skill provides these values to the adapter:**
 - **Source branch:** current branch
 - **Target branch:** `git.default_branch`
-- **Title:** descriptive, in `language`. Include issue reference if from issue source.
-- **Body:** summary of changes. Include `Closes #<issue>` when from an issue source (default close keyword).
+- **Title:** descriptive, in `language`. If `Issue-Ref` exists in `state.md`, append it in parentheses at the end — e.g., `Implementar retry de webhook (#5588)` or `Add payment validation (PROJ-123)`.
+- **Body:** summary of changes. If `Issue-Close` exists in `state.md`, include it — e.g., `Closes #5588`.
 - **Delete source branch:** `pull_requests.delete_source_branch`
 
 **After CI + review pass:**
@@ -410,6 +410,8 @@ Source: GITLAB:#5588
 Plan: tmp/flowyeah/plans/gitlab-5588.md  # relative to main checkout
 Branch: feat/5588
 Worktree: .flowyeah/worktrees/feat-5588
+Issue-Ref: #5588                      # from source adapter's Issue Linkage
+Issue-Close: Closes #5588             # close keyword for PR/MR body
 
 ## Key Decisions Made
 - Chose exponential backoff over linear retry (better for rate-limited APIs)
