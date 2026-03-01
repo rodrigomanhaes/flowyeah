@@ -225,10 +225,13 @@ Use `$MAIN_WORKTREE/tmp/flowyeah/plans/<key>.md` to access plan files from insid
 
 ### 5. Commit
 
-Commit using project conventions from `flowyeah.yml`:
-- Language: `language`
-- Conventions: `commits.conventions`
-- Writer agent: `commits.writer` (if set, delegate to that agent; otherwise commit manually)
+How much effort goes into commit messages depends on `pull_requests.merge_strategy`:
+
+| `merge_strategy` | Commit message effort | Why |
+|-------------------|----------------------|-----|
+| `squash` | **Minimal.** Clear and descriptive, but no conventions or writer agent needed. These commits will be squashed — the PR title+description is what survives (see Step 7). | Individual commits are thrown away on merge. |
+| `rebase` | **Full.** Apply `commits.conventions` and `commits.writer`. These commits ARE the final history — they land directly on the target branch. | No merge commit; individual commits are the permanent record. |
+| `merge` | **Full.** Apply `commits.conventions` and `commits.writer`. Individual commits are visible in branch history. | Both merge commit (PR title) and branch commits survive. |
 
 ### 6. Test → Rebase → Push
 
@@ -258,9 +261,27 @@ Load the hosting adapter from `adapters/<hosting>/connection.md` + `adapters/<ho
 **The skill provides these values to the adapter:**
 - **Source branch:** current branch
 - **Target branch:** `git.default_branch`
-- **Title:** descriptive, in `language`. If `Issue-Ref` exists in `state.md`, append it in parentheses at the end — e.g., `Implementar retry de webhook (#5588)` or `Add payment validation (PROJ-123)`.
-- **Body:** summary of changes. If `Issue-Close` exists in `state.md`, include it — e.g., `Closes #5588`.
+- **Title:** see title rules below
+- **Body:** see body rules below
 - **Delete source branch:** `pull_requests.delete_source_branch`
+
+**PR/MR title and body are the permanent record when squashing.** How much effort goes into them depends on `merge_strategy`:
+
+| `merge_strategy` | Title + body effort | Why |
+|-------------------|---------------------|-----|
+| `squash` | **Full.** Apply `commits.conventions` and `commits.writer` to the PR title+description. The title becomes the squash commit message — it IS the final history. | Individual commits are thrown away; PR title survives. |
+| `merge` | **Full.** Apply `commits.conventions` and `commits.writer`. The title becomes the merge commit message. | Merge commit (PR title) is what shows in `git log --first-parent`. |
+| `rebase` | **Minimal.** Descriptive title in `language`, but no conventions or writer agent needed. Individual commits (Step 5) already carry the conventions. | PR title is UI-only; individual commits are the permanent record. |
+
+**Title rules:**
+- In `language`
+- If `Issue-Ref` exists in `state.md`, append it in parentheses at the end — e.g., `Implementar retry de webhook (#5588)` or `Add payment validation (PROJ-123)`
+- When `commits.conventions` applies (see table above): follow the convention (e.g., `feat: implementar retry de webhook (#5588)`)
+
+**Body rules:**
+- Summary of changes
+- If `Issue-Close` exists in `state.md`, include it — e.g., `Closes #5588`
+- When `commits.writer` applies (see table above): delegate to the writer agent for both title and body
 
 Code review results are reported in the terminal only — this is your current work session, not a team review artifact.
 
@@ -759,6 +780,8 @@ The core skill reads the adapter and follows its instructions. **Config lookup r
 - Ignore test failures, warnings, or errors
 - Assume requirements when unsure
 - Give back the prompt during CI wait
+- **Waste effort on commit messages when `merge_strategy: squash`** — they're thrown away; apply conventions to the PR title instead
+- **Skip conventions on PR title when `merge_strategy: squash` or `merge`** — the PR title IS the final commit message
 - **Merge a PR/MR when `pull_requests.merge` is `manual`** — STOP and report the URL
 - **Merge a PR/MR when `pull_requests.merge` is `ask` without asking the user first**
 - **Skip the issue creation question when `issues.create_when_missing` is `ask`** — you MUST ask
