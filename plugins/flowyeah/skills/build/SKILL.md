@@ -101,7 +101,7 @@ digraph pipeline {
 Before any pipeline step, validate the loaded `flowyeah.yml`:
 
 1. **Required keys:** `hosting` must be present and point to an adapter with `hosting.md`. `code_review.agents` must be non-empty.
-2. **Adapter references:** every entry in `sources` must have a corresponding `adapters/<name>/source.md`. The `hosting` value must have `adapters/<hosting>/hosting.md`. If `issues.adapter` is set, it must have `adapters/<adapter>/source.md`.
+2. **Adapter references:** every entry in `sources` must have a corresponding `adapters/<name>/source.md`. The `hosting` value must have `adapters/<hosting>/hosting.md`. If `issues.adapter` is set, it must be an adapter that supports issue creation (gitlab, github, or linear) — bugsink and newrelic are read-only sources.
 3. **Auth verification:** for each adapter that will be used in this run (determined by the source command and hosting), verify credentials are reachable:
    - Adapters with `token_env` + `token_source` → check the env var exists (via the token source file)
    - `github` → verify `gh auth status` succeeds
@@ -476,7 +476,7 @@ When a pipeline step fails irrecoverably (e.g., 3 CI failures, merge conflict th
 4. **Clean up worktree:** remove with `git worktree remove`
 5. **Report:** summarize what happened, what was saved, and what the user should do next
 
-The aborted session artifacts in `tmp/flowyeah/aborted/` persist until manually deleted, so the user can review what went wrong.
+The aborted session artifacts in `tmp/flowyeah/aborted/` persist for review. **Cleanup:** delete aborted entries older than 30 days during the plan lifecycle check (same timing as orphaned plan cleanup). Warn the user before deleting.
 
 ### Session End (step 8-9)
 
@@ -513,8 +513,6 @@ If `flowyeah.yml` does not exist, load `setup.md` from the plugin root and follo
 ### Schema
 
 ```yaml
-version: 1                          # config schema version — bump when making breaking changes
-
 # ── Core pipeline config (schema-defined) ──
 
 language: pt-br                   # used for commits, PRs, and review comments
@@ -594,14 +592,14 @@ hosting: gitlab                   # gitlab | github — points to adapters.<host
 | `testing.command` | **Required — STOP and ask the user if missing. Suggest based on project files (Gemfile → `bundle exec rspec`, package.json → `npm test`, etc.)** |
 | `testing.scope` | `related` |
 | `commits.conventions` | `conventional` |
-| `commits.writer` | `null` (manual) |
+| `commits.writer` | `git-commit-writer` |
 | `pull_requests.delete_source_branch` | `true` |
 | `pull_requests.rebase` | `true` |
 | `pull_requests.merge` | `manual` |
 | `pull_requests.merge_strategy` | `squash` |
 | `code_review.agents` | **None — STOP and complain if empty** |
 | `issues.create_when_missing` | `ask` |
-| `issues.adapter` | **Required when `create_when_missing` is `ask` or `always`. Must be an adapter that has a `source.md` file.** |
+| `issues.adapter` | **Required when `create_when_missing` is `ask` or `always`. Must be an adapter that supports issue creation (gitlab, github, or linear). Bugsink and New Relic are read-only sources — they cannot create issues.** |
 
 ### Adapters
 

@@ -124,7 +124,7 @@ Ask if they want to customize the list.
 
 > Which adapter handles issue tracking?
 
-Options: list the adapters selected in step 2 that have a `source.md` (gitlab, github, linear).
+Options: list the adapters selected in step 2 that support issue creation (gitlab, github, linear). Bugsink and New Relic are read-only sources — they cannot create issues.
 
 This is required when `create_when_missing` is `always` or `ask`. If the user chose `never`, skip this question.
 
@@ -137,8 +137,6 @@ Options: `ask` (default), `always`, `never`
 Build `flowyeah.yml` from answers and write to project root:
 
 ```yaml
-version: 1
-
 language: <answer>
 
 git:
