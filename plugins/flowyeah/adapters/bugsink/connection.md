@@ -20,16 +20,16 @@ Extract the token directly from the configured file:
 TOKEN=$(grep "^<token_env>=" <token_source> | cut -d= -f2- | tr -d '"')
 ```
 
-**Note:** Bugsink uses `Token` authentication (not `Bearer`):
+**Note:** Bugsink uses `Bearer` authentication:
 
 ```bash
-curl -s -H "Authorization: Token $TOKEN"
+curl -s -H "Authorization: Bearer $TOKEN"
 ```
 
 ## Base URL
 
 ```
-<url>/api
+<url>/api/canonical/0
 ```
 
 All endpoints in the source adapter are relative to this base.

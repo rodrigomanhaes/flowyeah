@@ -2,7 +2,7 @@
 
 Fetches error details from a Bugsink instance and converts to canonical plan format for debugging.
 
-**Connection:** See `connection.md` for authentication (uses `Token` auth, not `Bearer`).
+**Connection:** See `connection.md` for authentication (uses `Bearer` auth).
 
 ## Trigger
 
@@ -12,12 +12,12 @@ Example: `flowyeah:build from BUGSINK:45678`
 
 ## Fetch Error Details
 
-**Endpoint:** `GET /api/issues/<issue_id>/`
+**Endpoint:** `GET /api/canonical/0/issues/<issue_id>/`
 
 ```bash
 TOKEN=$(grep "^<token_env>=" <token_source> | cut -d= -f2- | tr -d '"') && \
-curl -s -H "Authorization: Token $TOKEN" \
-  "<url>/api/issues/<issue_id>/"
+curl -s -H "Authorization: Bearer $TOKEN" \
+  "<url>/api/canonical/0/issues/<issue_id>/"
 ```
 
 **Response fields to extract:**
@@ -27,8 +27,8 @@ curl -s -H "Authorization: Token $TOKEN" \
 **Get the latest event for detailed traceback:**
 
 ```bash
-curl -s -H "Authorization: Token $TOKEN" \
-  "<url>/api/issues/<issue_id>/events/latest/"
+curl -s -H "Authorization: Bearer $TOKEN" \
+  "<url>/api/canonical/0/issues/<issue_id>/events/latest/"
 ```
 
 **Key fields from event data:**
