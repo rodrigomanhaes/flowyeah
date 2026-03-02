@@ -190,6 +190,29 @@ mkdir -p .flowyeah
 
 Write 4 session files (see Session Management section below).
 
+**Worktree environment setup:**
+
+After writing session files, resolve `worktree.env` from `flowyeah.yml`:
+
+1. For each entry in `worktree.env`: if value is `auto`, generate a random 8-char URL-safe base64 string (no padding); otherwise use the literal value.
+2. Write the resolved key-value pairs to `state.md` under a `## Worktree Env` section (see state.md template below).
+3. Export the resolved env vars into the current shell environment.
+4. Run each command in `worktree.setup` sequentially, with the env vars exported. If any setup command fails, STOP and report — do not proceed to implementation with broken dependencies.
+
+```bash
+# Generate env values (for each "auto" entry)
+VALUE=$(head -c 6 /dev/urandom | base64 | tr '+/' '-_' | tr -d '=')
+
+# Export all resolved env vars
+export TEST_ENV_NUMBER=aB3xK9mQ
+export REDIS_DB=pL7nR2wY
+
+# Run setup commands
+bundle exec rails db:test:prepare
+```
+
+If `worktree.env` is empty or absent, skip this step entirely.
+
 ### 3b. Verify Worktree Isolation
 
 ```bash
@@ -235,7 +258,13 @@ How much effort goes into commit messages depends on `pull_requests.merge_strate
 
 ### 6. Test → Rebase → Push
 
+**Before running tests**, export the worktree env vars from `state.md`'s `## Worktree Env` section. These must be active for every command that interacts with isolated dependencies (database, Redis, etc.).
+
 ```bash
+# Export worktree env (read from state.md ## Worktree Env section)
+export TEST_ENV_NUMBER=aB3xK9mQ
+export REDIS_DB=pL7nR2wY
+
 # Test (from flowyeah.yml testing.command)
 <testing.command> <scoped-spec-files>
 
@@ -385,7 +414,20 @@ If no hooks are configured, this step is a no-op.
 
 Removes the worktree and everything in it, including `.flowyeah/` session files.
 
+**Before removing the worktree**, run teardown commands to clean up isolated dependencies:
+
+1. Read env vars from `state.md`'s `## Worktree Env` section
+2. Export them
+3. Run each command in `worktree.teardown` sequentially
+4. Teardown is best-effort — if a command fails (e.g., database already dropped), warn and continue with cleanup
+
 ```bash
+# Export worktree env and run teardown (before removal)
+export TEST_ENV_NUMBER=aB3xK9mQ
+export REDIS_DB=pL7nR2wY
+bundle exec rails db:drop DISABLE_DATABASE_ENVIRONMENT_CHECK=1
+
+# Remove worktree
 cd "$MAIN_WORKTREE"
 git checkout $DEFAULT_BRANCH && git pull origin $DEFAULT_BRANCH
 git worktree remove <worktree-path>
@@ -450,6 +492,10 @@ Branch: feat/5588
 Worktree: .flowyeah/worktrees/feat-5588
 Issue-Ref: #5588                      # from source adapter's Issue Linkage
 Issue-Close: Closes #5588             # close keyword for PR/MR body
+
+## Worktree Env
+TEST_ENV_NUMBER=aB3xK9mQ
+REDIS_DB=pL7nR2wY
 
 ## Key Decisions Made
 - Chose exponential backoff over linear retry (better for rate-limited APIs)
@@ -650,6 +696,15 @@ issues:
   create_when_missing: ask        # ask | always | never
   adapter: gitlab                 # which adapter handles issue creation — points to adapters.<adapter>
 
+worktree:
+  env:                                # list of key-value pairs, "auto" = random 8-char URL-safe base64
+    - TEST_ENV_NUMBER: auto
+    - REDIS_DB: auto
+  setup:                              # commands to run after worktree creation, with env exported
+    - bundle exec rails db:test:prepare
+  teardown:                           # commands to run before worktree removal, with env exported
+    - bundle exec rails db:drop DISABLE_DATABASE_ENVIRONMENT_CHECK=1
+
 # ── Hooks: project-specific markdown files executed at pipeline points ──
 
 hooks:
@@ -710,6 +765,9 @@ hosting: gitlab                   # gitlab | github — points to adapters.<host
 | `code_review.agents` | **None — STOP and complain if empty** |
 | `issues.create_when_missing` | `ask` |
 | `issues.adapter` | **Required when `create_when_missing` is `ask` or `always`. Must be an adapter that supports issue creation (gitlab, github, or linear). Bugsink and New Relic are read-only sources — they cannot create issues.** |
+| `worktree.env` | `[]` (no extra env vars) |
+| `worktree.setup` | `[]` (no setup commands) |
+| `worktree.teardown` | `[]` (no teardown commands) |
 | `hooks.*` | No hooks configured (all hook points are optional) |
 
 ### Adapters

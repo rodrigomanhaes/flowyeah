@@ -77,6 +77,31 @@ Options: `always`, `auto` (default)
 - **`always`** — every task goes through brainstorm → plan → TDD. Recommended for large or complex codebases where even small changes need discussion.
 - **`auto`** — AI assesses complexity: trivial tasks skip brainstorming, non-trivial tasks get the full cycle.
 
+### 6c. Worktree isolation
+
+Multiple worktrees can run concurrently, so each needs isolated system dependencies (database, Redis, etc.). Always ask these questions.
+
+> Which environment variables should be unique per worktree?
+
+Suggest based on project files:
+- `Gemfile` present → suggest `TEST_ENV_NUMBER` (Rails convention — `database.yml` appends this to the database name for parallel test databases)
+- Any project → ask if they use Redis, Elasticsearch, or other stateful services that need isolation, and suggest corresponding env vars
+
+Each env var can have value `auto` (generates a random 8-char URL-safe base64 string per worktree) or a fixed literal value.
+
+> What commands should run after creating a worktree?
+
+These run with the env vars exported. Suggest based on project files:
+- `Gemfile` present → suggest `bundle exec rails db:test:prepare`
+- `package.json` present → suggest `npm install` (if `node_modules` isn't shared)
+- Otherwise → ask
+
+> What commands should run before removing a worktree?
+
+These run with the env vars exported. Suggest based on project files:
+- `Gemfile` present → suggest `bundle exec rails db:drop DISABLE_DATABASE_ENVIRONMENT_CHECK=1`
+- Otherwise → ask
+
 ### 7. Language and commit conventions
 
 > What language for commits, PRs, and review comments?
@@ -192,6 +217,14 @@ code_review:
 issues:
   adapter: <answer>
   create_when_missing: <answer>
+
+worktree:
+  env:
+    - <answer>: auto
+  setup:
+    - <answer>
+  teardown:
+    - <answer>
 
 hooks:                             # omit section entirely if no hooks
   after_merge: <answer>            # path to markdown file, e.g. .flowyeah/hooks/after-merge.md
