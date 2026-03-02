@@ -29,8 +29,9 @@ Options (multi-select):
 - **linear** — Linear issues (requires MCP plugin)
 - **bugsink** — Bugsink errors (requires API token)
 - **newrelic** — New Relic errors (requires API key)
+- **ghactions** — GitHub Actions CI logs (requires `gh` CLI)
 
-Default: include the hosting platform.
+Default: include the hosting platform. When `github` is selected as hosting or source, suggest also enabling `ghactions`.
 
 ### 3. Adapter config
 
@@ -43,6 +44,7 @@ For each selected adapter, ask for required config:
 | `linear` | (none — uses MCP) |
 | `bugsink` | URL, token env var name, token source file |
 | `newrelic` | Token env var name, token source file, account ID |
+| `ghactions` | (none — uses `gh` CLI, same as GitHub) |
 
 ### 4. Default branch
 
