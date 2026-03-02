@@ -8,7 +8,7 @@ description: Use when starting work from any source - ideas, issues, conversatio
 Single command. Takes any source, produces tested, reviewed, merged PRs.
 
 ```
-flowyeah:build [from <source>] [--continuous]
+flowyeah:build [from <source>] [--continuous] [--intermittent]
 ```
 
 ## Sources
@@ -247,6 +247,29 @@ Use `$MAIN_WORKTREE/tmp/flowyeah/plans/<key>.md` to access plan files from insid
 **Direct TDD (when skipping brainstorm):**
 1. Write failing test → make pass → refactor. Use `superpowers:test-driven-development`.
 2. Update `state.md` after completion.
+
+**When `Investigation: intermittent` is set in state.md:**
+
+Replace the standard investigation with an escalating approach. The goal is to identify why a test fails intermittently, not just make it pass once.
+
+**Escalation levels** (stop as soon as the cause is found):
+
+1. **Run the failing test in isolation.** Does it fail by itself? If yes, the failure is not intermittent — fall back to `superpowers:systematic-debugging`.
+
+2. **Check ordering dependency.** Run the full spec file (or suite) with the seed from the CI log. Reproduce the failure with the same test ordering.
+
+3. **Analyze shared state.** Look for: database records leaking between tests, global variable mutation, file system side effects, time-dependent assertions (`Time.now`, `Date.today`), external service dependencies.
+
+4. **Framework-specific bisect.** If the above don't reveal the cause:
+
+   | `testing.command` contains | Bisect approach |
+   |----------------------------|-----------------|
+   | `rspec` | `rspec --bisect --seed <seed>` |
+   | `pytest` | `pytest --randomly-seed=<seed>` + manual narrowing |
+   | `jest` | `jest --runInBand` to isolate ordering effects |
+   | Other | Report automated bisect is unavailable, suggest manual investigation |
+
+5. **STOP and report.** If bisect doesn't reveal the cause, the problem may be infrastructure-level (timing, external services, resource contention). Present findings and ask for guidance.
 
 ### 5. Commit
 
@@ -494,6 +517,7 @@ Branch: feat/5588
 Worktree: .flowyeah/worktrees/feat-5588
 Issue-Ref: #5588                      # from source adapter's Issue Linkage
 Issue-Close: Closes #5588             # close keyword for PR/MR body
+Investigation: intermittent            # only when --intermittent flag is used
 
 ## Worktree Env
 TEST_ENV_NUMBER=aB3xK9mQ
