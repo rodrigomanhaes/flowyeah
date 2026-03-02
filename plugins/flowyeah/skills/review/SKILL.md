@@ -40,29 +40,9 @@ digraph review {
 
 ## Configuration
 
-Uses `flowyeah.yml` from the project root. **If missing, load `setup.md` from the plugin root and follow its interactive setup instructions before proceeding.**
+Uses `flowyeah.yml` from the project root (see `config-schema.md` at the plugin root for full schema and defaults). **If missing, load `setup.md` from the plugin root and follow its interactive setup instructions before proceeding.**
 
-```yaml
-# Review agents (same as flowyeah:build uses)
-code_review:
-  agents:
-    - pr-review-toolkit:code-reviewer
-    - pr-review-toolkit:silent-failure-hunter
-  optional_agents:
-    - pr-review-toolkit:comment-analyzer
-    - pr-review-toolkit:type-design-analyzer
-
-# Sources determine which adapters are available for issue detection
-sources:
-  - gitlab
-  - linear
-
-# Hosting determines the review platform
-hosting: gitlab       # gitlab | github — points to adapters.<hosting>
-
-# Language for all text output (commits, PRs, review comments)
-language: pt-br
-```
+The review skill uses: `code_review.agents`, `code_review.optional_agents`, `hosting`, `language`, and adapter configs for issue detection.
 
 **If `code_review.agents` is empty or missing: STOP and complain.**
 
@@ -146,10 +126,11 @@ If a review session is interrupted (compaction, crash, user abort):
 
 Before starting the review, validate the loaded `flowyeah.yml`:
 
-1. **Required keys:** `hosting` must be present and point to an adapter with `review.md`. `code_review.agents` must be non-empty.
-2. **Adapter references:** the `hosting` value must have `adapters/<hosting>/review.md`. Each source in `sources` must have `adapters/<source>/source.md`.
-3. **Auth verification:** verify credentials for the hosting adapter and any source adapters that will be used for issue detection.
-4. **Report all issues at once** — collect validation failures and present together.
+1. **Load schema:** read `config-schema.md` from the plugin root.
+2. **Check required keys:** `hosting` must point to an adapter with `review.md`. `code_review.agents` must be non-empty.
+3. **Run validation rules:** execute relevant checks from the "Validation Rules" section of the schema.
+4. **Auth verification:** verify credentials for the hosting adapter and any source adapters that will be used for issue detection.
+5. **Report all issues at once** — collect validation failures and present together.
 
 If validation fails, STOP with actionable error messages.
 
@@ -163,10 +144,10 @@ Display PR/MR summary: title, author, branch, additions/deletions, changed files
 
 Extract issue slug from the branch name. The patterns depend on the project's issue tracking:
 
-**From `flowyeah.yml` `sources` list:**
-- If `linear` is in `sources` → try Linear patterns (e.g., `proj-eng-302`, `TEAM-123`)
-- If `gitlab` is in `sources` → try GitLab patterns (e.g., leading digits, `feat/42`)
-- If `github` is in `sources` → try GitHub patterns (e.g., `feat/42`)
+**From configured adapters with `source.md`:**
+- If `linear` is configured → try Linear patterns (e.g., `proj-eng-302`, `TEAM-123`)
+- If `gitlab` is configured → try GitLab patterns (e.g., leading digits, `feat/42`)
+- If `github` is configured → try GitHub patterns (e.g., `feat/42`)
 
 Fetch issue details using the appropriate source adapter (load `adapters/<source>/connection.md` + `adapters/<source>/source.md`).
 

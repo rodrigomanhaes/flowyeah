@@ -78,7 +78,9 @@ digraph pipeline {
     verify_wt [label="3b. Verify Isolation" shape=diamond];
     implement [label="4. Brainstorm → Plan → TDD"];
     commit [label="5. Commit"];
-    deliver [label="6. Test → Rebase → Push"];
+    test [label="6. Test"];
+    approval [label="6b. Implementation Approval\n(implementation.approval)" shape=diamond];
+    deliver [label="6c. Rebase → Push"];
     pr [label="7. Create PR/MR"];
     ci_loop [label="7b. CI + Code Review Loop" shape=diamond];
     merge_decision [label="7c. Merge Decision\n(pull_requests.merge)" shape=diamond];
@@ -90,8 +92,11 @@ digraph pipeline {
     validate -> resolve -> pick -> worktree -> verify_wt;
     verify_wt -> implement [label="in worktree"];
     verify_wt -> worktree [label="NOT in worktree\nSTOP"];
-    implement -> commit -> deliver -> pr -> ci_loop;
-    ci_loop -> commit [label="issues found\nfix → commit → push\nskip review on retry"];
+    implement -> commit -> test -> approval;
+    approval -> deliver [label="approved /\nauto-approved"];
+    approval -> implement [label="changes requested"];
+    deliver -> pr -> ci_loop;
+    ci_loop -> commit [label="issues found\nfix → commit → push\nskip approval+review"];
     ci_loop -> merge_decision [label="CI green +\nreview clean"];
     merge_decision -> hooks [label="auto:\nmerge via adapter"];
     merge_decision -> cleanup [label="manual:\nSTOP, report URL"];
@@ -107,10 +112,9 @@ digraph pipeline {
 
 Before any pipeline step, validate the loaded `flowyeah.yml`:
 
-1. **Required keys:** `hosting` must be present and point to an adapter with `hosting.md`. `code_review.agents` must be non-empty. `testing.command` must be present — if missing, STOP and ask the user. Suggest based on project files (Gemfile → `bundle exec rspec`, package.json → `npm test`, Cargo.toml → `cargo test`).
-2. **Adapter references:** every entry in `sources` must have a corresponding `adapters/<name>/source.md`. The `hosting` value must have `adapters/<hosting>/hosting.md`. If `issues.adapter` is set, it must be an adapter that supports issue creation (gitlab, github, or linear) — bugsink and newrelic are read-only sources.
-3. **Compatibility checks:**
-   - If `hosting: gitlab` and `merge_strategy: rebase` → warn the user that GitLab's rebase is a project-level setting, not controllable per MR via API. Recommend `squash` or `merge`. Do not STOP — let the user decide whether to change the config.
+1. **Load schema:** read `config-schema.md` from the plugin root.
+2. **Check required keys:** verify all keys marked **required** in the "Current Schema" section are present and have valid values.
+3. **Run validation rules:** execute all checks from the "Validation Rules" section. Errors STOP the pipeline; warnings are reported but don't block.
 4. **Auth verification:** for each adapter that will be used in this run (determined by the source command and hosting), verify credentials are reachable:
    - Adapters with `token_env` + `token_source` → check the env var exists (via the token source file)
    - `github` → verify `gh auth status` succeeds
@@ -124,7 +128,7 @@ If validation fails, STOP with actionable error messages. Do not proceed with a 
 Parse command arguments, read content, convert to canonical plan format. Save to `tmp/flowyeah/plans/<key>.md`.
 
 - **GitHub Actions URL:** if the source argument matches a GitHub Actions job URL (`github.com/.*/actions/runs/.*/job/.*`), parse it to extract `owner/repo`, `run_id`, and `job_id`. Route to `ghactions` adapter as if the user had typed `GHACTIONS:<job_id>`. Key: `ghactions-<job_id>`.
-- **Prefix source (e.g., `GITLAB:#5588`):** verify prefix is listed in `flowyeah.yml` `sources`. Load `adapters/<prefix>/connection.md` + `adapters/<prefix>/source.md`, read its config from `flowyeah.yml` `adapters.<prefix>`, follow the adapter's instructions to fetch and convert to canonical format. Key: `<prefix>-<id>` (e.g., `gitlab-5588`). **Save the adapter's Issue Linkage values** (`Issue-Ref`, `Issue-Close`) — these will be written to `state.md` in Step 3 and used for PR/MR title and body in Step 7.
+- **Prefix source (e.g., `GITLAB:#5588`):** verify prefix matches an adapter in `flowyeah.yml` `adapters` that has a `source.md`. Load `adapters/<prefix>/connection.md` + `adapters/<prefix>/source.md`, read its config from `flowyeah.yml` `adapters.<prefix>`, follow the adapter's instructions to fetch and convert to canonical format. Key: `<prefix>-<id>` (e.g., `gitlab-5588`). **Save the adapter's Issue Linkage values** (`Issue-Ref`, `Issue-Close`) — these will be written to `state.md` in Step 3 and used for PR/MR title and body in Step 7.
 - **File source:** read file, convert to canonical format. Key: slugified filename without extension. The source file is never mutated — the plan is a copy in `tmp/`.
 - **Prose/idea:** brainstorm with user, generate tasks. Key: slugified description of the work (ask or infer from conversation).
 - **No source + plans exist in `tmp/flowyeah/plans/`:**
@@ -281,7 +285,7 @@ How much effort goes into commit messages depends on `pull_requests.merge_strate
 | `rebase` | **Full.** Apply `commits.conventions` and `commits.writer`. These commits ARE the final history — they land directly on the target branch. | No merge commit; individual commits are the permanent record. |
 | `merge` | **Full.** Apply `commits.conventions` and `commits.writer`. Individual commits are visible in branch history. | Both merge commit (PR title) and branch commits survive. |
 
-### 6. Test → Rebase → Push
+### 6. Test
 
 **Before running tests**, export the worktree env vars from `state.md`'s `## Worktree Env` section. These must be active for every command that interacts with isolated dependencies (database, Redis, etc.).
 
@@ -292,7 +296,33 @@ export REDIS_DB=pL7nR2wY
 
 # Test (from flowyeah.yml testing.command)
 <testing.command> <scoped-spec-files>
+```
 
+**Test scope** (`testing.scope`):
+- `related` — directly changed files and related integration/feature/system/e2e specs
+- `full` — run the full test suite
+
+### 6b. Implementation Approval
+
+**Check `implementation.approval` in `flowyeah.yml`:**
+
+- **`always`** — present the implementation for developer approval before pushing. For legacy, large, or critical codebases where every change needs human review before leaving the local environment.
+- **`auto`** (default) — AI assesses risk: straightforward changes proceed to push automatically; complex, large, or high-risk changes ask for approval.
+
+**When asking for approval**, present:
+1. Summary of what was implemented and why
+2. Files changed (count and list)
+3. Test results summary
+
+Then ask: **"Approve implementation?"** with options:
+- **Approve** → continue to step 6c (push)
+- **Request changes** → ask what to change, return to step 4 (implement)
+
+**When `auto` skips approval**, log to `state.md` that approval was auto-granted with the rationale.
+
+### 6c. Rebase → Push
+
+```bash
 # Rebase (if pull_requests.rebase is true)
 git fetch origin $DEFAULT_BRANCH && git rebase origin/$DEFAULT_BRANCH
 
@@ -303,10 +333,6 @@ else
   git push -u origin $BRANCH
 fi
 ```
-
-**Test scope** (`testing.scope`):
-- `related` — directly changed files and related integration/feature/system/e2e specs
-- `full` — run the full test suite
 
 ### 7. Create PR/MR
 
@@ -363,8 +389,8 @@ Code review results are reported in the terminal only — this is your current w
 **When results come back:**
 
 - **CI passes AND review clean** → proceed to step 7c (merge decision)
-- **CI fails** → investigate, fix, create a new commit (not amend), restart from step 5 (commit → test → push). Skip code review on retry. Any CI failure is YOUR failure. Assume CI is evergreen.
-- **Review agents find issues** → fix, create a new commit, restart from step 5 (commit → test → push). Skip code review on retry — the review already told you what to fix.
+- **CI fails** → investigate, fix, create a new commit (not amend), restart from step 5 (commit → test → push). Skip code review and implementation approval on retry. Any CI failure is YOUR failure. Assume CI is evergreen.
+- **Review agents find issues** → fix, create a new commit, restart from step 5 (commit → test → push). Skip code review and implementation approval on retry — the review already told you what to fix.
 - **CI fails 3 times** → STOP and ask for guidance
 
 **Git strategy for fixes:** Always create new commits, never amend. The PR will be squash-merged anyway (per `merge_strategy`), so individual fix commits don't clutter the final history. New commits also make it easier to review what changed between CI runs.
@@ -685,117 +711,26 @@ If `flowyeah.yml` does not exist, load `setup.md` from the plugin root and follo
 
 ### Schema
 
+See `config-schema.md` at the plugin root for the full schema, types, defaults, and validation rules.
+
 ```yaml
-# ── Core pipeline config (schema-defined) ──
-
-language: pt-br                   # used for commits, PRs, and review comments
-
+# Example — see config-schema.md for full schema and defaults
+language: pt-br
 git:
   default_branch: develop
-
 testing:
   command: bundle exec rspec
-  scope: related                  # related | full
-
 implementation:
-  brainstorm: always              # always | auto
-
-commits:
-  conventions: conventional       # conventional | freeform
-  writer: git-commit-writer       # agent name, or null for manual
-
-pull_requests:
-  delete_source_branch: true
-  rebase: true
-  merge: auto                     # auto | manual | ask
-  merge_strategy: squash          # squash | merge | rebase
-
-code_review:
-  agents:                         # always run these
-    - pr-review-toolkit:code-reviewer
-    - pr-review-toolkit:silent-failure-hunter
-  optional_agents:                # AI decides based on what changed
-    - pr-review-toolkit:comment-analyzer
-    - pr-review-toolkit:type-design-analyzer
-
-issues:
-  create_when_missing: ask        # ask | always | never
-  adapter: gitlab                 # which adapter handles issue creation — points to adapters.<adapter>
-
-worktree:
-  env:                                # list of key-value pairs, "auto" = random 8-char URL-safe base64
-    - TEST_ENV_NUMBER: auto
-    - REDIS_DB: auto
-  setup:                              # commands to run after worktree creation, with env exported
-    - bundle exec rails db:test:prepare
-  teardown:                           # commands to run before worktree removal, with env exported
-    - bundle exec rails db:drop DISABLE_DATABASE_ENVIRONMENT_CHECK=1
-
-# ── Hooks: project-specific markdown files executed at pipeline points ──
-
-hooks:
-  after_merge: .flowyeah/hooks/after-merge.md  # optional, path relative to project root
-
-# ── Adapters: connection config per integration, each adapter owns its keys ──
-
+  brainstorm: always
+  approval: always
+hosting: gitlab
 adapters:
-  gitlab:                         # loads adapters/gitlab/{connection,source,hosting,review}.md
+  gitlab:
     url: https://gitlab.example.com
     token_env: GITLAB_TOKEN
     token_source: .env
     project_id: 123
-  github:                         # loads adapters/github/{connection,source,hosting,review}.md
-    # github uses gh CLI — no extra config needed
-  linear:                         # loads adapters/linear/{connection,source}.md
-    # linear uses MCP — no extra config needed
-  bugsink:                        # loads adapters/bugsink/{connection,source}.md
-    url: https://bugsink.example.com
-    token_env: BUGSINK_TOKEN
-    token_source: .env
-  newrelic:                       # loads adapters/newrelic/{connection,source}.md
-    token_env: NEW_RELIC_API_KEY
-    token_source: .env
-    account_id: 12345
-
-# ── Sources: which adapters can be used as input ──
-
-sources:                            # list of adapter keys usable as sources
-  - gitlab
-  - github
-  - ghactions
-  - linear
-  - bugsink
-  - newrelic
-
-# ── Hosting: which adapter handles PR/MR creation ──
-
-hosting: gitlab                   # gitlab | github — points to adapters.<hosting>
 ```
-
-### Defaults (when key is absent)
-
-| Key | Default |
-|-----|---------|
-| `language` | `en` |
-| `git.default_branch` | `main` |
-| `sources` | All adapter keys that have a `source.md` |
-| `hosting` | **Required — STOP if missing. Must be an adapter that has a `hosting.md` file.** |
-| `testing.command` | **Required — STOP and ask the user if missing. Suggest based on project files (Gemfile → `bundle exec rspec`, package.json → `npm test`, etc.)** |
-| `testing.scope` | `related` |
-| `implementation.brainstorm` | `auto` |
-| `commits.conventions` | `conventional` |
-| `commits.writer` | `git-commit-writer` |
-| `pull_requests.delete_source_branch` | `true` |
-| `pull_requests.rebase` | `true` |
-| `pull_requests.merge` | `manual` |
-| `pull_requests.merge_strategy` | `squash` |
-| `code_review.agents` | **None — STOP and complain if empty** |
-| `issues.create_when_missing` | `ask` |
-| `issues.adapter` | **Required when `create_when_missing` is `ask` or `always`. Must be an adapter that supports issue creation (gitlab, github, or linear). Bugsink and New Relic are read-only sources — they cannot create issues.** |
-| `worktree.env` | `[]` (no extra env vars) |
-| `worktree.setup` | `[]` (no setup commands) |
-| `worktree.teardown` | `[]` (no teardown commands) |
-| `hooks.*` | No hooks configured (all hook points are optional) |
 
 ### Adapters
 

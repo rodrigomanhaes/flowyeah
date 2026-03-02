@@ -8,15 +8,18 @@ Claude Code plugin for plan-to-PR pipelines.
 plugins/flowyeah/
 ├── skills/           # Auto-discovered by Claude Code from SKILL.md
 │   ├── build/        # Main pipeline: source → plan → worktree → TDD → PR
-│   └── review/       # Formal code review with inline comments
+│   ├── review/       # Formal code review with inline comments
+│   └── check/        # Config audit: validates flowyeah.yml against schema
 ├── adapters/         # Platform integrations (shared across skills)
 │   ├── gitlab/       # connection, source, hosting, review
 │   ├── github/       # connection, source, hosting, review
 │   ├── linear/       # connection, source
 │   ├── bugsink/      # connection, source
-│   └── newrelic/     # connection, source
+│   ├── newrelic/     # connection, source
+│   └── ghactions/    # connection, source
 ├── hooks/            # Claude Code hooks for session persistence
-├── setup.md          # Shared interactive config creation (used by both skills)
+├── config-schema.md  # Single source of truth for flowyeah.yml schema
+├── setup.md          # Shared interactive config creation (used by all skills)
 └── flowyeah.yml      # Generated per-project config (not in this repo)
 ```
 
@@ -24,7 +27,7 @@ plugins/flowyeah/
 
 - **Adapters are prose, not code.** Each `.md` file contains instructions and curl/CLI templates that Claude follows. They are NOT executed as scripts.
 - **Skills reference adapters by relative path:** `adapters/<name>/connection.md` + `adapters/<name>/source.md`
-- **Config schema lives in `skills/build/SKILL.md`** under "Project Configuration". Both skills share the same `flowyeah.yml` schema.
+- **Config schema lives in `config-schema.md`** at the plugin root. Build, review, setup, and check skills reference it as the single source of truth.
 - **`setup.md`** is the single source of truth for interactive config creation. Both skills delegate to it when `flowyeah.yml` is missing.
 
 ## Testing
@@ -45,7 +48,7 @@ Tests run in isolated temp git repos. No external dependencies beyond bash and g
 
 1. Create `adapters/<name>/connection.md` (required — auth and API conventions)
 2. Add whichever roles apply: `source.md`, `hosting.md`, `review.md`
-3. Update the schema example in `skills/build/SKILL.md` if adding a new adapter type
+3. Update `config-schema.md` if adding a new adapter type
 4. Update `setup.md` if the adapter needs interactive config questions
 
 ## Commits

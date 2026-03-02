@@ -6,6 +6,10 @@ Shared setup instructions used by both `flowyeah:build` and `flowyeah:review` wh
 
 If `flowyeah.yml` does not exist in the project root, run this interactive setup before proceeding.
 
+## Schema Reference
+
+Valid keys, types, defaults, and allowed values are defined in `config-schema.md` at the plugin root. This setup asks questions to populate those keys.
+
 ## Questions
 
 Ask each question in order. Use sensible defaults based on the project context.
@@ -19,7 +23,7 @@ Detect from `git remote get-url origin`:
 - Contains `gitlab` → suggest `gitlab`
 - Otherwise → ask
 
-### 2. Source adapters
+### 2. Adapters
 
 > Which integrations do you use for issues/errors?
 
@@ -31,7 +35,9 @@ Options (multi-select):
 - **newrelic** — New Relic errors (requires API key)
 - **ghactions** — GitHub Actions CI logs (requires `gh` CLI)
 
-Default: include the hosting platform. When `github` is selected as hosting or source, suggest also enabling `ghactions`.
+Default: include the hosting platform. When `github` is selected as hosting or as an adapter, suggest also enabling `ghactions`.
+
+Any adapter with a `source.md` file is automatically available as a source — no separate list needed.
 
 ### 3. Adapter config
 
@@ -76,10 +82,19 @@ Options: `related` (default), `full`
 
 Options: `always`, `auto` (default)
 
-- **`always`** — every task goes through brainstorm → plan → TDD. Recommended for large or complex codebases where even small changes need discussion.
-- **`auto`** — AI assesses complexity: trivial tasks skip brainstorming, non-trivial tasks get the full cycle.
+- **`always`** — every task goes through brainstorm → plan → TDD. Recommended for legacy, large, or critical codebases where even small changes need discussion.
+- **`auto`** — AI assesses complexity: trivial tasks skip brainstorming, non-trivial tasks get the full cycle. Recommended for greenfield projects.
 
-### 6c. Worktree isolation
+### 6c. Implementation approval
+
+> Approve implementation before pushing, or let AI decide?
+
+Options: `always`, `auto` (default)
+
+- **`always`** — present the implementation for developer approval before pushing. Recommended for legacy, large, or critical codebases where every change needs human review before leaving the local environment.
+- **`auto`** — AI assesses risk: straightforward changes push automatically, complex or high-risk changes ask. Recommended for greenfield projects.
+
+### 6d. Worktree isolation
 
 Multiple worktrees can run concurrently, so each needs isolated system dependencies (database, Redis, etc.). Always ask these questions.
 
@@ -199,6 +214,7 @@ testing:
 
 implementation:
   brainstorm: <answer>
+  approval: <answer>
 
 commits:
   conventions: <answer>
@@ -234,9 +250,6 @@ hooks:                             # omit section entirely if no hooks
 adapters:
   <adapter>:
     <config keys>
-
-sources:
-  - <adapter>
 
 hosting: <answer>
 ```
