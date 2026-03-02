@@ -148,8 +148,8 @@ Create worktree and branch. **Always worktree, always branch.**
 # Read git.default_branch from flowyeah.yml (default: main)
 git checkout $DEFAULT_BRANCH && git pull origin $DEFAULT_BRANCH
 mkdir -p .flowyeah/worktrees tmp/flowyeah/plans
-git check-ignore -q .flowyeah 2>/dev/null || echo ".flowyeah/" >> .gitignore
-git check-ignore -q tmp 2>/dev/null || echo "tmp/" >> .gitignore
+git check-ignore -q .flowyeah/worktrees 2>/dev/null || echo ".flowyeah/" >> .gitignore
+git check-ignore -q tmp/flowyeah 2>/dev/null || echo "tmp/" >> .gitignore
 git worktree add .flowyeah/worktrees/<type>-<slug> -b <type>/<slug>
 ```
 
