@@ -58,6 +58,7 @@ Saved to `tmp/flowyeah/plans/<key>.md` in the main checkout.
 | `GITHUB:#45` | `github-45` | `tmp/flowyeah/plans/github-45.md` |
 | `BUGSINK:45678` | `bugsink-45678` | `tmp/flowyeah/plans/bugsink-45678.md` |
 | `NEWRELIC:MXxBUE18...` | `newrelic-mxxbue` | `tmp/flowyeah/plans/newrelic-mxxbue.md` |
+| `GHACTIONS:65262548526` | `ghactions-65262548526` | `tmp/flowyeah/plans/ghactions-65262548526.md` |
 | File source | slugified filename | `tmp/flowyeah/plans/redesign.md` |
 | Conversation (no source) | slugified work description | `tmp/flowyeah/plans/webhook-retry.md` |
 
@@ -122,6 +123,7 @@ If validation fails, STOP with actionable error messages. Do not proceed with a 
 
 Parse command arguments, read content, convert to canonical plan format. Save to `tmp/flowyeah/plans/<key>.md`.
 
+- **GitHub Actions URL:** if the source argument matches a GitHub Actions job URL (`github.com/.*/actions/runs/.*/job/.*`), parse it to extract `owner/repo`, `run_id`, and `job_id`. Route to `ghactions` adapter as if the user had typed `GHACTIONS:<job_id>`. Key: `ghactions-<job_id>`.
 - **Prefix source (e.g., `GITLAB:#5588`):** verify prefix is listed in `flowyeah.yml` `sources`. Load `adapters/<prefix>/connection.md` + `adapters/<prefix>/source.md`, read its config from `flowyeah.yml` `adapters.<prefix>`, follow the adapter's instructions to fetch and convert to canonical format. Key: `<prefix>-<id>` (e.g., `gitlab-5588`). **Save the adapter's Issue Linkage values** (`Issue-Ref`, `Issue-Close`) — these will be written to `state.md` in Step 3 and used for PR/MR title and body in Step 7.
 - **File source:** read file, convert to canonical format. Key: slugified filename without extension. The source file is never mutated — the plan is a copy in `tmp/`.
 - **Prose/idea:** brainstorm with user, generate tasks. Key: slugified description of the work (ask or infer from conversation).
@@ -736,6 +738,7 @@ adapters:
 sources:                            # list of adapter keys usable as sources
   - gitlab
   - github
+  - ghactions
   - linear
   - bugsink
   - newrelic
