@@ -23,6 +23,7 @@ Single source of truth for `flowyeah.yml` configuration. Referenced by setup, bu
 | `code_review.optional_agents` | list of strings | agent names | `[]` | AI decides based on what changed |
 | `issues.create_when_missing` | string | `ask` \| `always` \| `never` | `ask` | Controls issue creation when source is not an issue tracker |
 | `issues.adapter` | string | adapter key | conditional | Required when `create_when_missing` is `ask` or `always`. Must support issue creation (gitlab, github, or linear) |
+| `worktree.symlinks` | list of strings | relative paths | `[]` | Paths relative to project root. Each is symlinked from the worktree to the main checkout. Created before env/setup. |
 | `worktree.env` | list of key-value maps | `auto` = random value | `[]` | Each entry is `KEY: value` or `KEY: auto` (generates random 8-char URL-safe base64) |
 | `worktree.setup` | list of strings | commands | `[]` | Run after worktree creation with env exported |
 | `worktree.teardown` | list of strings | commands | `[]` | Run before worktree removal with env exported |
@@ -40,6 +41,8 @@ Single source of truth for `flowyeah.yml` configuration. Referenced by setup, bu
 | `code_review.agents` must be non-empty | error | "code_review.agents is required and must not be empty" |
 | `issues.adapter` required when `create_when_missing` is `ask` or `always` | error | "issues.adapter is required when create_when_missing is '\<value>'" |
 | `issues.adapter` must support issue creation (gitlab, github, or linear) | error | "issues.adapter '\<name>' does not support issue creation (only gitlab, github, linear)" |
+| `worktree.symlinks` entries must be relative paths | error | `worktree.symlinks entries must be relative paths: '<path>'` |
+| `worktree.symlinks` entries must not escape project root (`../`) | error | `worktree.symlinks entry escapes project root: '<path>'` |
 | `hosting: gitlab` + `merge_strategy: rebase` | warning | "GitLab rebase is a project-level setting, not controllable per MR via API. Recommend squash or merge." |
 
 ## Deprecated Keys

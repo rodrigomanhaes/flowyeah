@@ -196,6 +196,28 @@ mkdir -p .flowyeah
 
 Write 4 session files (see Session Management section below).
 
+**Worktree symlinks:**
+
+After writing session files, resolve `worktree.symlinks` from `flowyeah.yml`. For each entry:
+
+```bash
+MAIN_WORKTREE=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+TARGET="$MAIN_WORKTREE/<path>"
+
+# Skip if target doesn't exist in main checkout
+if [ ! -e "$TARGET" ]; then
+  echo "Warning: symlink target not found, skipping: <path>"
+  continue
+fi
+
+# Create parent directories if needed (for nested paths like vendor/bundle)
+mkdir -p "$(dirname "<path>")"
+
+ln -s "$TARGET" "<path>"
+```
+
+If `worktree.symlinks` is empty or absent, skip this step entirely.
+
 **Worktree environment setup:**
 
 After writing session files, resolve `worktree.env` from `flowyeah.yml`:

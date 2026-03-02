@@ -98,6 +98,18 @@ Options: `always`, `auto` (default)
 
 Multiple worktrees can run concurrently, so each needs isolated system dependencies (database, Redis, etc.). Always ask these questions.
 
+> Which files should be symlinked from the main checkout into worktrees?
+
+These are untracked files (config, dependencies) that worktrees need but shouldn't duplicate. Symlinks are created before env vars and setup commands, so setup commands can use them.
+
+Suggest based on project files:
+- `.env` present → suggest `.env`
+- `node_modules/` present → suggest `node_modules`
+- `vendor/bundle/` present → suggest `vendor/bundle`
+- Otherwise → ask if there are untracked files or directories needed for running/testing
+
+If none needed, leave empty.
+
 > Which environment variables should be unique per worktree?
 
 Suggest based on project files:
@@ -237,6 +249,8 @@ issues:
   create_when_missing: <answer>
 
 worktree:
+  symlinks:
+    - <answer>
   env:
     - <answer>: auto
   setup:
