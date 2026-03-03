@@ -90,7 +90,7 @@ CURRENT_USER=$(curl -s -H "Authorization: Bearer $TOKEN" \
 
 ```bash
 curl -s -H "Authorization: Bearer $TOKEN" \
-  "<url>/api/v4/projects/<project_id>/merge_requests/<iid>/discussions" | \
+  "<url>/api/v4/projects/<project_id>/merge_requests/<iid>/discussions?per_page=100" | \
   jq --arg user "$CURRENT_USER" '
     [.[] | select(.notes[0].author.username == $user and .notes[0].system == false) |
      {
@@ -102,6 +102,8 @@ curl -s -H "Authorization: Bearer $TOKEN" \
        created_at: .notes[0].created_at
      }]'
 ```
+
+**Pagination:** check the `x-next-page` response header. If non-empty, fetch the next page with `&page=<x-next-page>` and merge results. Continue until `x-next-page` is empty.
 
 **Output fields:**
 

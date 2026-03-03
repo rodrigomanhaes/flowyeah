@@ -74,10 +74,14 @@ REPO_OWNER=$(gh repo view --json owner --jq '.owner.login')
 REPO_NAME=$(gh repo view --json name --jq '.name')
 
 gh api graphql -f query='
-  query($owner: String!, $repo: String!, $number: Int!) {
+  query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
     repository(owner: $owner, name: $repo) {
       pullRequest(number: $number) {
-        reviewThreads(first: 100) {
+        reviewThreads(first: 100, after: $cursor) {
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
           nodes {
             isResolved
             comments(first: 1) {
@@ -107,6 +111,8 @@ gh api graphql -f query='
      created_at: .comments.nodes[0].createdAt
    }]'
 ```
+
+**Pagination:** if `pageInfo.hasNextPage` is `true`, repeat the query with `-f cursor=<endCursor>` and merge results. Continue until `hasNextPage` is `false`.
 
 **Output fields:**
 
