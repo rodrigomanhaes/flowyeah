@@ -35,6 +35,8 @@ The build pipeline automatically adds `.flowyeah/` and `tmp/` to `.gitignore` wh
 
 All project conventions live in `flowyeah.yml` at the project root. See the schema documentation in `skills/build/SKILL.md` for all available options.
 
+The config schema evolves without versioning — deprecated keys are documented in `config-schema.md` and flagged automatically. Run `flowyeah:check` after updating the plugin to catch renamed or removed keys in your `flowyeah.yml`.
+
 ## Adding Integrations
 
 Each integration lives in `adapters/<name>/` with `connection.md` (required) plus any combination of:
