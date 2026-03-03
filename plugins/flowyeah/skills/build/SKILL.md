@@ -62,6 +62,8 @@ Saved to `tmp/flowyeah/plans/<key>.md` in the main checkout.
 | File source | slugified filename | `tmp/flowyeah/plans/redesign.md` |
 | Conversation (no source) | slugified work description | `tmp/flowyeah/plans/webhook-retry.md` |
 
+Plan keys are filesystem identifiers for deduplication — they use a minimal GUID prefix. Branch names (see table below) may use a different, more descriptive slug strategy defined by each adapter (e.g., NEWRELIC includes the error class in the branch name for readability).
+
 The `tmp/` directory should be gitignored. Plans are developer process artifacts, not versioned deliverables.
 
 ## Pipeline
@@ -167,6 +169,8 @@ git worktree add .flowyeah/worktrees/<type>-<slug> -b <type>/<slug>
 | LINEAR:PROJ-123 | `<type>/PROJ-123` |
 | GITLAB:#5588 | `<type>/5588` |
 | GITHUB:#45 | `<type>/45` |
+| GHACTIONS:12345678 | `fix/ci-<last_6_digits>` (always `fix`, see adapter) |
+| NEWRELIC:MXxBUE18... | `fix/<error-class-slug>-<guid-prefix>` (always `fix`, see adapter) |
 | Prose/idea | `<type>/<slug>` |
 
 **Type inference:**

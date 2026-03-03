@@ -36,7 +36,10 @@ if [ -f "$TOPLEVEL/.flowyeah/state.md" ]; then
     # We're inside a worktree with an active session
     SESSION_DIR="$TOPLEVEL/.flowyeah"
 elif [ -d "$TOPLEVEL/.flowyeah/worktrees" ]; then
-    # We're in the main checkout — count active sessions
+    # We're in the main checkout — scan worktrees for active sessions.
+    # This glob works because the build skill places worktrees at
+    # .flowyeah/worktrees/<type>-<slug>, and session files at .flowyeah/
+    # inside each worktree root — so the path is .flowyeah/worktrees/<name>/.flowyeah/.
     SESSIONS=()
     shopt -s nullglob
     for dir in "$TOPLEVEL"/.flowyeah/worktrees/*/.flowyeah; do

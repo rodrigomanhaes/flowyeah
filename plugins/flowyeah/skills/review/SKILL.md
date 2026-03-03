@@ -125,6 +125,8 @@ If a review session is interrupted (compaction, crash, user abort):
 
 ### 0. Validate Configuration
 
+**Worktree guard:** if the current working directory is inside a flowyeah build worktree (`git rev-parse --show-toplevel` contains `.flowyeah/worktrees/`), **STOP.** Reviews must run from the main checkout — review session files (`.flowyeah/review-state.md`) belong to the main checkout, not to build worktrees.
+
 Before starting the review, validate the loaded `flowyeah.yml`:
 
 1. **Load schema:** read `config-schema.md` from the plugin root.
