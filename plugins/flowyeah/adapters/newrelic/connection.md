@@ -37,4 +37,4 @@ curl -s -X POST "https://api.newrelic.com/graphql" \
 
 ## Detecting New Relic
 
-New Relic is detected from the source command prefix (`NEWRELIC:MXxBUE18...`), not from the git remote.
+New Relic is detected from the source command prefix (`newrelic:MXxBUE18...`), not from the git remote.

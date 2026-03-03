@@ -36,4 +36,4 @@ All endpoints in the source adapter are relative to this base.
 
 ## Detecting Bugsink
 
-Bugsink is detected from the source command prefix (`BUGSINK:12345`), not from the git remote.
+Bugsink is detected from the source command prefix (`bugsink:12345`), not from the git remote.

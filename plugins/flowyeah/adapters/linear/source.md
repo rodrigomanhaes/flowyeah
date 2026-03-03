@@ -6,9 +6,9 @@ Fetches a Linear issue via MCP and converts it to canonical plan format.
 
 ## Trigger
 
-Command prefix: `LINEAR:<identifier>`
+Command prefix: `linear:<identifier>`
 
-Example: `flowyeah:build from LINEAR:PROJ-123`
+Example: `flowyeah:build from linear:PROJ-123`
 
 ## Fetch Issue
 
@@ -41,7 +41,7 @@ If sub-issues exist, use them as the task list.
 **If the issue has sub-issues**, map them to tasks:
 
 ```markdown
-# Plan: <title> (LINEAR:<identifier>)
+# Plan: <title> (linear:<identifier>)
 
 ## Tasks
 - [ ] Sub-issue title 1
@@ -52,7 +52,7 @@ If sub-issues exist, use them as the task list.
 **If the issue description contains a task list** (lines with `- [ ]` or `- [x]`), extract them:
 
 ```markdown
-# Plan: <title> (LINEAR:<identifier>)
+# Plan: <title> (linear:<identifier>)
 
 ## Tasks
 - [ ] First task from description
@@ -83,13 +83,13 @@ After creation, use the returned `identifier` for branch naming and issue linkag
 
 The identifier becomes the branch slug: `<type>/<identifier>`
 
-Example: `LINEAR:PROJ-123` → `feat/PROJ-123`
+Example: `linear:PROJ-123` → `feat/PROJ-123`
 
 ## Issue Linkage
 
 Store these values in `state.md` for use throughout the pipeline:
 - **Issue-Ref:** `<identifier>` — appended in parentheses to PR/MR title
-- **Source:** `LINEAR:<identifier>` — for state.md tracking
+- **Source:** `linear:<identifier>` — for state.md tracking
 
 Note: Linear issues are not auto-closed by PR merge keywords. No `Issue-Close` field. If the project wants to update Linear issue status on completion, that should happen in step 8 (Mark Task Done) via:
 

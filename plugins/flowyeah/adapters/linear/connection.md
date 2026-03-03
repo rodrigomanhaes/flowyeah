@@ -42,4 +42,4 @@ mcp__plugin_linear_linear__<operation>(...)
 
 ## Detecting Linear
 
-Linear is detected from the source command prefix (`LINEAR:XX-123`), not from the git remote.
+Linear is detected from the source command prefix (`linear:XX-123`), not from the git remote.

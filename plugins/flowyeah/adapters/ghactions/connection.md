@@ -19,5 +19,5 @@ See `adapters/github/connection.md` for `gh` CLI authentication and API access p
 ## Detecting GitHub Actions
 
 Detected from:
-- Command prefix: `GHACTIONS:<job_id>`
+- Command prefix: `ghactions:<job_id>`
 - Full URL: `https://github.com/{owner}/{repo}/actions/runs/{run_id}/job/{job_id}`

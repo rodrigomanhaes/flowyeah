@@ -11,10 +11,10 @@ Two forms are accepted:
 **Prefix form** (repo inferred from `gh repo view`):
 
 ```
-GHACTIONS:<job_id>
+ghactions:<job_id>
 ```
 
-Example: `flowyeah:build from GHACTIONS:12345678`
+Example: `flowyeah:build from ghactions:12345678`
 
 **Full URL form** (owner/repo parsed from URL):
 
@@ -59,7 +59,7 @@ If a PR number is returned, store it as context. It is not used for workflow mod
 CI failures are always `fix` tasks — build a debugging-oriented plan:
 
 ```markdown
-# Plan: Fix CI failure in <job_name> (GHACTIONS:<job_id>)
+# Plan: Fix CI failure in <job_name> (ghactions:<job_id>)
 
 ## Context
 
@@ -94,7 +94,7 @@ GitHub Actions failures are always `fix` type.
 ## Issue Linkage
 
 Store these values in `state.md` for use throughout the pipeline:
-- **Source:** `GHACTIONS:<job_id>` — for state.md tracking
+- **Source:** `ghactions:<job_id>` — for state.md tracking
 - **CI-Job:** `<html_url>` — direct link to the job
 - **CI-PR:** `#<pr_number>` (if the run is associated with a PR)
 - **Branch type override:** always `fix`

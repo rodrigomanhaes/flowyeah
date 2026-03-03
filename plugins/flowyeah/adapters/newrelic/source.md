@@ -6,9 +6,9 @@ Fetches error details from New Relic and converts to canonical plan format for d
 
 ## Trigger
 
-Command prefix: `NEWRELIC:<error_group_guid>`
+Command prefix: `newrelic:<error_group_guid>`
 
-Example: `flowyeah:build from NEWRELIC:MXxBUE18...`
+Example: `flowyeah:build from newrelic:MXxBUE18...`
 
 ## Fetch Error Group Details
 
@@ -63,7 +63,7 @@ curl -s -X POST "https://api.newrelic.com/graphql" \
 New Relic errors are always prose — build a debugging-oriented plan:
 
 ```markdown
-# Plan: Fix <error_class>: <error_message> (NEWRELIC:<error_group_guid>)
+# Plan: Fix <error_class>: <error_message> (newrelic:<error_group_guid>)
 
 ## Context
 
@@ -97,7 +97,7 @@ This prevents branch collisions when multiple error groups share the same except
 ## Issue Linkage
 
 Store these values in `state.md` for use throughout the pipeline:
-- **Source:** `NEWRELIC:<error_group_guid>` — for state.md tracking
+- **Source:** `newrelic:<error_group_guid>` — for state.md tracking
 - **Branch type override:** always `fix`
 
 Note: New Relic error groups auto-resolve when no new occurrences arrive after deployment. No `Issue-Ref` or `Issue-Close` fields. No API call needed to close them.

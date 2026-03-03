@@ -12,7 +12,7 @@ Accepts a Bugsink URL or a prefixed issue ID:
 |-------|---------|
 | URL (event page) | `https://bugsink.example.com/issues/issue/68b87507-.../event/last/` |
 | URL (issue page) | `https://bugsink.example.com/issues/issue/68b87507-.../` |
-| Prefixed ID | `BUGSINK:68b87507-8b6f-4250-9d5c-55a1dc39d9c6` |
+| Prefixed ID | `bugsink:68b87507-8b6f-4250-9d5c-55a1dc39d9c6` |
 
 **URL detection:** Match the URL's host against `adapters.bugsink.url` in `flowyeah.yml`. Extract the issue UUID from the path segment after `/issues/issue/`.
 
@@ -70,7 +70,7 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 Bugsink errors are always prose — build a debugging-oriented plan:
 
 ```markdown
-# Plan: Fix <calculated_type>: <short_message> (BUGSINK:<issue_id>)
+# Plan: Fix <calculated_type>: <short_message> (bugsink:<issue_id>)
 
 ## Context
 
@@ -104,7 +104,7 @@ Bugsink issues are always `fix` type — they represent errors to resolve.
 ## Issue Linkage
 
 Store these values in `state.md` for use throughout the pipeline:
-- **Source:** `BUGSINK:<issue_id>` — for state.md tracking
+- **Source:** `bugsink:<issue_id>` — for state.md tracking
 - **Branch type override:** always `fix`
 
 Note: Bugsink does not support auto-close via merge keywords. No `Issue-Ref` or `Issue-Close` fields. The error resolves when the fix is deployed and no new events arrive.

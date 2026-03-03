@@ -6,9 +6,9 @@ Fetches a GitHub issue via `gh` CLI and converts it to canonical plan format.
 
 ## Trigger
 
-Command prefix: `GITHUB:#<issue_number>`
+Command prefix: `github:#<issue_number>`
 
-Example: `flowyeah:build from GITHUB:#45`
+Example: `flowyeah:build from github:#45`
 
 ## Fetch Issue
 
@@ -28,7 +28,7 @@ gh issue view <issue_number> --json title,body,labels,milestone,state
 **If the issue body contains a task list** (lines with `- [ ]` or `- [x]`), extract them:
 
 ```markdown
-# Plan: <title> (GITHUB:#<issue_number>)
+# Plan: <title> (github:#<issue_number>)
 
 ## Tasks
 - [ ] First task from body
@@ -52,13 +52,13 @@ After creation, use the returned issue number for branch naming and issue linkag
 
 The issue number becomes the branch slug: `<type>/<issue_number>`
 
-Example: `GITHUB:#45` → `feat/45`
+Example: `github:#45` → `feat/45`
 
 ## Issue Linkage
 
 Store these values in `state.md` for use throughout the pipeline:
 - **Issue-Ref:** `#<issue_number>` — appended in parentheses to PR/MR title
 - **Issue-Close:** `Closes #<issue_number>` — included in PR/MR body for auto-close
-- **Source:** `GITHUB:#<issue_number>` — for state.md tracking
+- **Source:** `github:#<issue_number>` — for state.md tracking
 
 GitHub auto-closes issues when a PR with `Closes #N` is merged into the default branch.

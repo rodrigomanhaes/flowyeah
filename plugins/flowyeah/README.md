@@ -14,12 +14,12 @@ Plan-to-PR pipeline for Claude Code. Takes any source — issues, error trackers
 
 | Source | Example |
 |--------|---------|
-| GitLab issue | `flowyeah:build from GITLAB:#5588` |
-| GitHub issue | `flowyeah:build from GITHUB:#45` |
-| Linear issue | `flowyeah:build from LINEAR:PROJ-123` |
-| Bugsink error | `flowyeah:build from BUGSINK:68b87507-8b6f-4250-9d5c-55a1dc39d9c6` |
-| New Relic error | `flowyeah:build from NEWRELIC:MXxBUE18...` |
-| GitHub Actions failure | `flowyeah:build from GHACTIONS:12345678` |
+| GitLab issue | `flowyeah:build from gitlab:#5588` |
+| GitHub issue | `flowyeah:build from github:#45` |
+| Linear issue | `flowyeah:build from linear:PROJ-123` |
+| Bugsink error | `flowyeah:build from bugsink:68b87507-8b6f-4250-9d5c-55a1dc39d9c6` |
+| New Relic error | `flowyeah:build from newrelic:MXxBUE18...` |
+| GitHub Actions failure | `flowyeah:build from ghactions:12345678` |
 | Local file | `flowyeah:build from docs/plans/redesign.md` |
 | Conversation | `flowyeah:build` (uses current context) |
 

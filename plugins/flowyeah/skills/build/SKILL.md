@@ -18,15 +18,15 @@ flowyeah:build [from <source>] [--continuous] [--intermittent]
 | No argument | `flowyeah:build` | Resume from `tmp/flowyeah/plans/` or ask |
 | Conversation | `flowyeah:build` (mid-conversation) | Use current context |
 | File | `flowyeah:build from docs/plans/redesign.md` | Read file directly |
-| Prefix-based | `flowyeah:build from PREFIX:ID` | Load `adapters/<prefix>/source.md` |
+| Prefix-based | `flowyeah:build from prefix:id` | Load `adapters/<prefix>/source.md` |
 
 **Prefix-based sources** match the command prefix to a source adapter and config in `flowyeah.yml`:
 
-- `flowyeah:build from GITLAB:#5588` → reads `adapters.gitlab` config → loads `adapters/gitlab/source.md` (+ `connection.md`)
-- `flowyeah:build from GITHUB:#45` → reads `adapters.github` config → loads `adapters/github/source.md` (+ `connection.md`)
-- `flowyeah:build from LINEAR:PROJ-123` → reads `adapters.linear` config → loads `adapters/linear/source.md` (+ `connection.md`)
-- `flowyeah:build from BUGSINK:68b87507-8b6f-4250-9d5c-55a1dc39d9c6` → reads `adapters.bugsink` config → loads `adapters/bugsink/source.md` (+ `connection.md`)
-- `flowyeah:build from NEWRELIC:MXxBUE18...` → reads `adapters.newrelic` config → loads `adapters/newrelic/source.md` (+ `connection.md`)
+- `flowyeah:build from gitlab:#5588` → reads `adapters.gitlab` config → loads `adapters/gitlab/source.md` (+ `connection.md`)
+- `flowyeah:build from github:#45` → reads `adapters.github` config → loads `adapters/github/source.md` (+ `connection.md`)
+- `flowyeah:build from linear:PROJ-123` → reads `adapters.linear` config → loads `adapters/linear/source.md` (+ `connection.md`)
+- `flowyeah:build from bugsink:68b87507-8b6f-4250-9d5c-55a1dc39d9c6` → reads `adapters.bugsink` config → loads `adapters/bugsink/source.md` (+ `connection.md`)
+- `flowyeah:build from newrelic:MXxBUE18...` → reads `adapters.newrelic` config → loads `adapters/newrelic/source.md` (+ `connection.md`)
 
 New source? Create an adapter directory with `connection.md` + `source.md`, add config to `flowyeah.yml` under `adapters`. Zero changes to this skill.
 
@@ -53,12 +53,12 @@ Saved to `tmp/flowyeah/plans/<key>.md` in the main checkout.
 
 | Source | Key | Example path |
 |--------|-----|--------------|
-| `GITLAB:#5588` | `gitlab-5588` | `tmp/flowyeah/plans/gitlab-5588.md` |
-| `LINEAR:PROJ-123` | `linear-proj-123` | `tmp/flowyeah/plans/linear-proj-123.md` |
-| `GITHUB:#45` | `github-45` | `tmp/flowyeah/plans/github-45.md` |
-| `BUGSINK:68b87507-...` | `bugsink-68b87507` | `tmp/flowyeah/plans/bugsink-68b87507.md` |
-| `NEWRELIC:MXxBUE18...` | `newrelic-mxxbue` | `tmp/flowyeah/plans/newrelic-mxxbue.md` |
-| `GHACTIONS:65262548526` | `ghactions-65262548526` | `tmp/flowyeah/plans/ghactions-65262548526.md` |
+| `gitlab:#5588` | `gitlab-5588` | `tmp/flowyeah/plans/gitlab-5588.md` |
+| `linear:PROJ-123` | `linear-proj-123` | `tmp/flowyeah/plans/linear-proj-123.md` |
+| `github:#45` | `github-45` | `tmp/flowyeah/plans/github-45.md` |
+| `bugsink:68b87507-...` | `bugsink-68b87507` | `tmp/flowyeah/plans/bugsink-68b87507.md` |
+| `newrelic:MXxBUE18...` | `newrelic-mxxbue` | `tmp/flowyeah/plans/newrelic-mxxbue.md` |
+| `ghactions:65262548526` | `ghactions-65262548526` | `tmp/flowyeah/plans/ghactions-65262548526.md` |
 | File source | slugified filename | `tmp/flowyeah/plans/redesign.md` |
 | Conversation (no source) | slugified work description | `tmp/flowyeah/plans/webhook-retry.md` |
 
@@ -131,7 +131,7 @@ Parse command arguments, read content, convert to canonical plan format. Save to
 
 - **GitHub Actions URL:** if the source argument matches a GitHub Actions job URL (`github.com/.*/actions/runs/.*/job/.*`), parse it to extract `owner/repo`, `run_id`, and `job_id`. Route to `ghactions` adapter with all parsed fields — the adapter uses `job_id` for metadata and `run_id` for fetching failed logs. Key: `ghactions-<job_id>`.
 - **Bugsink URL:** if the source argument matches a Bugsink URL (host matches `adapters.bugsink.url`, path contains `/issues/issue/<uuid>`), extract the issue UUID from the path. Route to `bugsink` adapter. Key: `bugsink-<first-8-chars-of-uuid>`.
-- **Prefix source (e.g., `GITLAB:#5588`):** verify prefix matches an adapter in `flowyeah.yml` `adapters` that has a `source.md`. Load `adapters/<prefix>/connection.md` + `adapters/<prefix>/source.md`, read its config from `flowyeah.yml` `adapters.<prefix>`, follow the adapter's instructions to fetch and convert to canonical format. Key: `<prefix>-<id>` (e.g., `gitlab-5588`). **Save the adapter's Issue Linkage values** (`Issue-Ref`, `Issue-Close`) — these will be written to `state.md` in Step 3 and used for PR/MR title and body in Step 7.
+- **Prefix source (e.g., `gitlab:#5588`):** verify prefix matches an adapter in `flowyeah.yml` `adapters` that has a `source.md`. Load `adapters/<prefix>/connection.md` + `adapters/<prefix>/source.md`, read its config from `flowyeah.yml` `adapters.<prefix>`, follow the adapter's instructions to fetch and convert to canonical format. Key: `<prefix>-<id>` (e.g., `gitlab-5588`). **Save the adapter's Issue Linkage values** (`Issue-Ref`, `Issue-Close`) — these will be written to `state.md` in Step 3 and used for PR/MR title and body in Step 7.
 - **File source:** read file, convert to canonical format. Key: slugified filename without extension. The source file is never mutated — the plan is a copy in `tmp/`.
 - **Prose/idea:** brainstorm with user, generate tasks. Key: slugified description of the work (ask or infer from conversation).
 - **No source + plans exist in `tmp/flowyeah/plans/`:**
@@ -166,11 +166,11 @@ git worktree add .flowyeah/worktrees/<type>-<slug> -b <type>/<slug>
 
 | Source | Branch name |
 |--------|-------------|
-| LINEAR:PROJ-123 | `<type>/PROJ-123` |
-| GITLAB:#5588 | `<type>/5588` |
-| GITHUB:#45 | `<type>/45` |
-| GHACTIONS:12345678 | `fix/ci-<last_6_digits>` (always `fix`, see adapter) |
-| NEWRELIC:MXxBUE18... | `fix/<error-class-slug>-<guid-prefix>` (always `fix`, see adapter) |
+| linear:PROJ-123 | `<type>/PROJ-123` |
+| gitlab:#5588 | `<type>/5588` |
+| github:#45 | `<type>/45` |
+| ghactions:12345678 | `fix/ci-<last_6_digits>` (always `fix`, see adapter) |
+| newrelic:MXxBUE18... | `fix/<error-class-slug>-<guid-prefix>` (always `fix`, see adapter) |
 | Prose/idea | `<type>/<slug>` |
 
 **Type inference:**
@@ -568,7 +568,7 @@ Status: Implementing
 Step: 4 (Implement) — TDD phase
 Mode: single                          # single | continuous
 Task: Webhook retry logic
-Source: GITLAB:#5588
+Source: gitlab:#5588
 Plan: tmp/flowyeah/plans/gitlab-5588.md  # relative to main checkout
 Branch: feat/5588
 Worktree: .flowyeah/worktrees/feat-5588

@@ -6,9 +6,9 @@ Fetches a GitLab issue and converts it to canonical plan format.
 
 ## Trigger
 
-Command prefix: `GITLAB:#<issue_number>`
+Command prefix: `gitlab:#<issue_number>`
 
-Example: `flowyeah:build from GITLAB:#5588`
+Example: `flowyeah:build from gitlab:#5588`
 
 ## Fetch Issue
 
@@ -32,7 +32,7 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 **If the issue description contains a task list** (lines with `- [ ]` or `- [x]`), extract them directly:
 
 ```markdown
-# Plan: <title> (GITLAB:#<iid>)
+# Plan: <title> (gitlab:#<iid>)
 
 ## Tasks
 - [ ] First task from description
@@ -68,11 +68,11 @@ After creation, use the returned `iid` for branch naming and issue linkage as if
 
 The issue number becomes the branch slug: `<type>/<iid>`
 
-Example: `GITLAB:#5588` → `feat/5588`
+Example: `gitlab:#5588` → `feat/5588`
 
 ## Issue Linkage
 
 Store these values in `state.md` for use throughout the pipeline:
 - **Issue-Ref:** `#<iid>` — appended in parentheses to PR/MR title
 - **Issue-Close:** `Closes #<iid>` — included in PR/MR body for auto-close
-- **Source:** `GITLAB:#<iid>` — for state.md tracking
+- **Source:** `gitlab:#<iid>` — for state.md tracking

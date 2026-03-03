@@ -82,8 +82,7 @@ echo "=== README cross-references ==="
 for dir in "$PLUGIN_DIR"/adapters/*/; do
     name="$(basename "$dir")"
     if [ -f "$dir/source.md" ]; then
-        upper_name="$(echo "$name" | tr '[:lower:]' '[:upper:]')"
-        assert_contains "adapter $name listed in README Supported Sources" "$upper_name:" "$README"
+        assert_contains "adapter $name listed in README Supported Sources" "$name:" "$README"
     fi
 done
 
@@ -98,14 +97,13 @@ echo ""
 echo "=== Source adapter completeness ==="
 
 # Extract adapter names from README Supported Sources table rows.
-# Lines contain patterns like GITLAB:#, BUGSINK:, NEWRELIC:, etc.
+# Lines contain patterns like gitlab:#, bugsink:, newrelic:, etc.
 readme_adapters=""
 while IFS= read -r line; do
-    # Extract the uppercase prefix before the colon (e.g., GITLAB from "GITLAB:#5588")
-    upper="$(echo "$line" | sed -n 's/.*\b\([A-Z]\{2,\}\):.*/\1/p')"
-    if [ -n "$upper" ]; then
-        lower="$(echo "$upper" | tr '[:upper:]' '[:lower:]')"
-        readme_adapters="$readme_adapters$lower
+    # Extract the lowercase prefix after "from " (e.g., gitlab from "from gitlab:#5588")
+    prefix="$(echo "$line" | sed -n 's/.*from \([a-z]\{2,\}\):.*/\1/p')"
+    if [ -n "$prefix" ]; then
+        readme_adapters="$readme_adapters$prefix
 "
     fi
 done < <(sed -n '/## Supported Sources/,/^##/p' "$README" | grep '|.*:.*|')
