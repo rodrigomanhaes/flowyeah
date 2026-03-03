@@ -42,7 +42,7 @@ digraph review {
 
 Uses `flowyeah.yml` from the project root (see `config-schema.md` at the plugin root for full schema and defaults). **If missing, load `setup.md` from the plugin root and follow its interactive setup instructions before proceeding.**
 
-The review skill uses: `code_review.agents`, `code_review.optional_agents`, `hosting`, `language`, and adapter configs for issue detection.
+The review skill uses: `code_review.agents`, `code_review.optional_agents`, `code_review.instructions`, `hosting`, `language`, and adapter configs for issue detection.
 
 **If `code_review.agents` is empty or missing: STOP and complain.**
 
@@ -128,9 +128,10 @@ Before starting the review, validate the loaded `flowyeah.yml`:
 
 1. **Load schema:** read `config-schema.md` from the plugin root.
 2. **Check required keys:** `hosting` must point to an adapter with `review.md`. `code_review.agents` must be non-empty.
-3. **Run validation rules:** execute relevant checks from the "Validation Rules" section of the schema.
-4. **Auth verification:** verify credentials for the hosting adapter and any source adapters that will be used for issue detection.
-5. **Report all issues at once** — collect validation failures and present together.
+3. **Load review instructions:** if `code_review.instructions` is present in the config, validate the path is relative and the file exists (per validation rules in `config-schema.md`). Read the file contents once and carry them through the pipeline.
+4. **Run validation rules:** execute relevant checks from the "Validation Rules" section of the schema.
+5. **Auth verification:** verify credentials for the hosting adapter and any source adapters that will be used for issue detection.
+6. **Report all issues at once** — collect validation failures and present together.
 
 If validation fails, STOP with actionable error messages.
 
@@ -184,6 +185,8 @@ Launch agents from `code_review.agents` in parallel using the Task tool:
 - Pass each agent the PR diff and changed files
 - Each agent returns findings as: file, line, issue, severity, confidence (0-100)
 
+If `code_review.instructions` is configured, include the file contents as additional context passed to each agent alongside the PR diff and changed files.
+
 **Conditional agents** from `code_review.optional_agents` — launch based on what changed (e.g., security analyst if auth code was touched). Use judgment.
 
 **Note:** This is the same agent configuration used by `flowyeah:build` in step 7b (CI + Code Review Loop). Both skills share the `code_review.agents` and `code_review.optional_agents` lists from `flowyeah.yml`. The difference: build runs agents as a quality gate before merge; review produces a formal review artifact with inline comments.
@@ -199,6 +202,8 @@ Run directly (not delegated to agents):
 **CLAUDE.md Compliance:** Check global and project CLAUDE.md rules against the diff (e.g., ABOUTME comments, naming conventions, error handling).
 
 **Naming Consistency:** Flag semantic inconsistencies — names that contradict each other, method names that don't match behavior.
+
+**Project Review Guidelines:** If `code_review.instructions` is configured, evaluate the diff against each guideline in the instructions file. Default scoring: severity `issue`, confidence 75. Adjust based on how clearly the diff violates a guideline.
 
 **Scoring for critical checks:** DB concurrency and API backward compatibility findings default to severity `issue (blocking)` with confidence 90. CLAUDE.md compliance defaults to severity `issue` with confidence 75. Naming consistency defaults to `suggestion (non-blocking)` with confidence 50. Adjust based on evidence.
 
