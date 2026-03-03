@@ -25,7 +25,7 @@ Single source of truth for `flowyeah.yml` configuration. Referenced by setup, bu
 | `issues.create_when_missing` | string | `ask` \| `always` \| `never` | `ask` | Controls issue creation when source is not an issue tracker |
 | `issues.adapter` | string | adapter key | conditional | Required when `create_when_missing` is `ask` or `always`. Must support issue creation (gitlab, github, or linear) |
 | `worktree.symlinks` | list of strings | relative paths | `[]` | Paths relative to project root. Each is symlinked from the worktree to the main checkout. Created before env/setup. |
-| `worktree.env` | list of key-value maps | `auto` = random value | `[]` | Each entry is `KEY: value` or `KEY: auto` (generates random 8-char URL-safe base64) |
+| `worktree.env` | list of single-key maps | `auto` = random value | `[]` | Each entry is a single `KEY: value` or `KEY: auto` map (generates random 8-char URL-safe base64). Example: `[{TEST_ENV: auto}, {REDIS_DB: auto}]` |
 | `worktree.setup` | list of strings | commands | `[]` | Run after worktree creation with env exported |
 | `worktree.teardown` | list of strings | commands | `[]` | Run before worktree removal with env exported |
 | `hooks.after_merge` | string | file path relative to project root | none | Markdown file with instructions executed after successful merge |
@@ -44,6 +44,9 @@ Single source of truth for `flowyeah.yml` configuration. Referenced by setup, bu
 | `code_review.instructions` file must exist (if present) | error | "code_review.instructions file not found: '<path>'" |
 | `issues.adapter` required when `create_when_missing` is `ask` or `always` | error | "issues.adapter is required when create_when_missing is '\<value>'" |
 | `issues.adapter` must support issue creation (gitlab, github, or linear) | error | "issues.adapter '\<name>' does not support issue creation (only gitlab, github, linear)" |
+| `issues.adapter` must be a key in `adapters` | error | "issues.adapter '\<name>' is not configured in adapters" |
+| `hooks.after_merge` must be a relative path (if present) | error | "hooks.after_merge must be a relative path: '<path>'" |
+| `hooks.after_merge` file must exist (if present) | error | "hooks.after_merge file not found: '<path>'" |
 | `worktree.symlinks` entries must be relative paths | error | `worktree.symlinks entries must be relative paths: '<path>'` |
 | `worktree.symlinks` entries must not escape project root (`../`) | error | `worktree.symlinks entry escapes project root: '<path>'` |
 | `hosting: gitlab` + `merge_strategy: rebase` | warning | "GitLab rebase is a project-level setting, not controllable per MR via API. Recommend squash or merge." |

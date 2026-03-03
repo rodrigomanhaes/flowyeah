@@ -25,7 +25,7 @@ flowyeah:build [from <source>] [--continuous] [--intermittent]
 - `flowyeah:build from GITLAB:#5588` → reads `adapters.gitlab` config → loads `adapters/gitlab/source.md` (+ `connection.md`)
 - `flowyeah:build from GITHUB:#45` → reads `adapters.github` config → loads `adapters/github/source.md` (+ `connection.md`)
 - `flowyeah:build from LINEAR:PROJ-123` → reads `adapters.linear` config → loads `adapters/linear/source.md` (+ `connection.md`)
-- `flowyeah:build from BUGSINK:45678` → reads `adapters.bugsink` config → loads `adapters/bugsink/source.md` (+ `connection.md`)
+- `flowyeah:build from BUGSINK:68b87507-8b6f-4250-9d5c-55a1dc39d9c6` → reads `adapters.bugsink` config → loads `adapters/bugsink/source.md` (+ `connection.md`)
 - `flowyeah:build from NEWRELIC:MXxBUE18...` → reads `adapters.newrelic` config → loads `adapters/newrelic/source.md` (+ `connection.md`)
 
 New source? Create an adapter directory with `connection.md` + `source.md`, add config to `flowyeah.yml` under `adapters`. Zero changes to this skill.
@@ -56,7 +56,7 @@ Saved to `tmp/flowyeah/plans/<key>.md` in the main checkout.
 | `GITLAB:#5588` | `gitlab-5588` | `tmp/flowyeah/plans/gitlab-5588.md` |
 | `LINEAR:PROJ-123` | `linear-proj-123` | `tmp/flowyeah/plans/linear-proj-123.md` |
 | `GITHUB:#45` | `github-45` | `tmp/flowyeah/plans/github-45.md` |
-| `BUGSINK:45678` | `bugsink-45678` | `tmp/flowyeah/plans/bugsink-45678.md` |
+| `BUGSINK:68b87507-...` | `bugsink-68b87507` | `tmp/flowyeah/plans/bugsink-68b87507.md` |
 | `NEWRELIC:MXxBUE18...` | `newrelic-mxxbue` | `tmp/flowyeah/plans/newrelic-mxxbue.md` |
 | `GHACTIONS:65262548526` | `ghactions-65262548526` | `tmp/flowyeah/plans/ghactions-65262548526.md` |
 | File source | slugified filename | `tmp/flowyeah/plans/redesign.md` |
@@ -127,7 +127,8 @@ If validation fails, STOP with actionable error messages. Do not proceed with a 
 
 Parse command arguments, read content, convert to canonical plan format. Save to `tmp/flowyeah/plans/<key>.md`.
 
-- **GitHub Actions URL:** if the source argument matches a GitHub Actions job URL (`github.com/.*/actions/runs/.*/job/.*`), parse it to extract `owner/repo`, `run_id`, and `job_id`. Route to `ghactions` adapter as if the user had typed `GHACTIONS:<job_id>`. Key: `ghactions-<job_id>`.
+- **GitHub Actions URL:** if the source argument matches a GitHub Actions job URL (`github.com/.*/actions/runs/.*/job/.*`), parse it to extract `owner/repo`, `run_id`, and `job_id`. Route to `ghactions` adapter with all parsed fields — the adapter uses `job_id` for metadata and `run_id` for fetching failed logs. Key: `ghactions-<job_id>`.
+- **Bugsink URL:** if the source argument matches a Bugsink URL (host matches `adapters.bugsink.url`, path contains `/issues/issue/<uuid>`), extract the issue UUID from the path. Route to `bugsink` adapter. Key: `bugsink-<first-8-chars-of-uuid>`.
 - **Prefix source (e.g., `GITLAB:#5588`):** verify prefix matches an adapter in `flowyeah.yml` `adapters` that has a `source.md`. Load `adapters/<prefix>/connection.md` + `adapters/<prefix>/source.md`, read its config from `flowyeah.yml` `adapters.<prefix>`, follow the adapter's instructions to fetch and convert to canonical format. Key: `<prefix>-<id>` (e.g., `gitlab-5588`). **Save the adapter's Issue Linkage values** (`Issue-Ref`, `Issue-Close`) — these will be written to `state.md` in Step 3 and used for PR/MR title and body in Step 7.
 - **File source:** read file, convert to canonical format. Key: slugified filename without extension. The source file is never mutated — the plan is a copy in `tmp/`.
 - **Prose/idea:** brainstorm with user, generate tasks. Key: slugified description of the work (ask or infer from conversation).
@@ -194,7 +195,7 @@ Create session directory and state files in the worktree:
 mkdir -p .flowyeah
 ```
 
-Write 4 session files (see Session Management section below).
+Write 4 session files (see Session Management section below). If `--intermittent` was passed, set `Investigation: intermittent` in `state.md` — this switches Step 4 from standard debugging to the escalating intermittent-failure investigation.
 
 **Worktree symlinks:**
 
@@ -567,7 +568,7 @@ Branch: feat/5588
 Worktree: .flowyeah/worktrees/feat-5588
 Issue-Ref: #5588                      # from source adapter's Issue Linkage
 Issue-Close: Closes #5588             # close keyword for PR/MR body
-Investigation: intermittent            # only when --intermittent flag is used
+Investigation: intermittent            # set in Step 3 when --intermittent flag is passed
 
 ## Worktree Env
 TEST_ENV_NUMBER=aB3xK9mQ
@@ -778,9 +779,12 @@ adapters/
 ├── bugsink/
 │   ├── connection.md    # API token auth
 │   └── source.md        # Fetch error → canonical format
-└── newrelic/
-    ├── connection.md    # NerdGraph auth
-    └── source.md        # Fetch error group → canonical format
+├── newrelic/
+│   ├── connection.md    # NerdGraph auth
+│   └── source.md        # Fetch error group → canonical format
+└── ghactions/
+    ├── connection.md    # gh CLI auth
+    └── source.md        # Fetch CI job logs → canonical format
 ```
 
 Each integration directory contains:

@@ -33,10 +33,10 @@ plugins/flowyeah/
 ## Testing
 
 ```bash
-bash plugins/flowyeah/hooks/test-hooks.sh
+bash plugins/flowyeah/tests/test-hooks.sh
 ```
 
-Tests run in isolated temp git repos. No external dependencies beyond bash and git. Currently covers hook behavior only (session injection, reminders, worktree detection). Adapter and skill consistency are validated by analysis, not automated tests. The CI pipeline (if configured) should run `bash plugins/flowyeah/hooks/test-hooks.sh` as part of the test suite.
+Tests run in isolated temp git repos. No external dependencies beyond bash and git. Currently covers hook behavior only (session injection, reminders, worktree detection). Adapter and skill consistency are validated by analysis, not automated tests. The CI pipeline (if configured) should run `bash plugins/flowyeah/tests/test-hooks.sh` as part of the test suite.
 
 ## Hook Internals
 

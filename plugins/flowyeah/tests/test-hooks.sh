@@ -1,10 +1,10 @@
 #!/bin/bash
 # Tests for flowyeah hooks (session-inject.sh and session-remind.sh).
-# Run from anywhere: bash plugins/flowyeah/hooks/test-hooks.sh
+# Run from anywhere: bash plugins/flowyeah/tests/test-hooks.sh
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")/../hooks" && pwd)"
 PASS=0
 FAIL=0
 TOTAL=0

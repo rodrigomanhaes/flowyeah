@@ -76,11 +76,13 @@ issues:
   adapter:                               # ❌ required when create_when_missing is 'ask'
 
 worktree:
+  symlinks: []                           # ⬚ default: []
   env: []                                # ⬚ default: []
   setup: []                              # ⬚ default: []
   teardown: []                           # ⬚ default: []
 
-hooks:                                   # ⬚ no hooks configured
+hooks:
+  after_merge:                           # ⬚ not configured
 
 adapters:
   gitlab:                                # ✅

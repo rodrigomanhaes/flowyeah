@@ -8,6 +8,7 @@ Plan-to-PR pipeline for Claude Code. Takes any source — issues, error trackers
 |-------|---------|--------------|
 | `flowyeah:build` | `flowyeah:build [from <source>] [--continuous]` | Full pipeline: source → plan → worktree → TDD → commit → PR → CI → merge |
 | `flowyeah:review` | `flowyeah:review [<pr-number>]` | Formal code review with inline comments via platform API |
+| `flowyeah:check` | `flowyeah:check` | Audit `flowyeah.yml` against the config schema |
 
 ## Supported Sources
 
@@ -16,8 +17,9 @@ Plan-to-PR pipeline for Claude Code. Takes any source — issues, error trackers
 | GitLab issue | `flowyeah:build from GITLAB:#5588` |
 | GitHub issue | `flowyeah:build from GITHUB:#45` |
 | Linear issue | `flowyeah:build from LINEAR:PROJ-123` |
-| Bugsink error | `flowyeah:build from BUGSINK:45678` |
+| Bugsink error | `flowyeah:build from BUGSINK:68b87507-8b6f-4250-9d5c-55a1dc39d9c6` |
 | New Relic error | `flowyeah:build from NEWRELIC:MXxBUE18...` |
+| GitHub Actions failure | `flowyeah:build from GHACTIONS:12345678` |
 | Local file | `flowyeah:build from docs/plans/redesign.md` |
 | Conversation | `flowyeah:build` (uses current context) |
 
