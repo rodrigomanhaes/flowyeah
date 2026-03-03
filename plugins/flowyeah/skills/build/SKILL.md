@@ -443,6 +443,8 @@ After a successful merge, check `hooks` in `flowyeah.yml` for any configured hoo
 
 **Available hook points:**
 
+Currently only `after_merge` is implemented. More hook points (e.g., `before_push`, `after_pr_create`) will be added as real use cases emerge.
+
 | Hook | When it runs | Context available |
 |------|-------------|-------------------|
 | `after_merge` | After successful merge, before marking task done | Branch, MR/PR iid+url, issue number (if any), adapter config |

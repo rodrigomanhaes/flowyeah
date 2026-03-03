@@ -47,6 +47,10 @@ Source-only integrations (Linear, Bugsink, New Relic) only need `connection.md` 
 
 Add an adapter directory, configure it in `flowyeah.yml`, and the pipeline picks it up automatically.
 
+## Limitations
+
+- **Single-project repos only.** One `flowyeah.yml` per project root. Monorepos with multiple apps sharing a single repo are not supported.
+
 ## License
 
 MIT
