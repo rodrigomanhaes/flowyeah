@@ -8,7 +8,7 @@ Single source of truth for `flowyeah.yml` configuration. Referenced by setup, bu
 |-----|------|--------|---------|-------|
 | `language` | string | any | `en` | Used for commits, PRs, and review comments |
 | `git.default_branch` | string | any | `main` | Target branch for PRs/MRs and rebase |
-| `hosting` | string | adapter key | **required** | Must have `adapters/<hosting>/hosting.md` |
+| `git_host` | string | adapter key | **required** | Must have `adapters/<git_host>/hosting.md` |
 | `testing.command` | string | any | **required** | Shell command to run tests. Suggest based on project files if missing |
 | `testing.scope` | string | `related` \| `full` | `related` | `related` = changed files + related specs; `full` = entire suite |
 | `implementation.brainstorm` | string | `always` \| `auto` | `auto` | `always` = brainstorm every task; `auto` = AI decides based on complexity |
@@ -35,8 +35,8 @@ Single source of truth for `flowyeah.yml` configuration. Referenced by setup, bu
 
 | Rule | Severity | Message |
 |------|----------|---------|
-| `hosting` must be present | error | "hosting is required" |
-| `hosting` adapter must have `adapters/<hosting>/hosting.md` | error | "Hosting adapter '\<name>' has no hosting.md" |
+| `git_host` must be present | error | "git_host is required" |
+| `git_host` adapter must have `adapters/<git_host>/hosting.md` | error | "git_host adapter '\<name>' has no hosting.md" |
 | Each adapter in `adapters` must have `adapters/<name>/connection.md` | error | "Adapter '\<name>' has no connection.md" |
 | `testing.command` must be present | error | "testing.command is required" |
 | `code_review.agents` must be non-empty | error | "code_review.agents is required and must not be empty" |
@@ -49,10 +49,11 @@ Single source of truth for `flowyeah.yml` configuration. Referenced by setup, bu
 | `hooks.after_merge` file must exist (if present) | error | "hooks.after_merge file not found: '<path>'" |
 | `worktree.symlinks` entries must be relative paths | error | `worktree.symlinks entries must be relative paths: '<path>'` |
 | `worktree.symlinks` entries must not escape project root (`../`) | error | `worktree.symlinks entry escapes project root: '<path>'` |
-| `hosting: gitlab` + `merge_strategy: rebase` | warning | "GitLab rebase is a project-level setting, not controllable per MR via API. Recommend squash or merge." |
+| `git_host: gitlab` + `merge_strategy: rebase` | warning | "GitLab rebase is a project-level setting, not controllable per MR via API. Recommend squash or merge." |
 
 ## Deprecated Keys
 
 | Key | Removed in | Migration |
 |-----|-----------|-----------|
 | `sources` | 2026-03-02 | Remove from config. Adapters with `source.md` are automatic sources. |
+| `hosting` | 2026-03-03 | Rename to `git_host`. |

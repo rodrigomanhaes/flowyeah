@@ -117,7 +117,7 @@ Before any pipeline step, validate the loaded `flowyeah.yml`:
 1. **Load schema:** read `config-schema.md` from the plugin root.
 2. **Check required keys:** verify all keys marked **required** in the "Current Schema" section are present and have valid values.
 3. **Run validation rules:** execute all checks from the "Validation Rules" section. Errors STOP the pipeline; warnings are reported but don't block.
-4. **Auth verification:** for each adapter that will be used in this run (determined by the source command and hosting), verify credentials are reachable:
+4. **Auth verification:** for each adapter that will be used in this run (determined by the source command and `git_host`), verify credentials are reachable:
    - Adapters with `token_env` + `token_source` → check the env var exists (via the token source file)
    - `github` → verify `gh auth status` succeeds
    - `linear` → verify Linear MCP is available
@@ -187,7 +187,7 @@ git worktree add .flowyeah/worktrees/<type>-<slug> -b <type>/<slug>
 
 If the source came from an issue tracker (GITLAB, GITHUB, LINEAR), assign the issue to the current dev now — before any implementation begins. This signals to the team that someone is working on it.
 
-- **GitLab:** use the hosting adapter's "Issue Assignment" section
+- **GitLab:** use the git host adapter's "Issue Assignment" section
 - **GitHub:** `gh issue edit <number> --add-assignee "@me"`
 - **Linear:** `save_issue(id: "<id>", assignee: "me")` via MCP
 
@@ -363,7 +363,7 @@ fi
 
 ### 7. Create PR/MR
 
-Load the hosting adapter from `adapters/<hosting>/connection.md` + `adapters/<hosting>/hosting.md`, read its config from `flowyeah.yml` `adapters.<hosting>`, and follow the adapter's instructions to create the PR/MR.
+Load the git host adapter from `adapters/<git_host>/connection.md` + `adapters/<git_host>/hosting.md`, read its config from `flowyeah.yml` `adapters.<git_host>`, and follow the adapter's instructions to create the PR/MR.
 
 **The skill provides these values to the adapter:**
 - **Source branch:** current branch
@@ -394,7 +394,7 @@ Code review results are reported in the terminal only — this is your current w
 
 ### 7b. CI + Code Review Loop
 
-**Do NOT give the prompt back.** Stay in the loop until CI passes and reviews are clean. Use the hosting adapter for CI polling.
+**Do NOT give the prompt back.** Stay in the loop until CI passes and reviews are clean. Use the git host adapter for CI polling.
 
 **While waiting for CI:**
 
@@ -430,7 +430,7 @@ Code review results are reported in the terminal only — this is your current w
 
 | `pull_requests.merge` | Action | Can you merge? |
 |----------------------|--------|----------------|
-| `auto` | Use the hosting adapter to merge | Yes |
+| `auto` | Use the git host adapter to merge | Yes |
 | `manual` | **STOP.** Report the PR/MR URL and do NOT merge. Do NOT proceed to step 8. Skip directly to step 9 (mark task) and step 10 (cleanup). | **No. Never.** |
 | `ask` | **STOP.** Ask the user: "Merge agora?" with options Yes/No. Only merge if they say yes. If they say no, report the PR/MR URL, skip to step 9 and 10. | **Only if user says yes** |
 
@@ -754,7 +754,7 @@ testing:
 implementation:
   brainstorm: always
   approval: always
-hosting: gitlab
+git_host: gitlab
 adapters:
   gitlab:
     url: https://gitlab.example.com
@@ -799,7 +799,7 @@ Each integration directory contains:
 - **`hosting.md`** — create PR/MR, poll CI, merge
 - **`review.md`** — fetch PR/MR details, post formal review with inline comments
 
-The core skill reads the adapter and follows its instructions. **Config lookup rule:** all adapter config is always under `adapters.<name>` in `flowyeah.yml`, regardless of whether the adapter is used as a source, hosting, or both. Adapter-specific config keys are schema-free — each adapter defines and validates its own keys.
+The core skill reads the adapter and follows its instructions. **Config lookup rule:** all adapter config is always under `adapters.<name>` in `flowyeah.yml`, regardless of whether the adapter is used as a source, git host, or both. Adapter-specific config keys are schema-free — each adapter defines and validates its own keys.
 
 **Adding a new integration:** create an adapter directory with `connection.md` + the adapter types you need, add config to `flowyeah.yml`. No changes to core skills.
 

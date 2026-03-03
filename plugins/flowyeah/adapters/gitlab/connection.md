@@ -15,7 +15,7 @@ adapters:
     project_id: 123
 ```
 
-The same config is used whether GitLab is a source, hosting, or both.
+The same config is used whether GitLab is a source, git host, or both.
 
 ## Authentication
 
@@ -37,7 +37,7 @@ curl -s -H "Authorization: Bearer $TOKEN"
 <url>/api/v4/projects/<project_id>
 ```
 
-All endpoints in source, hosting, and review adapters are relative to this base.
+All endpoints in source, git host, and review adapters are relative to this base.
 
 ## Encoding
 

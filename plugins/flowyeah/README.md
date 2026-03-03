@@ -40,7 +40,7 @@ All project conventions live in `flowyeah.yml` at the project root. See the sche
 Each integration lives in `adapters/<name>/` with `connection.md` (required) plus any combination of:
 
 - `source.md` — fetch data and convert to canonical plan format
-- `hosting.md` — create PR/MR, poll CI, merge
+- `hosting.md` — git host: create PR/MR, poll CI, merge
 - `review.md` — post formal reviews with inline comments
 
 Source-only integrations (Linear, Bugsink, New Relic) only need `connection.md` + `source.md`.

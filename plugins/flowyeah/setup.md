@@ -14,7 +14,7 @@ Valid keys, types, defaults, and allowed values are defined in `config-schema.md
 
 Ask each question in order. Use sensible defaults based on the project context.
 
-### 1. Hosting platform
+### 1. Git host
 
 > Where do you create PRs/MRs?
 
@@ -35,7 +35,7 @@ Options (multi-select):
 - **newrelic** — New Relic errors (requires API key)
 - **ghactions** — GitHub Actions CI logs (requires `gh` CLI)
 
-Default: include the hosting platform. When `github` is selected as hosting or as an adapter, suggest also enabling `ghactions`.
+Default: include the git host. When `github` is selected as git host or as an adapter, suggest also enabling `ghactions`.
 
 Any adapter with a `source.md` file is automatically available as a source — no separate list needed.
 
@@ -165,7 +165,7 @@ Options: `manual` (default), `auto`, `ask`
 
 Options: `squash` (default), `merge`, `rebase`
 
-**Note:** If the hosting platform is GitLab, warn that `rebase` is a project-level setting in GitLab and cannot be requested per merge request via API. Recommend `squash` or `merge` for GitLab projects.
+**Note:** If the git host is GitLab, warn that `rebase` is a project-level setting in GitLab and cannot be requested per merge request via API. Recommend `squash` or `merge` for GitLab projects.
 
 ### 9. Code review agents
 
@@ -278,7 +278,7 @@ adapters:
   <adapter>:
     <config keys>
 
-hosting: <answer>
+git_host: <answer>
 ```
 
 Tell the user to review and commit the file. Then proceed with the original command.

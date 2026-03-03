@@ -43,20 +43,20 @@ digraph review {
 
 Uses `flowyeah.yml` from the project root (see `config-schema.md` at the plugin root for full schema and defaults). **If missing, load `setup.md` from the plugin root and follow its interactive setup instructions before proceeding.**
 
-The review skill uses: `code_review.agents`, `code_review.optional_agents`, `code_review.instructions`, `hosting`, `language`, and adapter configs for issue detection.
+The review skill uses: `code_review.agents`, `code_review.optional_agents`, `code_review.instructions`, `git_host`, `language`, and adapter configs for issue detection.
 
 **If `code_review.agents` is empty or missing: STOP and complain.**
 
 ## Platform Detection
 
-The review adapter is determined from `hosting` in `flowyeah.yml`:
+The review adapter is determined from `git_host` in `flowyeah.yml`:
 
-| `hosting` | Review adapter |
+| `git_host` | Review adapter |
 |------------|----------------|
 | `gitlab` | `adapters/gitlab/review.md` |
 | `github` | `adapters/github/review.md` |
 
-Load the review adapter once at the start. **If the hosting adapter has no `review.md`, STOP** — that adapter doesn't support code reviews. All platform-specific operations (fetch PR, post review, detect issue) go through the adapter.
+Load the review adapter once at the start. **If the git host adapter has no `review.md`, STOP** — that adapter doesn't support code reviews. All platform-specific operations (fetch PR, post review, detect issue) go through the adapter.
 
 ## Session (Lightweight)
 
@@ -130,10 +130,10 @@ If a review session is interrupted (compaction, crash, user abort):
 Before starting the review, validate the loaded `flowyeah.yml`:
 
 1. **Load schema:** read `config-schema.md` from the plugin root.
-2. **Check required keys:** `hosting` must point to an adapter with `review.md`. `code_review.agents` must be non-empty.
+2. **Check required keys:** `git_host` must point to an adapter with `review.md`. `code_review.agents` must be non-empty.
 3. **Load review instructions:** if `code_review.instructions` is present in the config, validate the path is relative and the file exists (per validation rules in `config-schema.md`). Read the file contents once and carry them through the pipeline.
 4. **Run validation rules:** execute relevant checks from the "Validation Rules" section of the schema.
-5. **Auth verification:** verify credentials for the hosting adapter and any source adapters that will be used for issue detection.
+5. **Auth verification:** verify credentials for the git host adapter and any source adapters that will be used for issue detection.
 6. **Report all issues at once** — collect validation failures and present together.
 
 If validation fails, STOP with actionable error messages.

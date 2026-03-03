@@ -91,7 +91,7 @@ adapters:
     token_source: .env
     project_id: 123
 
-hosting: gitlab                          # ✅
+git_host: gitlab                         # ✅
 
 sources:                                 # ⚠ deprecated — remove, adapters with source.md are automatic sources
   - gitlab

@@ -11,8 +11,8 @@ plugins/flowyeah/
 │   ├── review/       # Formal code review with inline comments
 │   └── check/        # Config audit: validates flowyeah.yml against schema
 ├── adapters/         # Platform integrations (shared across skills)
-│   ├── gitlab/       # connection, source, hosting, review
-│   ├── github/       # connection, source, hosting, review
+│   ├── gitlab/       # connection, source, git host, review
+│   ├── github/       # connection, source, git host, review
 │   ├── linear/       # connection, source
 │   ├── bugsink/      # connection, source
 │   ├── newrelic/     # connection, source
