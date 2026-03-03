@@ -207,6 +207,12 @@ Options: `ask` (default), `always`, `never`
 
 Options: list the adapters selected in step 2 that support issue creation (gitlab, github, linear). Bugsink and New Relic are read-only sources — they cannot create issues.
 
+**If the user chose `linear` as issues adapter:**
+
+> Which Linear team should issues be created in? (leave blank to ask each time)
+
+Query available teams via `mcp__plugin_linear_linear__list_teams()` and present as options. If the user picks a team, set `adapters.linear.team: <team>`. If they leave it blank, omit the key — the pipeline will ask at runtime.
+
 **If the user chose `never`:** skip the adapter question.
 
 ### 11. Hooks

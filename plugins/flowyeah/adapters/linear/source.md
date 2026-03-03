@@ -71,7 +71,7 @@ mcp__plugin_linear_linear__save_issue(
 )
 ```
 
-The `team` is required when creating. Infer from project context or ask the user.
+The `team` is required when creating. Use `adapters.linear.team` from `flowyeah.yml` if configured; otherwise ask the user at runtime.
 
 **Response fields:**
 - `identifier` — issue identifier (e.g., `PROJ-456`)

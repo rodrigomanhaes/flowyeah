@@ -7,10 +7,10 @@ Shared setup for all Linear adapters.
 ```yaml
 adapters:
   linear:
-    # linear uses MCP — no extra config needed
+    team: Engineering   # optional — if missing, ask at runtime when creating issues
 ```
 
-No adapter-specific config needed — Linear uses the MCP integration.
+Linear uses the MCP integration for API access. The only optional config is `team`, used when creating issues (`issues.adapter: linear`). If omitted, the pipeline asks at runtime.
 
 ## Prerequisites
 
