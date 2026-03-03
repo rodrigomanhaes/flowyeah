@@ -398,6 +398,8 @@ Code review results are reported in the terminal only — this is your current w
    - **`code_review.optional_agents`** — launch based on what changed (e.g., security-analyst if auth code was touched, code-quality-analyst for large refactors). Use judgment.
    - **If `code_review.agents` is empty or missing: STOP and complain. Do NOT continue without code review.**
 
+   If `code_review.instructions` is configured, include the file contents as additional context passed to each agent alongside the diff and changed files.
+
 2. **Issue creation opportunity.** If the source was NOT an issue tracker (i.e., it was a file or a conversation), you MUST check `issues.create_when_missing`:
 
    | `issues.create_when_missing` | Action |
