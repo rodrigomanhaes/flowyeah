@@ -330,7 +330,14 @@ Previously raised findings go through the same approval options as new findings.
 
 ### 6. Choose Review Type
 
-After all findings are processed, ask the user:
+After all findings are processed, present the recommendation and ask the user:
+
+**Recommendation logic** (based on approved findings):
+- If any approved finding has label `issue (blocking)` → recommend **Request Changes**
+- Else if any approved finding has label `issue` → recommend **Comment**
+- Else (only suggestions, nitpicks, praise, or no findings) → recommend **Approve**
+
+Present the recommendation alongside the options. Mark the recommended option:
 
 1. **Request Changes** — formal review requesting changes
 2. **Comment** — formal review with comments only
