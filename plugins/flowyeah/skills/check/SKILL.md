@@ -69,6 +69,7 @@ code_review:
     - pr-review-toolkit:code-reviewer
     - pr-review-toolkit:silent-failure-hunter
   optional_agents: []                    # ⬚ default: []
+  instructions: .flowyeah/review.md     # ✅   (or: # ⬚ not configured)
 
 issues:
   create_when_missing: ask               # ✅
