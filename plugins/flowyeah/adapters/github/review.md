@@ -57,6 +57,77 @@ mcp__plugin_linear_linear__get_issue(id: "<slug>")
 gh issue view <number> --json title,body,labels,state
 ```
 
+## Fetch Own Discussions
+
+Fetch all review comments on the PR authored by the authenticated user. Used for re-review detection.
+
+**Step 1 — Get authenticated username:**
+
+```bash
+CURRENT_USER=$(gh api user --jq '.login')
+```
+
+**Step 2 — Fetch review threads with resolution status via GraphQL:**
+
+```bash
+REPO_OWNER=$(gh repo view --json owner --jq '.owner.login')
+REPO_NAME=$(gh repo view --json name --jq '.name')
+
+gh api graphql -f query='
+  query($owner: String!, $repo: String!, $number: Int!) {
+    repository(owner: $owner, name: $repo) {
+      pullRequest(number: $number) {
+        reviewThreads(first: 100) {
+          nodes {
+            isResolved
+            comments(first: 1) {
+              nodes {
+                databaseId
+                author { login }
+                body
+                path
+                line
+                createdAt
+              }
+            }
+          }
+        }
+      }
+    }
+  }' -f owner="$REPO_OWNER" -f repo="$REPO_NAME" -F number=<number> | \
+  jq --arg user "$CURRENT_USER" '
+  [.data.repository.pullRequest.reviewThreads.nodes[] |
+   select(.comments.nodes[0].author.login == $user) |
+   {
+     comment_id: .comments.nodes[0].databaseId,
+     resolved: .isResolved,
+     body: .comments.nodes[0].body,
+     file: .comments.nodes[0].path,
+     line: .comments.nodes[0].line,
+     created_at: .comments.nodes[0].createdAt
+   }]'
+```
+
+**Output fields:**
+
+| Field | Description |
+|-------|-------------|
+| `comment_id` | Comment database ID for reference |
+| `resolved` | Whether the review thread was resolved |
+| `body` | Comment body (Conventional Comments format) |
+| `file` | File path (null for general comments) |
+| `line` | Line number (null for general comments) |
+| `created_at` | Timestamp for ordering |
+
+**Parsing Conventional Comments:** Extract structured data from the body:
+
+```
+Pattern: **<label> (<decoration>):** <subject>\n\n<discussion>
+Example: **issue (blocking):** Race condition na criação de pagamento
+```
+
+If the body does not match Conventional Comments format, skip it (likely a manual comment, not a structured review finding).
+
 ## Submit Formal Review
 
 GitHub supports atomic review submission — all inline comments + body + review type in a single API call.

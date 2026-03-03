@@ -22,6 +22,7 @@ digraph review {
     identify [label="1. Identify PR/MR"];
     issue [label="1b. Detect Issue"];
     context [label="2. Gather Context"];
+    previous [label="2.8 Classify Previous\nReview Findings" style=dashed];
     requirements [label="2b. Requirements Validation" shape=diamond];
     agents [label="3. Run Review Agents"];
     checks [label="3b. Critical Checks"];
@@ -31,7 +32,7 @@ digraph review {
     submit [label="7. Submit Formal Review"];
 
     validate -> identify -> issue -> context;
-    context -> requirements;
+    context -> previous -> requirements;
     requirements -> agents [label="issue found"];
     requirements -> agents [label="no issue\nskip"];
     agents -> checks -> score -> approve -> type -> submit;
@@ -165,6 +166,33 @@ Collect in parallel:
 5. **Git history** — for each changed file: `git log --oneline -10 <file>`
 6. **Git blame** — for changed lines, run `git blame` on the base branch version to understand original intent and authorship
 7. **Previous PR/MR feedback** — search recent merged PRs/MRs that touched the same files, collect review comments (via review adapter). Look for recurring themes — if a reviewer flagged the same pattern before, it's worth flagging again
+8. **Previous review findings** — via review adapter's `Fetch Own Discussions`. Fetch all discussions/review comments authored by the authenticated user on this MR/PR. Parse Conventional Comments format to extract structured findings. If none found (first review), skip previous-review logic entirely
+
+#### 2.8 Classify Previous Review Findings
+
+**Skip if no previous review discussions were found (first review).**
+
+For each parsed previous finding, classify using the hybrid approach:
+
+```
+Resolved on platform?
+├── yes → ADDRESSED
+└── no
+    └── Finding has file:line AND line falls within a changed hunk in the diff?
+        ├── no → UNRESOLVED
+        └── yes
+            └── Semantic check: does the new code at that location address the concern?
+                ├── uncertain/no → UNRESOLVED
+                └── yes → ADDRESSED
+```
+
+**"Line changed"** — compare the finding's `file:line` against the MR/PR diff (already fetched in step 2.1). If the line falls within a changed hunk, it counts as changed.
+
+**Semantic check** — read the previous finding's body and the new code at that location. When uncertain, classify as **unresolved** (safer to re-present than to silently drop).
+
+**Findings without file:line** (review body findings) — can't be diff-checked. Classify as **unresolved** unless resolved on the platform.
+
+**Output:** two lists — `addressed_findings[]` and `unresolved_findings[]`.
 
 ### 2b. Requirements Validation
 
@@ -186,6 +214,8 @@ Launch agents from `code_review.agents` in parallel using the Task tool:
 - Each agent returns findings as: file, line, issue, severity, confidence (0-100)
 
 If `code_review.instructions` is configured, include the file contents as additional context passed to each agent alongside the PR diff and changed files.
+
+If `unresolved_findings[]` from step 2.8 is non-empty, pass them to each agent as additional context: "The following findings were raised in a previous review and remain unresolved. Do not re-flag these — they will be carried forward separately." This prevents agents from producing duplicates.
 
 **Conditional agents** from `code_review.optional_agents` — launch based on what changed (e.g., security analyst if auth code was touched). Use judgment.
 
@@ -233,6 +263,8 @@ Run directly (not delegated to agents):
 1. Remove duplicates (same file+line+issue from multiple sources)
 2. Sort by severity (blocker first), then by confidence within each severity level
 3. Group by category
+4. Deduplicate against previous findings — if an agent finding matches an unresolved previous finding (same file, overlapping lines, same concern), remove the agent finding in favor of the previous one. The previous finding carries more weight as a "previously raised" item
+5. Inject `unresolved_findings[]` into the consolidated list. Each gets tagged `(previously raised, still unresolved)`. They keep their original severity — no escalation, no demotion
 
 **False positive rubric — do NOT flag:**
 - Something that looks like a bug but isn't
@@ -265,6 +297,29 @@ Comment (Conventional Comments format):
 │ [discussion - context, justification, suggested code]
 └─────────────────────────────────────────────────────────
 ```
+
+**For previously raised findings**, use this modified header:
+
+```
+═══════════════════════════════════════════════════════════
+Finding [N of TOTAL]  ⟳ PREVIOUSLY RAISED
+═══════════════════════════════════════════════════════════
+
+Label:      [original label] ([original decoration])
+Confidence: [original score]/100
+File:       [path:line]
+Source:     previous review
+
+Comment (Conventional Comments format):
+┌─────────────────────────────────────────────────────────
+│ **[label] ([decoration]):** [subject]
+│
+│ ⟳ Previously flagged, still unresolved.
+│ [original discussion body]
+└─────────────────────────────────────────────────────────
+```
+
+Previously raised findings go through the same approval options as new findings. The reviewer decides whether they still matter.
 
 **Options:**
 1. **Approve** — include in final review
@@ -322,6 +377,15 @@ After posting (or if the user discards), remove `.flowyeah/review-state.md` and 
 - ✅ Requirement A — implemented in `app/services/...`
 - ❌ Requirement B — not found in diff
 - ⚠️ Requirement C — partial implementation
+
+### Previous Review Follow-up
+<!-- Only if previous review findings were found -->
+
+#### Resolved
+- ✅ `file:line` — [subject] ([resolution reason: resolved on platform / code changed, addresses concern])
+
+#### Still Unresolved
+- ⟳ `file:line` — [subject] (see inline comment)
 
 ### Code Review Summary
 [consolidated summary of findings]

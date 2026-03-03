@@ -74,6 +74,55 @@ mcp__plugin_linear_linear__get_issue(id: "<slug>")
 
 Extract: title, description, labels, comments (for requirements validation).
 
+## Fetch Own Discussions
+
+Fetch all discussion threads on the MR authored by the authenticated user. Used for re-review detection.
+
+**Step 1 — Get authenticated username:**
+
+```bash
+TOKEN=$(grep "^<token_env>=" <token_source> | cut -d= -f2- | tr -d '"') && \
+CURRENT_USER=$(curl -s -H "Authorization: Bearer $TOKEN" \
+  "<url>/api/v4/user" | jq -r '.username')
+```
+
+**Step 2 — Fetch all discussions filtered by author:**
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" \
+  "<url>/api/v4/projects/<project_id>/merge_requests/<iid>/discussions" | \
+  jq --arg user "$CURRENT_USER" '
+    [.[] | select(.notes[0].author.username == $user and .notes[0].system == false) |
+     {
+       discussion_id: .id,
+       resolved: (.notes[0].resolvable and .notes[0].resolved),
+       body: .notes[0].body,
+       file: (.notes[0].position.new_path // null),
+       line: (.notes[0].position.new_line // null),
+       created_at: .notes[0].created_at
+     }]'
+```
+
+**Output fields:**
+
+| Field | Description |
+|-------|-------------|
+| `discussion_id` | Thread ID for reference |
+| `resolved` | Whether the discussion was resolved |
+| `body` | Comment body (Conventional Comments format) |
+| `file` | File path (null for general comments) |
+| `line` | Line number (null for general comments) |
+| `created_at` | Timestamp for ordering |
+
+**Parsing Conventional Comments:** Extract structured data from the body:
+
+```
+Pattern: **<label> (<decoration>):** <subject>\n\n<discussion>
+Example: **issue (blocking):** Race condition na criação de pagamento
+```
+
+If the body does not match Conventional Comments format, skip it (likely a manual comment, not a structured review finding).
+
 ## Submit Formal Review
 
 GitLab uses **discussions** for inline review comments. Each discussion creates a resolvable thread anchored to a specific line in the diff.
