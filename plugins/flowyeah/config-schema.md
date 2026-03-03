@@ -21,6 +21,7 @@ Single source of truth for `flowyeah.yml` configuration. Referenced by setup, bu
 | `pull_requests.merge_strategy` | string | `squash` \| `merge` \| `rebase` | `squash` | Determines where commit conventions are applied (PR title vs individual commits) |
 | `code_review.agents` | list of strings | agent names | **required** (non-empty) | Always launched during CI wait |
 | `code_review.optional_agents` | list of strings | agent names | `[]` | AI decides based on what changed |
+| `code_review.instructions` | string | file path (relative to project root) | none | Markdown file with project-specific review guidelines. Read once during config validation. Contents injected into review agents and evaluated as additional critical checks. |
 | `issues.create_when_missing` | string | `ask` \| `always` \| `never` | `ask` | Controls issue creation when source is not an issue tracker |
 | `issues.adapter` | string | adapter key | conditional | Required when `create_when_missing` is `ask` or `always`. Must support issue creation (gitlab, github, or linear) |
 | `worktree.symlinks` | list of strings | relative paths | `[]` | Paths relative to project root. Each is symlinked from the worktree to the main checkout. Created before env/setup. |
@@ -39,6 +40,8 @@ Single source of truth for `flowyeah.yml` configuration. Referenced by setup, bu
 | Each adapter in `adapters` must have `adapters/<name>/connection.md` | error | "Adapter '\<name>' has no connection.md" |
 | `testing.command` must be present | error | "testing.command is required" |
 | `code_review.agents` must be non-empty | error | "code_review.agents is required and must not be empty" |
+| `code_review.instructions` must be a relative path (if present) | error | "code_review.instructions must be a relative path: '<path>'" |
+| `code_review.instructions` file must exist (if present) | error | "code_review.instructions file not found: '<path>'" |
 | `issues.adapter` required when `create_when_missing` is `ask` or `always` | error | "issues.adapter is required when create_when_missing is '\<value>'" |
 | `issues.adapter` must support issue creation (gitlab, github, or linear) | error | "issues.adapter '\<name>' does not support issue creation (only gitlab, github, linear)" |
 | `worktree.symlinks` entries must be relative paths | error | `worktree.symlinks entries must be relative paths: '<path>'` |
