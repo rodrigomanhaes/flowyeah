@@ -49,6 +49,10 @@ Single source of truth for `flowyeah.yml` configuration. Referenced by setup, bu
 | `hooks.after_merge` file must exist (if present) | error | "hooks.after_merge file not found: '<path>'" |
 | `worktree.symlinks` entries must be relative paths | error | `worktree.symlinks entries must be relative paths: '<path>'` |
 | `worktree.symlinks` entries must not escape project root (`../`) | error | `worktree.symlinks entry escapes project root: '<path>'` |
+| `worktree.env` entries must be single-key maps (e.g., `{KEY: auto}`) | error | "worktree.env entry must be a single-key map, got: '\<value>'" |
+| `worktree.env` map values must be strings | error | "worktree.env value for '\<key>' must be a string" |
+| `worktree.setup` entries must be strings | error | "worktree.setup entry must be a string, got: '\<value>'" |
+| `worktree.teardown` entries must be strings | error | "worktree.teardown entry must be a string, got: '\<value>'" |
 | `git_host: gitlab` + `merge_strategy: rebase` | warning | "GitLab rebase is a project-level setting, not controllable per MR via API. Recommend squash or merge." |
 
 ## Deprecated Keys
