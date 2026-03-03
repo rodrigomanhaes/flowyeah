@@ -309,8 +309,8 @@ How much effort goes into commit messages depends on `pull_requests.merge_strate
 | `merge_strategy` | Commit message effort | Why |
 |-------------------|----------------------|-----|
 | `squash` | **Minimal.** Clear and descriptive, but no conventions or writer agent needed. These commits will be squashed — the PR title+description is what survives (see Step 7). | Individual commits are thrown away on merge. |
-| `rebase` | **Full.** Apply `commits.conventions` and `commits.writer`. These commits ARE the final history — they land directly on the target branch. | No merge commit; individual commits are the permanent record. |
-| `merge` | **Full.** Apply `commits.conventions` and `commits.writer`. Individual commits are visible in branch history. | Both merge commit (PR title) and branch commits survive. |
+| `rebase` | **Full.** Apply `commits.conventions` and `commits.writer` (if `null`, write the message directly without delegating to an agent). These commits ARE the final history — they land directly on the target branch. | No merge commit; individual commits are the permanent record. |
+| `merge` | **Full.** Apply `commits.conventions` and `commits.writer` (if `null`, write the message directly without delegating to an agent). Individual commits are visible in branch history. | Both merge commit (PR title) and branch commits survive. |
 
 ### 6. Test
 
@@ -376,8 +376,8 @@ Load the git host adapter from `adapters/<git_host>/connection.md` + `adapters/<
 
 | `merge_strategy` | Title + body effort | Why |
 |-------------------|---------------------|-----|
-| `squash` | **Full.** Apply `commits.conventions` and `commits.writer` to the PR title+description. The title becomes the squash commit message — it IS the final history. | Individual commits are thrown away; PR title survives. |
-| `merge` | **Full.** Apply `commits.conventions` and `commits.writer`. The title becomes the merge commit message. | Merge commit (PR title) is what shows in `git log --first-parent`. |
+| `squash` | **Full.** Apply `commits.conventions` and `commits.writer` (if `null`, write directly without delegating to an agent) to the PR title+description. The title becomes the squash commit message — it IS the final history. | Individual commits are thrown away; PR title survives. |
+| `merge` | **Full.** Apply `commits.conventions` and `commits.writer` (if `null`, write directly without delegating to an agent). The title becomes the merge commit message. | Merge commit (PR title) is what shows in `git log --first-parent`. |
 | `rebase` | **Minimal.** Descriptive title in `language`, but no conventions or writer agent needed. Individual commits (Step 5) already carry the conventions. | PR title is UI-only; individual commits are the permanent record. |
 
 **Title rules:**
