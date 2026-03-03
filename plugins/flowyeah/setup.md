@@ -183,6 +183,18 @@ optional_agents:
 
 Ask if they want to customize the list.
 
+### 9b. Review instructions
+
+> Do you have a markdown file with project-specific review guidelines?
+
+These are project-specific rules that review agents and critical checks should enforce (e.g., "all API changes require backward compatibility", "controllers must not contain business logic").
+
+Options: **No** (default), **Yes**
+
+If **Yes**: ask for the file path (suggest `.flowyeah/review-guidelines.md`), validate the file exists, add `code_review.instructions: <path>` to the generated YAML.
+
+If **No**: skip, don't add the key.
+
 ### 10. Issues
 
 > Create issues automatically when the source wasn't an issue tracker?
@@ -243,6 +255,7 @@ code_review:
     - <answer>
   optional_agents:
     - <answer>
+  instructions: <answer>                  # omit if not configured
 
 issues:
   adapter: <answer>
