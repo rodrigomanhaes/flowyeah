@@ -76,7 +76,7 @@ Detect from project files:
 
 Options: `related` (default), `full`
 
-### 6b. Brainstorming
+### 7. Brainstorming
 
 > Always brainstorm before implementing, or let AI decide?
 
@@ -85,7 +85,7 @@ Options: `always`, `auto` (default)
 - **`always`** — every task goes through brainstorm → plan → TDD. Recommended for legacy, large, or critical codebases where even small changes need discussion.
 - **`auto`** — AI assesses complexity: trivial tasks skip brainstorming, non-trivial tasks get the full cycle. Recommended for greenfield projects.
 
-### 6c. Implementation approval
+### 8. Implementation approval
 
 > Approve implementation before pushing, or let AI decide?
 
@@ -94,7 +94,7 @@ Options: `always`, `auto` (default)
 - **`always`** — present the implementation for developer approval before pushing. Recommended for legacy, large, or critical codebases where every change needs human review before leaving the local environment.
 - **`auto`** — AI assesses risk: straightforward changes push automatically, complex or high-risk changes ask. Recommended for greenfield projects.
 
-### 6d. Worktree isolation
+### 9. Worktree isolation
 
 Multiple worktrees can run concurrently, so each needs isolated system dependencies (database, Redis, etc.). Always ask these questions.
 
@@ -131,7 +131,7 @@ These run with the env vars exported. Suggest based on project files:
 - `Gemfile` present → suggest `bundle exec rails db:drop DISABLE_DATABASE_ENVIRONMENT_CHECK=1`
 - Otherwise → ask
 
-### 7. Language and commit conventions
+### 10. Language and commit conventions
 
 > What language for commits, PRs, and review comments?
 
@@ -147,7 +147,7 @@ Options: `git-commit-writer` (default), `null` (write manually)
 
 If `git-commit-writer`, the pipeline delegates commit message authoring to that agent. If `null`, commits are written inline.
 
-### 8. PR/MR preferences
+### 11. PR/MR preferences
 
 > Delete source branch after merge?
 
@@ -167,7 +167,7 @@ Options: `squash` (default), `merge`, `rebase`
 
 **Note:** If the git host is GitLab, warn that `rebase` is a project-level setting in GitLab and cannot be requested per merge request via API. Recommend `squash` or `merge` for GitLab projects.
 
-### 9. Code review agents
+### 12. Code review agents
 
 > Which agents run code review?
 
@@ -183,7 +183,7 @@ optional_agents:
 
 Ask if they want to customize the list.
 
-### 9b. Review instructions
+### 13. Review instructions
 
 > Do you have a markdown file with project-specific review guidelines?
 
@@ -195,7 +195,7 @@ If **Yes**: ask for the file path (suggest `.flowyeah/review-guidelines.md`), va
 
 If **No**: skip, don't add the key.
 
-### 10. Issues
+### 14. Issues
 
 > Create issues automatically when the source wasn't an issue tracker?
 
@@ -215,7 +215,7 @@ Query available teams via `mcp__plugin_linear_linear__list_teams()` and present 
 
 **If the user chose `never`:** skip the adapter question.
 
-### 11. Hooks
+### 15. Hooks
 
 > Do you want to configure project-specific hooks for pipeline events?
 
