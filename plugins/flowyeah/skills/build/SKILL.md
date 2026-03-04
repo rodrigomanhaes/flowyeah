@@ -8,7 +8,7 @@ description: Use when starting work from any source - ideas, issues, conversatio
 Single command. Takes any source, produces tested, reviewed, merged PRs.
 
 ```
-flowyeah:build [from <source>] [--continuous] [--intermittent]
+flowyeah:build [from <source>] [--continuous] [--intermittent] [--on-branch <branch>]
 ```
 
 ## Sources
