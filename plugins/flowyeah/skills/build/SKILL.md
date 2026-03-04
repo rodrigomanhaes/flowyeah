@@ -152,6 +152,34 @@ Parse command arguments, read content, convert to canonical plan format. Save to
 
 Create worktree and branch. **Always worktree, always branch.**
 
+**When `--on-branch <branch>` is passed:**
+
+Skip the normal branch creation flow. Instead, attach to the existing branch:
+
+```bash
+git fetch origin <branch>
+
+# Check if a worktree already exists for this branch
+EXISTING=$(git worktree list --porcelain | grep -B1 "branch refs/heads/<branch>" | head -1 | sed 's/worktree //')
+
+if [ -n "$EXISTING" ]; then
+  # Reuse existing worktree, cd into it
+  cd "$EXISTING"
+else
+  # Create worktree from the existing remote branch
+  SLUG=$(echo "<branch>" | tr '/' '-')
+  git worktree add .flowyeah/worktrees/$SLUG <branch>
+  cd .flowyeah/worktrees/$SLUG
+fi
+```
+
+- **No branch creation** — the branch already exists.
+- **Worktree reuse** — if a worktree for this branch exists (from a previous session), reuse it.
+- **Session files** — if `.flowyeah/state.md` exists in the worktree, resume from it (same as crash recovery). If not, create fresh session files with `On-Branch: true` in `state.md`.
+- **Skip** branch naming, type inference, and issue claiming — the branch and any associated issue are already set up.
+
+After attaching, the rest of Step 3 runs normally: worktree verification (3b), symlinks, env setup.
+
 **Before creating the worktree**, verify `flowyeah.yml` is committed. If it's untracked or modified, commit it first — worktrees are created from the current branch HEAD, so uncommitted files won't be present in the worktree and the injection hook will silently fail.
 
 ```bash
