@@ -519,7 +519,8 @@ Then run teardown commands to clean up isolated dependencies:
 ```bash
 # Close VSCode window on worktree (best-effort)
 if which code >/dev/null 2>&1; then
-  code "$WORKTREE_PATH" --command "workbench.action.closeWindow" 2>/dev/null || true
+  code "$WORKTREE_PATH" --command "workbench.action.closeWindow" 2>/dev/null || \
+    echo "Warning: Failed to close VSCode window, continuing with cleanup" >&2
 fi
 
 # Export worktree env and run teardown (before removal)
