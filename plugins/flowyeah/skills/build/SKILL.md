@@ -622,6 +622,7 @@ Worktree: .flowyeah/worktrees/feat-5588
 Issue-Ref: #5588                      # from source adapter's Issue Linkage
 Issue-Close: Closes #5588             # close keyword for PR/MR body
 Investigation: intermittent            # set in Step 3 when --intermittent flag is passed
+On-Branch: true                       # set in Step 3 when --on-branch flag is passed
 
 ## Worktree Env
 TEST_ENV_NUMBER=aB3xK9mQ
