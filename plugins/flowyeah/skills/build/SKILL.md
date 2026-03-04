@@ -180,8 +180,6 @@ fi
 
 After attaching, the rest of Step 3 runs normally: worktree verification (3b), symlinks, env setup.
 
-**Before creating the worktree**, verify `flowyeah.yml` is committed. If it's untracked or modified, commit it first — worktrees are created from the current branch HEAD, so uncommitted files won't be present in the worktree and the injection hook will silently fail.
-
 ```bash
 # Read git.default_branch from flowyeah.yml (default: main)
 git checkout $DEFAULT_BRANCH && git pull origin $DEFAULT_BRANCH
@@ -190,6 +188,25 @@ git check-ignore -q .flowyeah/worktrees 2>/dev/null || echo ".flowyeah/" >> .git
 git check-ignore -q tmp/flowyeah 2>/dev/null || echo "tmp/" >> .gitignore
 git worktree add .flowyeah/worktrees/<type>-<slug> -b <type>/<slug>
 ```
+
+**After creating the worktree**, check if `flowyeah.yml` exists there. On first run, the file was just created by setup and isn't committed yet — worktrees are created from HEAD, so uncommitted files don't appear. Copy it from the main checkout:
+
+```bash
+MAIN_WORKTREE=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+cd .flowyeah/worktrees/<type>-<slug>
+
+# Copy flowyeah.yml if missing (first run — not yet in any branch)
+if [ ! -f flowyeah.yml ] && [ -f "$MAIN_WORKTREE/flowyeah.yml" ]; then
+  cp "$MAIN_WORKTREE/flowyeah.yml" ./flowyeah.yml
+fi
+
+# Copy .gitignore if it was modified (for .flowyeah/ and tmp/ entries)
+if [ -f "$MAIN_WORKTREE/.gitignore" ]; then
+  cp "$MAIN_WORKTREE/.gitignore" ./.gitignore
+fi
+```
+
+The first commit in the worktree will include `flowyeah.yml`, so it reaches the default branch via the PR — never committed directly to it.
 
 **Branch naming:**
 

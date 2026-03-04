@@ -287,4 +287,4 @@ adapters:
 git_host: <answer>
 ```
 
-Tell the user to review and commit the file. Then proceed with the original command.
+Tell the user to review the file. Then proceed with the original command — the pipeline will carry `flowyeah.yml` into the worktree and include it in the first feature-branch commit.
