@@ -501,7 +501,15 @@ If no hooks are configured, this step is a no-op.
 
 Removes the worktree and everything in it, including `.flowyeah/` session files.
 
-**Before removing the worktree**, run teardown commands to clean up isolated dependencies:
+**Before removing the worktree**, close any VSCode window that has the worktree directory open to prevent VSCode from freezing:
+
+1. Check if `code` CLI is available (`which code`)
+2. If available, run `code --status 2>/dev/null` and check if any window lists the worktree path
+3. If a window is found, close it: `code "$WORKTREE_PATH" --command "workbench.action.closeWindow"`
+4. If `code --status` fails or isn't available, scan `/proc/*/cmdline` for VSCode processes containing the worktree path as a fallback
+5. This is best-effort — if detection or closing fails, warn and continue with teardown
+
+Then run teardown commands to clean up isolated dependencies:
 
 1. Read env vars from `state.md`'s `## Worktree Env` section
 2. Export them
@@ -509,6 +517,11 @@ Removes the worktree and everything in it, including `.flowyeah/` session files.
 4. Teardown is best-effort — if a command fails (e.g., database already dropped), warn and continue with cleanup
 
 ```bash
+# Close VSCode window on worktree (best-effort)
+if which code >/dev/null 2>&1; then
+  code "$WORKTREE_PATH" --command "workbench.action.closeWindow" 2>/dev/null || true
+fi
+
 # Export worktree env and run teardown (before removal)
 export TEST_ENV_NUMBER=aB3xK9mQ
 export REDIS_DB=pL7nR2wY
