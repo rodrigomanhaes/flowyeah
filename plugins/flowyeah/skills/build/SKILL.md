@@ -83,6 +83,7 @@ digraph pipeline {
     test [label="6. Test"];
     approval [label="6b. Implementation Approval\n(implementation.approval)" shape=diamond];
     deliver [label="6c. Rebase → Push"];
+    issue_link [label="6d. Issue Linkage\n(issues.create_when_missing)" shape=diamond];
     pr [label="7. Create PR/MR"];
     ci_loop [label="7b. CI + Code Review Loop" shape=diamond];
     merge_decision [label="7c. Merge Decision\n(pull_requests.merge)" shape=diamond];
@@ -97,7 +98,7 @@ digraph pipeline {
     implement -> commit -> test -> approval;
     approval -> deliver [label="approved /\nauto-approved"];
     approval -> implement [label="changes requested"];
-    deliver -> pr -> ci_loop;
+    deliver -> issue_link -> pr -> ci_loop;
     ci_loop -> commit [label="issues found\nfix → commit → push\nskip approval+review"];
     ci_loop -> merge_decision [label="CI green +\nreview clean"];
     merge_decision -> hooks [label="auto:\nmerge via adapter"];
@@ -361,6 +362,20 @@ else
 fi
 ```
 
+### 6d. Issue Linkage
+
+If the source was an issue tracker, `Issue-Ref` and `Issue-Close` are already set from step 1. Skip this step.
+
+If the source was NOT an issue tracker (file, conversation, Bugsink, New Relic, GitHub Actions), check `issues.create_when_missing`:
+
+| `issues.create_when_missing` | Action |
+|------------------------------|--------|
+| `ask` | **STOP and ask the user:** "Deseja criar uma issue para rastrear este trabalho?" If yes, create via `issues.adapter`. If no, skip. **You MUST ask — do not silently skip.** |
+| `always` | Create one automatically via `issues.adapter`. |
+| `never` | Skip silently. |
+
+When creating an issue, use the source adapter pointed to by `issues.adapter` to create it. Save the resulting Issue Linkage values (`Issue-Ref`, `Issue-Close`) to `state.md` — they will be used for the PR title and body in step 7.
+
 ### 7. Create PR/MR
 
 Load the git host adapter from `adapters/<git_host>/connection.md` + `adapters/<git_host>/hosting.md`, read its config from `flowyeah.yml` `adapters.<git_host>`, and follow the adapter's instructions to create the PR/MR.
@@ -404,16 +419,6 @@ Code review results are reported in the terminal only — this is your current w
    - **If `code_review.agents` is empty or missing: STOP and complain. Do NOT continue without code review.**
 
    If `code_review.instructions` is configured, include the file contents as additional context passed to each agent alongside the diff and changed files.
-
-2. **Issue creation opportunity.** If the source was NOT an issue tracker (i.e., it was a file or a conversation), you MUST check `issues.create_when_missing`:
-
-   | `issues.create_when_missing` | Action |
-   |------------------------------|--------|
-   | `ask` | **STOP and ask the user:** "Deseja criar uma issue para rastrear este trabalho?" If yes, create via `issues.adapter`. If no, skip. **You MUST ask — do not silently skip.** |
-   | `always` | Create one automatically via `issues.adapter`. |
-   | `never` | Skip silently. |
-
-   When creating an issue, use the source adapter pointed to by `issues.adapter` to create it. Save the resulting Issue Linkage values (`Issue-Ref`, `Issue-Close`) to `state.md` — they will be used for the PR title and body.
 
 **When results come back:**
 
