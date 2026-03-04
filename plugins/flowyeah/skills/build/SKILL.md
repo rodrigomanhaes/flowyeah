@@ -406,6 +406,19 @@ When creating an issue, use the source adapter pointed to by `issues.adapter` to
 
 ### 7. Create PR/MR
 
+**When `On-Branch: true` is set in state.md**, check if a PR/MR already exists before creating one:
+
+```bash
+# GitHub
+gh pr view <branch> --json number,url,state 2>/dev/null
+
+# GitLab — use the git host adapter's equivalent
+```
+
+- **PR exists and is open** — skip PR creation. Use the existing PR's number and URL for CI wait, code review, and merge decision.
+- **PR exists but is closed/merged** — STOP and report to user.
+- **No PR exists** — create one normally.
+
 Load the git host adapter from `adapters/<git_host>/connection.md` + `adapters/<git_host>/hosting.md`, read its config from `flowyeah.yml` `adapters.<git_host>`, and follow the adapter's instructions to create the PR/MR.
 
 **The skill provides these values to the adapter:**
