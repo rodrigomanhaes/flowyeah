@@ -761,7 +761,7 @@ When a pipeline step fails irrecoverably (e.g., 3 CI failures, merge conflict th
 
 1. **Before worktree cleanup:** save `state.md` and `findings.md` to `tmp/flowyeah/aborted/<key>/` for post-mortem
 2. **Reset the plan task:** uncheck `[x]` → `[ ]` in `tmp/flowyeah/plans/<key>.md` if it was prematurely marked
-3. **Clean up remote:** delete the remote branch if the PR was already created but not merged
+3. **Clean up remote:** delete the remote branch if the PR was already created but not merged. **Skip when `On-Branch: true`** — the branch existed before flowyeah and should not be deleted on rollback.
 4. **Clean up worktree:** remove with `git worktree remove`
 5. **Report:** summarize what happened, what was saved, and what the user should do next
 
