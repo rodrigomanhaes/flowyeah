@@ -83,11 +83,11 @@ Phase: <current_phase>
 | `Gathering Context` | 2-2b | Re-run context gathering |
 | `Running Agents` | 3-3b | Re-run agents (results lost) |
 | `Scoring` | 4 | Re-run scoring (agent results lost) |
-| `Interactive Approval` | 5 | Read `review-approved.md`, continue from next unapproved finding |
+| `Interactive Approval` | 5 | Read `review-approved.md`, re-present unapproved findings |
 | `Choosing Review Type` | 6 | Re-ask review type question |
 | `Submitting Review` | 7 | Check if review was posted, retry or clean up |
 
-During interactive approval (step 5), persist each approval decision to `.flowyeah/review-approved.md`:
+After the user makes approval decisions (step 5), persist results to `.flowyeah/review-approved.md`:
 
 ```markdown
 # Approved Findings
@@ -103,7 +103,7 @@ During interactive approval (step 5), persist each approval decision to `.flowye
 ...
 ```
 
-This file ensures that if compaction or a crash interrupts the approval flow, previously approved findings are recoverable.
+This file ensures that if compaction or a crash interrupts after approval, approved findings are recoverable.
 
 Review sessions use `review-state.md` (not `state.md`) so they never interfere with build sessions in worktrees. Both can coexist — the injection hook handles them separately.
 
@@ -118,7 +118,7 @@ If a review session is interrupted (compaction, crash, user abort):
 1. The hook injects `review-state.md` into the next prompt
 2. Resume from the last recorded phase
 3. If the phase was before "Interactive Approval" (step 5), re-run from that phase
-4. If during or after approval, read `review-approved.md` to recover previously approved findings and continue from the next unapproved finding
+4. If during or after approval, read `review-approved.md` to recover previously approved findings and skip re-presenting them
 5. If the review was already submitted, clean up both state files
 
 ## Steps
@@ -290,11 +290,11 @@ Run directly (not delegated to agents):
 
 ### 5. Interactive Approval
 
-For each finding, present to the user:
+Present **all findings at once** as a numbered list. Each finding uses its full format:
 
 ```
 ═══════════════════════════════════════════════════════════
-Finding [N of TOTAL]
+Finding 1
 ═══════════════════════════════════════════════════════════
 
 Label:      [issue/suggestion/nitpick/...] ([blocking/non-blocking])
@@ -308,13 +308,9 @@ Comment (Conventional Comments format):
 │
 │ [discussion - context, justification, suggested code]
 └─────────────────────────────────────────────────────────
-```
 
-**For previously raised findings**, use this modified header:
-
-```
 ═══════════════════════════════════════════════════════════
-Finding [N of TOTAL]  ⟳ PREVIOUSLY RAISED
+Finding 2  ⟳ PREVIOUSLY RAISED
 ═══════════════════════════════════════════════════════════
 
 Label:      [original label] ([original decoration])
@@ -329,16 +325,20 @@ Comment (Conventional Comments format):
 │ ⟳ Previously flagged, still unresolved.
 │ [original discussion body]
 └─────────────────────────────────────────────────────────
+
+... (all remaining findings)
 ```
 
-Previously raised findings go through the same approval options as new findings. The reviewer decides whether they still matter.
+After presenting the full list, ask the user for a **batch decision**:
 
-**Options:**
-1. **Approve** — include in final review
-2. **Approve with edit** — modify text before including
-3. **Skip** — don't include this finding
-4. **Skip all below [severity]** — skip remaining findings below threshold
-5. **Stop** — finalize with approved findings so far
+1. **Approve all** — include every finding in the review
+2. **Select specific** — user provides finding numbers to include (e.g., `1,3,5`). Everything else is skipped
+3. **Skip below severity** — approve all findings, skip those below a severity threshold (e.g., skip nitpicks)
+4. **Discard all** — submit review with no inline findings
+
+If the user selects specific findings and wants to **edit** any before submission, ask which numbers to edit and expand them one at a time for modification.
+
+Persist approved findings to `review-approved.md` after the batch decision is made.
 
 ### 6. Choose Review Type
 
