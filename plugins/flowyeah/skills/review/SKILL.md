@@ -190,7 +190,17 @@ Resolved on platform?
 
 **"Line changed"** — compare the finding's `file:line` against the MR/PR diff (already fetched in step 2.1). If the line falls within a changed hunk, it counts as changed.
 
-**Semantic check** — read the previous finding's body and the new code at that location. When uncertain, classify as **unresolved** (safer to re-present than to silently drop).
+**Semantic check** — read the previous finding's body and the new code at that location. Ask: "did the author's change target this specific concern?" When uncertain, classify as **unresolved** (safer to re-present than to silently drop).
+
+Calibration examples:
+
+| Finding | New code | Classification | Why |
+|---------|----------|----------------|-----|
+| Missing null check on `user.email` | Added `return unless user.email` guard | ADDRESSED | Directly targets the flagged concern |
+| Race condition in payment creation | Added DB-level unique constraint + `RecordNotUnique` rescue | ADDRESSED | Solves the concurrency problem, even if differently than suggested |
+| Missing error handling in API call | Line changed to rename a variable | UNRESOLVED | Change is unrelated to the concern |
+| N+1 query in `orders#index` | Added `# TODO: fix N+1` comment | UNRESOLVED | Acknowledging isn't addressing |
+| Performance concern on large datasets | Method rewritten with different logic in the area | UNCERTAIN → UNRESOLVED | Code changed but unclear if the concern was targeted |
 
 **Findings without file:line** (review body findings) — can't be diff-checked. Classify as **unresolved** unless resolved on the platform.
 
