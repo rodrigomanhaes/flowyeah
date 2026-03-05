@@ -94,7 +94,28 @@ Options: `always`, `auto` (default)
 - **`always`** — present the implementation for developer approval before pushing. Recommended for legacy, large, or critical codebases where every change needs human review before leaving the local environment.
 - **`auto`** — AI assesses risk: straightforward changes push automatically, complex or high-risk changes ask. Recommended for greenfield projects.
 
-### 9. Worktree isolation
+### 9. Process skills
+
+> Do you use process skills for brainstorming, planning, TDD, or debugging?
+
+Process skills are Claude Code skills invoked at specific pipeline phases. They enforce a structured methodology (e.g., `superpowers:brainstorming` for brainstorming, `superpowers:test-driven-development` for TDD). If configured, they are mandatory — the pipeline will always invoke them.
+
+Options: **No** (default), **Yes**
+
+If **Yes**: ask for each phase independently:
+
+| Phase | Question | Example |
+|-------|----------|---------|
+| `brainstorming` | Skill for brainstorming? | `superpowers:brainstorming` |
+| `planning` | Skill for planning? | `superpowers:writing-plans` |
+| `tdd` | Skill for TDD? | `superpowers:test-driven-development` |
+| `debugging` | Skill for debugging? | `superpowers:systematic-debugging` |
+
+Each phase can be configured independently — leave blank to skip. Only configured phases will be enforced.
+
+If **No**: skip, don't add the `process_skills` key. The pipeline will brainstorm, plan, do TDD, and debug inline without invoking specific skills.
+
+### 10. Worktree isolation
 
 Multiple worktrees can run concurrently, so each needs isolated system dependencies (database, Redis, etc.). Always ask these questions.
 
@@ -131,7 +152,7 @@ These run with the env vars exported. Suggest based on project files:
 - `Gemfile` present → suggest `bundle exec rails db:drop DISABLE_DATABASE_ENVIRONMENT_CHECK=1`
 - Otherwise → ask
 
-### 10. Language and commit conventions
+### 11. Language and commit conventions
 
 > What language for commits, PRs, and review comments?
 
@@ -147,7 +168,7 @@ Options: `git-commit-writer` (default), `null` (write manually)
 
 If `git-commit-writer`, the pipeline delegates commit message authoring to that agent. If `null`, commits are written inline.
 
-### 11. PR/MR preferences
+### 12. PR/MR preferences
 
 > Delete source branch after merge?
 
@@ -167,7 +188,7 @@ Options: `squash` (default), `merge`, `rebase`
 
 **Note:** If the git host is GitLab, warn that `rebase` is a project-level setting in GitLab and cannot be requested per merge request via API. Recommend `squash` or `merge` for GitLab projects.
 
-### 12. Code review agents
+### 13. Code review agents
 
 > Which agents run code review?
 
@@ -183,7 +204,7 @@ optional_agents:
 
 Ask if they want to customize the list.
 
-### 13. Review instructions
+### 14. Review instructions
 
 > Do you have a markdown file with project-specific review guidelines?
 
@@ -195,7 +216,7 @@ If **Yes**: ask for the file path (suggest `.flowyeah/review-guidelines.md`), va
 
 If **No**: skip, don't add the key.
 
-### 14. Issues
+### 15. Issues
 
 > Create issues automatically when the source wasn't an issue tracker?
 
@@ -215,7 +236,7 @@ Query available teams via `mcp__plugin_linear_linear__list_teams()` and present 
 
 **If the user chose `never`:** skip the adapter question.
 
-### 15. Hooks
+### 16. Hooks
 
 > Do you want to configure project-specific hooks for pipeline events?
 
@@ -245,6 +266,11 @@ testing:
 implementation:
   brainstorm: <answer>
   approval: <answer>
+  process_skills:                        # omit section entirely if no skills configured
+    brainstorming: <answer>
+    planning: <answer>
+    tdd: <answer>
+    debugging: <answer>
 
 commits:
   conventions: <answer>

@@ -316,13 +316,13 @@ Use `$MAIN_WORKTREE/tmp/flowyeah/plans/<key>.md` to access plan files from insid
 - **`auto`** (default) — trivial tasks (single config change, rename, docs-only) go straight to TDD; non-trivial tasks go through the full brainstorm → plan → TDD cycle.
 
 **Full cycle (when brainstorming):**
-1. **Brainstorm** — explore task, constraints, edge cases. Use `superpowers:brainstorming`.
-2. **Plan** — create implementation steps. Use `superpowers:writing-plans`.
-3. **TDD** — test first, minimal code, refactor. Use `superpowers:test-driven-development`.
+1. **Brainstorm** — explore task, constraints, edge cases. If `implementation.process_skills.brainstorming` is configured, invoke that skill. Otherwise, brainstorm directly.
+2. **Plan** — create implementation steps. If `implementation.process_skills.planning` is configured, invoke that skill. Otherwise, plan directly.
+3. **TDD** — test first, minimal code, refactor. If `implementation.process_skills.tdd` is configured, invoke that skill. Otherwise, do TDD directly.
 4. Update `state.md` on every phase transition.
 
 **Direct TDD (when skipping brainstorm):**
-1. Write failing test → make pass → refactor. Use `superpowers:test-driven-development`.
+1. Write failing test → make pass → refactor. If `implementation.process_skills.tdd` is configured, invoke that skill. Otherwise, do TDD directly.
 2. Update `state.md` after completion.
 
 **When `Investigation: intermittent` is set in state.md:**
@@ -331,7 +331,7 @@ Replace the standard investigation with an escalating approach. The goal is to i
 
 **Escalation levels** (stop as soon as the cause is found):
 
-1. **Run the failing test in isolation.** Does it fail by itself? If yes, the failure is not intermittent — fall back to `superpowers:systematic-debugging`.
+1. **Run the failing test in isolation.** Does it fail by itself? If yes, the failure is not intermittent — fall back to standard debugging. If `implementation.process_skills.debugging` is configured, invoke that skill.
 
 2. **Check ordering dependency.** Run the full spec file (or suite) with the seed from the CI log. Reproduce the failure with the same test ordering.
 

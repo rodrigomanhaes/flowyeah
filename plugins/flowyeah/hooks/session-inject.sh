@@ -121,6 +121,30 @@ if [ "$SESSION_TYPE" = "build" ]; then
         echo "(none yet)"
     fi
     echo ""
+
+    # Inject process skills enforcement from flowyeah.yml
+    SKILLS=""
+    for phase in brainstorming planning tdd debugging; do
+        SKILL=$(awk -v phase="$phase" '
+            /^  process_skills:/ { in_block=1; next }
+            in_block && /^  [^ ]/ { in_block=0 }
+            in_block && $0 ~ "^    " phase ":" { sub(/^    [a-z]+: */, ""); print; exit }
+        ' "$TOPLEVEL/flowyeah.yml" 2>/dev/null)
+        if [ -n "$SKILL" ]; then
+            SKILLS="${SKILLS:+$SKILLS, }$phase=$SKILL"
+        fi
+    done
+    if [ -n "$SKILLS" ]; then
+        echo "## PROCESS SKILLS (mandatory)"
+        echo "You MUST invoke these skills via the Skill tool at the corresponding pipeline phase:"
+        echo "$SKILLS" | tr ',' '\n' | while read -r entry; do
+            entry=$(echo "$entry" | xargs)
+            phase="${entry%%=*}"
+            skill="${entry#*=}"
+            echo "  - $phase → $skill"
+        done
+        echo ""
+    fi
 fi
 
 echo "──────────────────────────────────────────────"

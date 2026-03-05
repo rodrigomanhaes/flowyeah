@@ -84,7 +84,7 @@ New Relic errors are always prose — build a debugging-oriented plan:
 - [ ] Verify fix resolves the original error
 ```
 
-The core skill should use `superpowers:systematic-debugging` for the investigation phase.
+The core skill should use the debugging skill configured in `implementation.process_skills.debugging` for the investigation phase (if configured).
 
 ## Branch Naming
 

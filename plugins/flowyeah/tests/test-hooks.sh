@@ -390,6 +390,68 @@ cd "$TMPDIR"
 git worktree remove wt-feat 2>/dev/null || true
 teardown
 
+# ── process_skills injection tests ─────────────────────
+
+echo ""
+echo "=== session-inject.sh (process_skills) ==="
+
+# Test: no process_skills → no PROCESS SKILLS section
+setup_repo
+cat > flowyeah.yml <<'EOF'
+testing:
+  command: echo test
+implementation:
+  brainstorm: auto
+EOF
+mkdir -p .flowyeah
+echo -e "Type: build\nStatus: Implementing\nStep: 4" > .flowyeah/state.md
+OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+assert_output_not_contains "inject: no PROCESS SKILLS without config" "## PROCESS SKILLS" "$OUTPUT"
+teardown
+
+# Test: process_skills configured → PROCESS SKILLS section with skills listed
+setup_repo
+cat > flowyeah.yml <<'EOF'
+testing:
+  command: echo test
+implementation:
+  brainstorm: always
+  process_skills:
+    brainstorming: superpowers:brainstorming
+    planning: superpowers:writing-plans
+    tdd: superpowers:test-driven-development
+    debugging: superpowers:systematic-debugging
+EOF
+mkdir -p .flowyeah
+echo -e "Type: build\nStatus: Implementing\nStep: 4" > .flowyeah/state.md
+OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+assert_output_contains "inject: shows PROCESS SKILLS section" "## PROCESS SKILLS" "$OUTPUT"
+assert_output_contains "inject: shows brainstorming skill" "superpowers:brainstorming" "$OUTPUT"
+assert_output_contains "inject: shows planning skill" "superpowers:writing-plans" "$OUTPUT"
+assert_output_contains "inject: shows tdd skill" "superpowers:test-driven-development" "$OUTPUT"
+assert_output_contains "inject: shows debugging skill" "superpowers:systematic-debugging" "$OUTPUT"
+teardown
+
+# Test: partial process_skills → only configured phases listed
+setup_repo
+cat > flowyeah.yml <<'EOF'
+testing:
+  command: echo test
+implementation:
+  process_skills:
+    tdd: superpowers:test-driven-development
+    debugging: superpowers:systematic-debugging
+EOF
+mkdir -p .flowyeah
+echo -e "Type: build\nStatus: Implementing\nStep: 4" > .flowyeah/state.md
+OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+assert_output_contains "inject partial: shows PROCESS SKILLS" "## PROCESS SKILLS" "$OUTPUT"
+assert_output_contains "inject partial: shows tdd skill" "superpowers:test-driven-development" "$OUTPUT"
+assert_output_contains "inject partial: shows debugging skill" "superpowers:systematic-debugging" "$OUTPUT"
+assert_output_not_contains "inject partial: no brainstorming" "brainstorming" "$OUTPUT"
+assert_output_not_contains "inject partial: no planning" "planning" "$OUTPUT"
+teardown
+
 # ── Results ──────────────────────────────────────────────
 
 echo ""

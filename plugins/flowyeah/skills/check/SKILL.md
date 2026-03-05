@@ -53,6 +53,11 @@ testing:
 implementation:
   brainstorm: always                     # ✅
   approval: auto                         # ⬚ default: auto
+  process_skills:                        # ⬚ not configured
+    brainstorming:                       # ⬚ not configured
+    planning:                            # ⬚ not configured
+    tdd:                                 # ⬚ not configured
+    debugging:                           # ⬚ not configured
 
 commits:
   conventions: conventional              # ⬚ default: conventional
