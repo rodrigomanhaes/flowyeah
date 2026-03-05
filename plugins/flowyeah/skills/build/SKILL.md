@@ -239,6 +239,10 @@ If the source came from an issue tracker (GITLAB, GITHUB, LINEAR), assign the is
 
 If the source is not an issue tracker (prose, BUGSINK, NEWRELIC), skip — there's no issue to claim. Issue creation stays at Step 7b (`issues.create_when_missing`).
 
+**Start-of-work status transition (when source is Linear):**
+
+After claiming, check `adapters.linear.on_start` in `flowyeah.yml`. If configured, follow the "On Start" section in `adapters/linear/source.md` to transition the issue status.
+
 Create session directory and state files in the worktree:
 
 ```bash
@@ -549,10 +553,9 @@ If no hooks are configured, this step is a no-op.
 
 - Promote qualified findings from `.flowyeah/findings.md` to auto memory
 - Check `[x]` in `tmp/flowyeah/plans/<key>.md` (from main checkout, after merge)
-- If the source was an issue tracker, update the issue status:
+- If the source was an issue tracker with auto-close support:
   - **GitLab:** auto-closed via `Closes #<iid>` in MR description (no action needed)
   - **GitHub:** auto-closed via `Closes #<number>` in PR body (no action needed)
-  - **Linear:** call `save_issue(id: "<id>", state: "Done")` via MCP
   - **Bugsink/New Relic:** no action — errors auto-resolve when the fix is deployed
 
 ### 10. Cleanup Worktree
