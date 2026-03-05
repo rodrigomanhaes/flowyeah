@@ -91,8 +91,20 @@ Store these values in `state.md` for use throughout the pipeline:
 - **Issue-Ref:** `<identifier>` — appended in parentheses to PR/MR title
 - **Source:** `linear:<identifier>` — for state.md tracking
 
-Note: Linear issues are not auto-closed by PR merge keywords. No `Issue-Close` field. If the project wants to update Linear issue status on completion, that should happen in step 8 (Mark Task Done) via:
+Linear issues are not auto-closed by PR merge keywords. No `Issue-Close` field.
+
+## On Start
+
+When `adapters.linear.on_start` is configured in `flowyeah.yml`, transition the issue status after claiming (Step 3):
+
+**When `mode: always`:**
 
 ```
-mcp__plugin_linear_linear__save_issue(id: "<issue_id>", state: "Done")
+mcp__plugin_linear_linear__save_issue(id: "<issue_id>", state: "<on_start.status>")
 ```
+
+**When `mode: ask`:**
+
+Prompt the user: "Move <identifier> to <on_start.status>?" If yes, call `save_issue`. If no, skip.
+
+If `on_start` is not configured, skip this step entirely.
