@@ -47,10 +47,37 @@ For each selected adapter, ask for required config:
 |---------|-----------|
 | `gitlab` | URL, token env var name, token source file, project ID |
 | `github` | (none — uses `gh` CLI) |
-| `linear` | (none — uses MCP) |
+| `linear` | Status transition on start (`on_start`), team for issue creation |
 | `bugsink` | URL, token env var name, token source file |
 | `newrelic` | Token env var name, token source file, account ID |
 | `ghactions` | (none — uses `gh` CLI, same as GitHub) |
+
+**If the user selected `linear`:**
+
+> Should Linear issues automatically change status when you start working on them?
+
+Options: **Yes** (default), **No**
+
+If **Yes**:
+
+> What Linear status should issues move to when you start working?
+
+Default: `In Progress`
+
+> Should this happen automatically, or should the pipeline ask first?
+
+Options: `always` (default), `ask`
+
+If configured, add to `flowyeah.yml`:
+```yaml
+adapters:
+  linear:
+    on_start:
+      status: <answer>
+      mode: <answer>
+```
+
+If **No**: skip, don't add the `on_start` key.
 
 ### 4. Default branch
 
