@@ -2,15 +2,24 @@
 
 Shared setup for all Linear adapters.
 
-## Required Config (`flowyeah.yml`)
+## Config (`flowyeah.yml`)
 
 ```yaml
 adapters:
   linear:
-    team: Engineering   # optional — if missing, ask at runtime when creating issues
+    team: Engineering       # optional — if missing, ask at runtime when creating issues
+    on_start:               # optional — transition issue status when starting work
+      status: In Progress   # Linear workflow state name
+      mode: always          # always | ask
 ```
 
-Linear uses the MCP integration for API access. The only optional config is `team`, used when creating issues (`issues.adapter: linear`). If omitted, the pipeline asks at runtime.
+Linear uses the MCP integration for API access. Optional config keys:
+
+- **`team`** — used when creating issues (`issues.adapter: linear`). If omitted, the pipeline asks at runtime.
+- **`on_start.status`** — Linear workflow state to transition to when starting work on an issue (Step 3). Must match a status in the team's workflow. Required if `on_start` is present.
+- **`on_start.mode`** — `always` = transition silently; `ask` = prompt before transitioning. Default: `always`.
+
+If `on_start` is absent, no status transition happens (backward compatible).
 
 ## Prerequisites
 
