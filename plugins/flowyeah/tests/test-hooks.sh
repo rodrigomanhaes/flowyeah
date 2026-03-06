@@ -452,6 +452,121 @@ assert_output_not_contains "inject partial: no brainstorming" "brainstorming" "$
 assert_output_not_contains "inject partial: no planning" "planning" "$OUTPUT"
 teardown
 
+# ── respond session tests ─────────────────────────────
+
+echo ""
+echo "=== session-inject.sh (respond) ==="
+
+# Test: respond session injects state
+setup_repo
+touch flowyeah.yml
+mkdir -p .flowyeah
+cat > .flowyeah/respond-state.md <<'EOF'
+# Current State
+
+Type: respond
+Status: Responding
+PR/MR: 55
+Branch: feat-payment
+Platform: github
+Comments: 8 total
+Phase: Interactive Triage
+EOF
+OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+assert_output_contains "inject respond: shows session type" "flowyeah:respond session" "$OUTPUT"
+assert_output_contains "inject respond: shows STATE" "## STATE" "$OUTPUT"
+assert_output_contains "inject respond: shows PR number" "PR/MR: 55" "$OUTPUT"
+assert_output_not_contains "inject respond: no MISSION" "## MISSION" "$OUTPUT"
+assert_output_not_contains "inject respond: no PROGRESS" "## PROGRESS" "$OUTPUT"
+assert_output_not_contains "inject respond: no FINDINGS" "## FINDINGS" "$OUTPUT"
+teardown
+
+# Test: respond session injects decisions summary
+setup_repo
+touch flowyeah.yml
+mkdir -p .flowyeah
+cat > .flowyeah/respond-state.md <<'EOF'
+# Current State
+
+Type: respond
+Status: Responding
+PR/MR: 55
+Phase: Implementing
+EOF
+cat > .flowyeah/respond-decisions.md <<'EOF'
+# Triage Decisions
+
+## Comment 1
+- Thread: abc123
+- File: app/models/payment.rb:42
+- Action: implement
+- Note: Add null check
+
+## Comment 2
+- Thread: def456
+- File: (general)
+- Action: reject
+- Reply: YAGNI
+EOF
+OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+assert_output_contains "inject respond decisions: shows DECISIONS section" "## TRIAGE DECISIONS" "$OUTPUT"
+assert_output_contains "inject respond decisions: shows comment 1" "## Comment 1" "$OUTPUT"
+assert_output_contains "inject respond decisions: shows file" "app/models/payment.rb:42" "$OUTPUT"
+assert_output_contains "inject respond decisions: shows action" "Action: implement" "$OUTPUT"
+teardown
+
+# Test: respond session without decisions shows no DECISIONS section
+setup_repo
+touch flowyeah.yml
+mkdir -p .flowyeah
+cat > .flowyeah/respond-state.md <<'EOF'
+# Current State
+
+Type: respond
+Status: Responding
+PR/MR: 55
+Phase: Fetching Comments
+EOF
+OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+assert_output_not_contains "inject respond no decisions: no DECISIONS section" "## TRIAGE DECISIONS" "$OUTPUT"
+teardown
+
+# Test: respond session coexists with build worktree sessions
+setup_repo
+touch flowyeah.yml
+mkdir -p .flowyeah/worktrees/feat-webhook/.flowyeah
+cat > .flowyeah/worktrees/feat-webhook/.flowyeah/state.md <<'EOF'
+Type: build
+Task: Webhook retry
+Step: 4
+EOF
+cat > .flowyeah/worktrees/feat-webhook/.flowyeah/mission.md <<'EOF'
+# Mission
+Implement webhook retry.
+EOF
+mkdir -p .flowyeah
+cat > .flowyeah/respond-state.md <<'EOF'
+# Current State
+
+Type: respond
+Status: Responding
+PR/MR: 77
+EOF
+OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+assert_output_contains "inject respond coexist: shows respond session" "flowyeah:respond session" "$OUTPUT"
+assert_output_contains "inject respond coexist: shows respond PR" "PR/MR: 77" "$OUTPUT"
+assert_output_contains "inject respond coexist: shows build session" "Active session found" "$OUTPUT"
+teardown
+
+# Test: session-remind.sh outputs reminder for respond session
+setup_repo
+touch flowyeah.yml
+mkdir -p .flowyeah
+echo "# Current State" > .flowyeah/respond-state.md
+OUTPUT=$(bash "$SCRIPT_DIR/session-remind.sh" 2>&1)
+assert_output_contains "remind: outputs reminder with respond session" "Update .flowyeah/respond-state.md" "$OUTPUT"
+teardown
+
 # ── Results ──────────────────────────────────────────────
 
 echo ""

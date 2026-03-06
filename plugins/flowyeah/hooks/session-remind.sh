@@ -14,6 +14,8 @@ if [ -f "$TOPLEVEL/.flowyeah/state.md" ]; then
     echo "Session active: Update .flowyeah/state.md if you made progress."
 elif [ -f "$TOPLEVEL/.flowyeah/review-state.md" ]; then
     echo "Session active: Update .flowyeah/review-state.md if you made progress."
+elif [ -f "$TOPLEVEL/.flowyeah/respond-state.md" ]; then
+    echo "Session active: Update .flowyeah/respond-state.md if you made progress."
 else
     exit 0
 fi

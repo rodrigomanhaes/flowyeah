@@ -29,6 +29,25 @@ if [ -f "$TOPLEVEL/.flowyeah/review-state.md" ]; then
     echo ""
 fi
 
+# ── Respond session (separate file, never conflicts with build) ──
+if [ -f "$TOPLEVEL/.flowyeah/respond-state.md" ]; then
+    echo "───── flowyeah:respond session ─────"
+    echo ""
+    echo "## STATE"
+    cat "$TOPLEVEL/.flowyeah/respond-state.md"
+    echo ""
+
+    # Inject triage decisions summary (survives compaction)
+    if [ -f "$TOPLEVEL/.flowyeah/respond-decisions.md" ]; then
+        echo "## TRIAGE DECISIONS"
+        grep -E '^## Comment |^- File:|^- Action:|^- Thread:' "$TOPLEVEL/.flowyeah/respond-decisions.md" 2>/dev/null || echo "(no decisions yet)"
+        echo ""
+    fi
+
+    echo "──────────────────────────────────────────────"
+    echo ""
+fi
+
 # ── Build session: either in current worktree or scan .flowyeah/worktrees/ ──
 SESSION_DIR=""
 
