@@ -8,6 +8,7 @@ Plan-to-PR pipeline for Claude Code. Takes any source — issues, error trackers
 |-------|---------|--------------|
 | `flowyeah:build` | `flowyeah:build [from <source>] [--continuous]` | Full pipeline: source → plan → worktree → TDD → commit → PR → CI → merge |
 | `flowyeah:review` | `flowyeah:review [<pr-number>]` | Formal code review with inline comments via platform API |
+| `flowyeah:respond` | `flowyeah:respond [<pr-number>]` | Address review feedback: triage, implement, reply, resolve, re-request |
 | `flowyeah:check` | `flowyeah:check` | Audit `flowyeah.yml` against the config schema |
 
 ## Supported Sources

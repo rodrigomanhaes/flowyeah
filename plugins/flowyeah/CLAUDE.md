@@ -9,10 +9,11 @@ plugins/flowyeah/
 ├── skills/           # Auto-discovered by Claude Code from SKILL.md
 │   ├── build/        # Main pipeline: source → plan → worktree → TDD → PR
 │   ├── review/       # Formal code review with inline comments
+│   ├── respond/     # Address review feedback on PRs/MRs
 │   └── check/        # Config audit: validates flowyeah.yml against schema
 ├── adapters/         # Platform integrations (shared across skills)
-│   ├── gitlab/       # connection, source, git host, review
-│   ├── github/       # connection, source, git host, review
+│   ├── gitlab/       # connection, source, git host, review, respond
+│   ├── github/       # connection, source, git host, review, respond
 │   ├── linear/       # connection, source
 │   ├── bugsink/      # connection, source
 │   ├── newrelic/     # connection, source
@@ -47,7 +48,7 @@ Tests run in isolated temp git repos. No external dependencies beyond bash and g
 ## Adding an Adapter
 
 1. Create `adapters/<name>/connection.md` (required — auth and API conventions)
-2. Add whichever roles apply: `source.md`, `hosting.md`, `review.md`
+2. Add whichever roles apply: `source.md`, `hosting.md`, `review.md`, `respond.md`
 3. Update `config-schema.md` if adding a new adapter type
 4. Update `setup.md` if the adapter needs interactive config questions
 
