@@ -26,6 +26,7 @@ Single source of truth for `flowyeah.yml` configuration. Referenced by setup, bu
 | `code_review.agents` | list of strings | agent names | **required** (non-empty) | Always launched during CI wait |
 | `code_review.optional_agents` | list of strings | agent names | `[]` | AI decides based on what changed |
 | `code_review.instructions` | string | file path (relative to project root) | none | Markdown file with project-specific review guidelines. Read once during config validation. Contents injected into review agents and evaluated as additional critical checks. |
+| `code_review.evaluation_skill` | string | skill name | none | Skill invoked during `flowyeah:respond` triage to evaluate each review comment. If absent, comments are presented raw without assessment. |
 | `issues.create_when_missing` | string | `ask` \| `always` \| `never` | `ask` | Controls issue creation when source is not an issue tracker |
 | `issues.adapter` | string | adapter key | conditional | Required when `create_when_missing` is `ask` or `always`. Must support issue creation (gitlab, github, or linear) |
 | `worktree.symlinks` | list of strings | relative paths | `[]` | Paths relative to project root. Each is symlinked from the worktree to the main checkout. Created before env/setup. |
