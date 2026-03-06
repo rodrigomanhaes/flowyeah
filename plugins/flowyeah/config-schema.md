@@ -32,7 +32,8 @@ Single source of truth for `flowyeah.yml` configuration. Referenced by setup, bu
 | `worktree.env` | list of single-key maps | `auto` = random value | `[]` | Each entry is a single `KEY: value` or `KEY: auto` map (generates random 8-char URL-safe base64). Example: `[{TEST_ENV: auto}, {REDIS_DB: auto}]` |
 | `worktree.setup` | list of strings | commands | `[]` | Run after worktree creation with env exported |
 | `worktree.teardown` | list of strings | commands | `[]` | Run before worktree removal with env exported |
-| `hooks.after_merge` | string | file path relative to project root | none | Markdown file with instructions executed after successful merge |
+| `hooks.pr.after_create` | string | file path relative to project root | none | Markdown file with instructions executed after PR/MR creation |
+| `hooks.pr.after_merge` | string | file path relative to project root | none | Markdown file with instructions executed after successful merge |
 | `adapters.<name>` | map | schema-free | — | Each adapter defines and validates its own keys. Must have `adapters/<name>/connection.md` |
 
 ## Validation Rules
@@ -49,8 +50,10 @@ Single source of truth for `flowyeah.yml` configuration. Referenced by setup, bu
 | `issues.adapter` required when `create_when_missing` is `ask` or `always` | error | "issues.adapter is required when create_when_missing is '\<value>'" |
 | `issues.adapter` must support issue creation (gitlab, github, or linear) | error | "issues.adapter '\<name>' does not support issue creation (only gitlab, github, linear)" |
 | `issues.adapter` must be a key in `adapters` | error | "issues.adapter '\<name>' is not configured in adapters" |
-| `hooks.after_merge` must be a relative path (if present) | error | "hooks.after_merge must be a relative path: '<path>'" |
-| `hooks.after_merge` file must exist (if present) | error | "hooks.after_merge file not found: '<path>'" |
+| `hooks.pr.after_create` must be a relative path (if present) | error | "hooks.pr.after_create must be a relative path: '<path>'" |
+| `hooks.pr.after_create` file must exist (if present) | error | "hooks.pr.after_create file not found: '<path>'" |
+| `hooks.pr.after_merge` must be a relative path (if present) | error | "hooks.pr.after_merge must be a relative path: '<path>'" |
+| `hooks.pr.after_merge` file must exist (if present) | error | "hooks.pr.after_merge file not found: '<path>'" |
 | `worktree.symlinks` entries must be relative paths | error | `worktree.symlinks entries must be relative paths: '<path>'` |
 | `worktree.symlinks` entries must not escape project root (`../`) | error | `worktree.symlinks entry escapes project root: '<path>'` |
 | `worktree.env` entries must be single-key maps (e.g., `{KEY: auto}`) | error | "worktree.env entry must be a single-key map, got: '\<value>'" |
@@ -65,3 +68,4 @@ Single source of truth for `flowyeah.yml` configuration. Referenced by setup, bu
 |-----|-----------|-----------|
 | `sources` | 2026-03-02 | Remove from config. Adapters with `source.md` are automatic sources. |
 | `hosting` | 2026-03-03 | Rename to `git_host`. |
+| `hooks.after_merge` | 2026-03-06 | Move to `hooks.pr.after_merge`. |

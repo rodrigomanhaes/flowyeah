@@ -85,9 +85,10 @@ digraph pipeline {
     deliver [label="6c. Rebase → Push"];
     issue_link [label="6d. Issue Linkage\n(issues.create_when_missing)" shape=diamond];
     pr [label="7. Create PR/MR"];
+    pr_hooks [label="7a. Run PR Hooks\n(pr.after_create)"];
     ci_loop [label="7b. CI + Code Review Loop" shape=diamond];
     merge_decision [label="7c. Merge Decision\n(pull_requests.merge)" shape=diamond];
-    hooks [label="8. Run Hooks\n(after_merge)"];
+    hooks [label="8. Run Hooks\n(pr.after_merge)"];
     mark [label="9. Mark Task Done"];
     cleanup [label="10. Cleanup Worktree"];
     next [label="Next task?" shape=diamond];
@@ -98,7 +99,7 @@ digraph pipeline {
     implement -> commit -> test -> approval;
     approval -> deliver [label="approved /\nauto-approved"];
     approval -> implement [label="changes requested"];
-    deliver -> issue_link -> pr -> ci_loop;
+    deliver -> issue_link -> pr -> pr_hooks -> ci_loop;
     ci_loop -> commit [label="issues found\nfix → commit → push\nskip approval+review"];
     ci_loop -> merge_decision [label="CI green +\nreview clean"];
     merge_decision -> hooks [label="auto:\nmerge via adapter"];
@@ -469,6 +470,16 @@ Load the git host adapter from `adapters/<git_host>/connection.md` + `adapters/<
 
 Code review results are reported in the terminal only — this is your current work session, not a team review artifact.
 
+### 7a. Run PR Hooks
+
+After PR/MR creation (or when an existing open PR is found), check `hooks.pr.after_create` in `flowyeah.yml`. If configured, read the markdown file and follow its instructions.
+
+**Context available:** Branch, PR/MR number+url, issue reference (if any), adapter config, diff.
+
+**Execution:** Same as step 8 (Run Hooks) — read the file, follow instructions, best-effort. If the hook fails, report and continue to 7b.
+
+**Skip condition:** If the PR already existed (was not just created), skip this hook — it already ran when the PR was originally created.
+
 ### 7b. CI + Code Review Loop
 
 **Do NOT give the prompt back.** Stay in the loop until CI passes and reviews are clean. Use the git host adapter for CI polling.
@@ -510,15 +521,14 @@ Code review results are reported in the terminal only — this is your current w
 
 ### 8. Run Hooks
 
-After a successful merge, check `hooks` in `flowyeah.yml` for any configured hook points. Each hook is a path to a markdown file (relative to the project root) containing instructions for the AI to follow.
+After a successful merge, check `hooks.pr.after_merge` in `flowyeah.yml`. If configured, read the markdown file and follow its instructions.
 
-**Available hook points:**
-
-Currently only `after_merge` is implemented. More hook points (e.g., `before_push`, `after_pr_create`) will be added as real use cases emerge.
+**Backward compatibility:** If `hooks.after_merge` (flat) is present instead of `hooks.pr.after_merge`, use it and warn: "Deprecated: `hooks.after_merge` — move to `hooks.pr.after_merge`."
 
 | Hook | When it runs | Context available |
 |------|-------------|-------------------|
-| `after_merge` | After successful merge, before marking task done | Branch, MR/PR iid+url, issue number (if any), adapter config |
+| `hooks.pr.after_create` | After PR/MR creation (step 7a) | Branch, PR/MR number+url, issue reference (if any), adapter config, diff |
+| `hooks.pr.after_merge` | After successful merge, before marking task done | Branch, MR/PR number+url, issue reference (if any), adapter config |
 
 **Execution:**
 
@@ -534,7 +544,9 @@ Currently only `after_merge` is implemented. More hook points (e.g., `before_pus
 **Example `flowyeah.yml`:**
 ```yaml
 hooks:
-  after_merge: .flowyeah/hooks/after-merge.md
+  pr:
+    after_create: .flowyeah/hooks/after-pr-create.md
+    after_merge: .flowyeah/hooks/after-merge.md
 ```
 
 **Example hook file** (`.flowyeah/hooks/after-merge.md`):
