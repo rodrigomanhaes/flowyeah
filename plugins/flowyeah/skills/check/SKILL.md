@@ -88,7 +88,9 @@ worktree:
   teardown: []                           # ⬚ default: []
 
 hooks:
-  after_merge:                           # ⬚ not configured
+  pr:
+    after_create:                        # ⬚ not configured
+    after_merge:                         # ⬚ not configured
 
 adapters:
   gitlab:                                # ✅
