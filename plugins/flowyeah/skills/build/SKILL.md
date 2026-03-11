@@ -470,6 +470,8 @@ Load the git host adapter from `adapters/<git_host>/connection.md` + `adapters/<
 
 Code review results are reported in the terminal only — this is your current work session, not a team review artifact.
 
+**PR created ≠ done.** Creating the PR/MR is the BEGINNING of delivery, not the end. You MUST proceed through 7a → 7b → 7c without stopping. Do NOT ask "what next?" or "should I monitor CI?" — always yes. Proceed immediately.
+
 ### 7a. Run PR Hooks
 
 After PR/MR creation (or when an existing open PR is found), check `hooks.pr.after_create` in `flowyeah.yml`. If configured, read the markdown file and follow its instructions.
@@ -482,7 +484,13 @@ After PR/MR creation (or when an existing open PR is found), check `hooks.pr.aft
 
 ### 7b. CI + Code Review Loop
 
-**Do NOT give the prompt back.** Stay in the loop until CI passes and reviews are clean. Use the git host adapter for CI polling.
+**Do NOT give the prompt back.** Stay in the loop until CI passes and reviews are clean. Use the git host adapter for CI polling. Fixing CI failures and review issues is a fundamental part of the build flow — the work is not done until CI is green and reviews are clean.
+
+**Red flags — if you're thinking any of these, STOP and re-read this section:**
+- "The PR is created, I'll let the user know" — NO. Monitor CI.
+- "Should I track CI?" — YES. Always. Don't ask.
+- "What should I do next?" — Monitor CI. That IS what's next.
+- "I'll wait for the user to tell me about CI results" — NO. Poll actively.
 
 **While waiting for CI:**
 
@@ -926,7 +934,7 @@ The core skill reads the adapter and follows its instructions. **Config lookup r
 - Accept "good enough" implementations
 - Ignore test failures, warnings, or errors
 - Assume requirements when unsure
-- Give back the prompt during CI wait
+- Give back the prompt during CI wait — not to ask "what next?", not to ask "should I monitor CI?", not to report the PR URL and stop. Poll CI, fix failures, stay in the loop until 7b is resolved
 - **Waste effort on commit messages when `merge_strategy: squash`** — they're thrown away; apply conventions to the PR title instead
 - **Skip conventions on PR title when `merge_strategy: squash` or `merge`** — the PR title IS the final commit message
 - **Merge a PR/MR when `pull_requests.merge` is `manual`** — STOP and report the URL
