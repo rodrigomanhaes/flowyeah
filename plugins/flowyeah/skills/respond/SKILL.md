@@ -255,7 +255,14 @@ Run tests using `testing.command` and `testing.scope` from config. If tests fail
 
 ### 9. Re-request Review
 
-**GitHub:** check if any reviewer's most recent review state is `CHANGES_REQUESTED`. If so, re-request review from those reviewers. If no reviewer has `CHANGES_REQUESTED`, do not re-request.
+**GitHub:** re-request review from reviewers whose most recent state is `CHANGES_REQUESTED` or `COMMENTED`. Do NOT re-request from reviewers whose state is `APPROVED` or `DISMISSED`.
+
+| State | Re-request? | Reason |
+|-------|-------------|--------|
+| `CHANGES_REQUESTED` | Yes | Reviewer blocked the PR and needs to re-evaluate |
+| `COMMENTED` | Yes | Reviewer left feedback and should see the response |
+| `APPROVED` | No | Reviewer already approved |
+| `DISMISSED` | No | Review was dismissed |
 
 **GitLab:** use presence of unresolved threads as proxy (GitLab lacks a `CHANGES_REQUESTED` state). After resolving all threads from a reviewer, re-add that reviewer to the reviewers list.
 
@@ -305,5 +312,5 @@ Respond complete — N comments (M implemented, K rejected, J discussed)
 - Resolve threads without replying first
 - Skip the triage step
 - Implement without user approval
-- Re-request review when no reviewer has `CHANGES_REQUESTED` (GitHub)
+- Re-request review from `APPROVED` or `DISMISSED` reviewers (GitHub)
 - Modify code outside the worktree

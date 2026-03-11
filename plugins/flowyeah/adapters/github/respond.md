@@ -126,7 +126,16 @@ gh api graphql -f query='
 
 ## Re-request Review
 
-Only call this for reviewers whose most recent state is `CHANGES_REQUESTED` (see Fetch Review States above).
+Re-request review from reviewers whose most recent state is `CHANGES_REQUESTED` or `COMMENTED`. Do NOT re-request from `APPROVED` or `DISMISSED` reviewers.
+
+| State | Re-request? | Reason |
+|-------|-------------|--------|
+| `CHANGES_REQUESTED` | Yes | Reviewer blocked the PR and needs to re-evaluate |
+| `COMMENTED` | Yes | Reviewer left feedback and should see the response |
+| `APPROVED` | No | Reviewer already approved |
+| `DISMISSED` | No | Review was dismissed |
+
+Re-requesting review does not block CI or merge — it sends a notification and marks the reviewer as pending, but does not prevent other approvers from merging.
 
 **Single reviewer:**
 
@@ -145,5 +154,3 @@ REPO=$(gh repo view --json owner,name --jq '"\(.owner.login)/\(.name)"')
 gh api "repos/${REPO}/pulls/<number>/requested_reviewers" \
   --method POST --field 'reviewers[]=user1' --field 'reviewers[]=user2'
 ```
-
-Re-requesting review from a reviewer whose state is `APPROVED` or `COMMENTED` is harmless but unnecessary — only `CHANGES_REQUESTED` blocks merge in protected branches.
