@@ -157,7 +157,7 @@ gh api "repos/${REPO}/pulls/<number>/reviews" \
 ```
 
 **Event values:**
-- `APPROVE` — approve the PR
+- `APPROVE` — approve the PR. **Do NOT include inline `comments`** — they create open review threads that block auto-merge in repos requiring conversation resolution. Move all findings to the review `body` instead.
 - `COMMENT` — comment without approving or requesting changes
 - `REQUEST_CHANGES` — request changes (blocks merge if required reviews are configured)
 
