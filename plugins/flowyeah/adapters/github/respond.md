@@ -126,14 +126,40 @@ gh api graphql -f query='
 
 ## Re-request Review
 
-Re-request review from reviewers whose most recent state is `CHANGES_REQUESTED` or `COMMENTED`. Do NOT re-request from `APPROVED` or `DISMISSED` reviewers.
+Re-request behavior depends on whether code was pushed in this respond cycle.
+
+### When code was changed (push happened)
+
+New commits dismiss existing approvals (standard branch protection). Re-request from **all** reviewers except `DISMISSED`, and notify previously-approved reviewers via a PR comment.
 
 | State | Re-request? | Reason |
 |-------|-------------|--------|
 | `CHANGES_REQUESTED` | Yes | Reviewer blocked the PR and needs to re-evaluate |
 | `COMMENTED` | Yes | Reviewer left feedback and should see the response |
-| `APPROVED` | No | Reviewer already approved |
+| `APPROVED` | Yes | Approval was dismissed by the new push — needs re-approval |
+| `DISMISSED` | No | Review was dismissed before this cycle |
+
+**Post a PR comment** mentioning previously-approved reviewers so they're notified their approval was dismissed:
+
+```bash
+REPO=$(gh repo view --json owner,name --jq '"\(.owner.login)/\(.name)"')
+
+gh api "repos/${REPO}/issues/<number>/comments" \
+  --method POST --field body="@reviewer1 @reviewer2 — <notification text>"
+```
+
+### When no code was changed (replies only)
+
+Approvals remain intact. Only re-request from reviewers with pending feedback.
+
+| State | Re-request? | Reason |
+|-------|-------------|--------|
+| `CHANGES_REQUESTED` | Yes | Reviewer blocked the PR and needs to re-evaluate |
+| `COMMENTED` | Yes | Reviewer left feedback and should see the response |
+| `APPROVED` | No | Approval still valid — no code changed |
 | `DISMISSED` | No | Review was dismissed |
+
+### API calls
 
 Re-requesting review does not block CI or merge — it sends a notification and marks the reviewer as pending, but does not prevent other approvers from merging.
 

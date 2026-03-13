@@ -255,16 +255,44 @@ Run tests using `testing.command` and `testing.scope` from config. If tests fail
 
 ### 9. Re-request Review
 
-**GitHub:** re-request review from reviewers whose most recent state is `CHANGES_REQUESTED` or `COMMENTED`. Do NOT re-request from reviewers whose state is `APPROVED` or `DISMISSED`.
+Re-request behavior depends on whether code was changed (steps 5-7 executed) or only replies were posted (skipped to step 8).
+
+#### When code was changed (push happened)
+
+Pushing new commits dismisses existing approvals (standard GitHub branch protection behavior). Re-request from **all** reviewers and notify previously-approved reviewers.
+
+**GitHub:**
 
 | State | Re-request? | Reason |
 |-------|-------------|--------|
 | `CHANGES_REQUESTED` | Yes | Reviewer blocked the PR and needs to re-evaluate |
 | `COMMENTED` | Yes | Reviewer left feedback and should see the response |
-| `APPROVED` | No | Reviewer already approved |
+| `APPROVED` | Yes | Approval was dismissed by the new push — needs re-approval |
+| `DISMISSED` | No | Review was dismissed before this cycle |
+
+**Post a PR comment** (not a thread reply) notifying previously-approved reviewers that their approval was dismissed. Mention them by username so they get a notification:
+
+```
+@reviewer1 @reviewer2 — o push de correções invalidou a aprovação anterior.
+Podem re-aprovar quando conveniente? As mudanças foram: <brief summary of what changed>.
+```
+
+Write the comment in the language configured in `language` from `flowyeah.yml`.
+
+#### When no code was changed (replies only)
+
+No push happened, so approvals remain intact. Only re-request from reviewers with pending feedback.
+
+**GitHub:**
+
+| State | Re-request? | Reason |
+|-------|-------------|--------|
+| `CHANGES_REQUESTED` | Yes | Reviewer blocked the PR and needs to re-evaluate |
+| `COMMENTED` | Yes | Reviewer left feedback and should see the response |
+| `APPROVED` | No | Approval still valid — no code changed |
 | `DISMISSED` | No | Review was dismissed |
 
-**GitLab:** use presence of unresolved threads as proxy (GitLab lacks a `CHANGES_REQUESTED` state). After resolving all threads from a reviewer, re-add that reviewer to the reviewers list.
+**GitLab:** use presence of unresolved threads as proxy (GitLab lacks a `CHANGES_REQUESTED` state). After resolving all threads from a reviewer, re-add that reviewer to the reviewers list. When code was changed, re-add all previous reviewers.
 
 Via the respond adapter.
 
@@ -312,5 +340,6 @@ Respond complete — N comments (M implemented, K rejected, J discussed)
 - Resolve threads without replying first
 - Skip the triage step
 - Implement without user approval
-- Re-request review from `APPROVED` or `DISMISSED` reviewers (GitHub)
+- Re-request review from `DISMISSED` reviewers (GitHub)
+- Re-request review from `APPROVED` reviewers when no code was changed (GitHub)
 - Modify code outside the worktree
