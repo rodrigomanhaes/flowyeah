@@ -12,7 +12,7 @@ TOTAL=0
 
 # ── Key paths ────────────────────────────────────────────
 
-README="$PLUGIN_DIR/README.md"
+README="$PLUGIN_DIR/../../README.md"
 SCHEMA="$PLUGIN_DIR/config-schema.md"
 SETUP="$PLUGIN_DIR/setup.md"
 CHECK_SKILL="$PLUGIN_DIR/skills/check/SKILL.md"
@@ -100,13 +100,15 @@ echo "=== Source adapter completeness ==="
 # Lines contain patterns like gitlab:#, bugsink:, newrelic:, etc.
 readme_adapters=""
 while IFS= read -r line; do
+    # Skip URL-style sources (https://...)
+    echo "$line" | grep -q '://' && continue
     # Extract the lowercase prefix after "from " (e.g., gitlab from "from gitlab:#5588")
     prefix="$(echo "$line" | sed -n 's/.*from \([a-z]\{2,\}\):.*/\1/p')"
     if [ -n "$prefix" ]; then
         readme_adapters="$readme_adapters$prefix
 "
     fi
-done < <(sed -n '/## Supported Sources/,/^##/p' "$README" | grep '|.*:.*|')
+done < <(sed -n '/^##* Supported Sources/,/^##/p' "$README" | grep '|.*:.*|')
 
 readme_adapters="$(echo "$readme_adapters" | sed '/^$/d' | sort -u)"
 
