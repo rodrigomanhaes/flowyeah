@@ -30,12 +30,13 @@ digraph respond {
     test [label="7. Test" shape=diamond];
     push_reply [label="8. Push & Reply"];
     rerequest [label="9. Re-request Review"];
+    cleanup [label="10. Cleanup Worktree"];
 
     validate -> identify -> fetch -> evaluate -> triage;
     triage -> worktree [label="implement items"];
     triage -> push_reply [label="replies only\nskip 5-7"];
     worktree -> implement -> test -> push_reply;
-    push_reply -> rerequest;
+    push_reply -> rerequest -> cleanup;
 }
 ```
 
@@ -99,6 +100,7 @@ Phase: <current_phase>
 | `Testing` | 7 | Re-run tests |
 | `Pushing & Replying` | 8 | Check which threads already have replies, continue with remaining |
 | `Re-requesting Review` | 9 | Check if re-request was sent, retry if not |
+| `Cleaning Up Worktree` | 10 | Check if worktree still exists, retry removal |
 
 After the user makes triage decisions (step 4), persist results to `.flowyeah/respond-decisions.md`:
 
@@ -130,7 +132,7 @@ Respond sessions use `respond-state.md` (not `state.md`) so they never interfere
 
 Update `respond-state.md` after each phase transition. The hook injection ensures state survives compaction.
 
-Both `respond-state.md` and `respond-decisions.md` are removed after completion.
+Both `respond-state.md` and `respond-decisions.md` are removed in step 10 (cleanup).
 
 ## Steps
 
@@ -226,7 +228,12 @@ If found, reuse the existing worktree. Otherwise, create one:
 git worktree add .flowyeah/worktrees/<branch> <branch>
 ```
 
-Apply `worktree.symlinks` and `worktree.env` from `flowyeah.yml`.
+Then follow the **Setup** procedure from `worktree-lifecycle.md` (at the plugin root):
+
+1. **Symlinks** — resolve `worktree.symlinks` from `flowyeah.yml`
+2. **Environment** — resolve `worktree.env`, persist to `respond-state.md` under `## Worktree Env`, export, run `worktree.setup` commands
+
+Track whether the worktree was **created** by this respond session (vs. reused from a build session) — only cleanup worktrees that respond created.
 
 ### 6. Implement Fixes
 
@@ -295,6 +302,18 @@ No push happened, so approvals remain intact. Only re-request from reviewers wit
 **GitLab:** use presence of unresolved threads as proxy (GitLab lacks a `CHANGES_REQUESTED` state). After resolving all threads from a reviewer, re-add that reviewer to the reviewers list. When code was changed, re-add all previous reviewers.
 
 Via the respond adapter.
+
+### 10. Cleanup Worktree
+
+**Only if a worktree was created by this respond session** (not reused from a build session). If no worktree was used (replies only), skip.
+
+Follow the **Teardown** procedure from `worktree-lifecycle.md` (at the plugin root):
+
+1. **Close IDE windows** — prevent VSCode from freezing
+2. **Run teardown commands** — read env from `respond-state.md ## Worktree Env`, export, run `worktree.teardown`
+3. **Remove worktree** — `git worktree remove`
+
+Then remove session files (`respond-state.md` and `respond-decisions.md`).
 
 ## Crash Recovery
 

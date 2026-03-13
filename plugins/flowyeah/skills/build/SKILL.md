@@ -252,50 +252,12 @@ mkdir -p .flowyeah
 
 Write 4 session files (see Session Management section below). If `--intermittent` was passed, set `Investigation: intermittent` in `state.md` — this switches Step 4 from standard debugging to the escalating intermittent-failure investigation.
 
-**Worktree symlinks:**
+**Worktree symlinks and environment setup:**
 
-After writing session files, resolve `worktree.symlinks` from `flowyeah.yml`. For each entry:
+After writing session files, follow the **Setup** procedure from `worktree-lifecycle.md` (at the plugin root):
 
-```bash
-MAIN_WORKTREE=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
-TARGET="$MAIN_WORKTREE/<path>"
-
-# Skip if target doesn't exist in main checkout
-if [ ! -e "$TARGET" ]; then
-  echo "Warning: symlink target not found, skipping: <path>"
-  continue
-fi
-
-# Create parent directories if needed (for nested paths like vendor/bundle)
-mkdir -p "$(dirname "<path>")"
-
-ln -s "$TARGET" "<path>"
-```
-
-If `worktree.symlinks` is empty or absent, skip this step entirely.
-
-**Worktree environment setup:**
-
-After writing session files, resolve `worktree.env` from `flowyeah.yml`:
-
-1. For each entry in `worktree.env`: if value is `auto`, generate a random 8-char URL-safe base64 string (no padding); otherwise use the literal value.
-2. Write the resolved key-value pairs to `state.md` under a `## Worktree Env` section (see state.md template below).
-3. Export the resolved env vars into the current shell environment.
-4. Run each command in `worktree.setup` sequentially, with the env vars exported. If any setup command fails, STOP and report — do not proceed to implementation with broken dependencies.
-
-```bash
-# Generate env values (for each "auto" entry)
-VALUE=$(head -c 6 /dev/urandom | base64 | tr '+/' '-_' | tr -d '=')
-
-# Export all resolved env vars
-export TEST_ENV_NUMBER=aB3xK9mQ
-export REDIS_DB=pL7nR2wY
-
-# Run setup commands
-bundle exec rails db:test:prepare
-```
-
-If `worktree.env` is empty or absent, skip this step entirely.
+1. **Symlinks** — resolve `worktree.symlinks` from `flowyeah.yml`
+2. **Environment** — resolve `worktree.env`, persist to `state.md` under `## Worktree Env`, export, run `worktree.setup` commands
 
 ### 3b. Verify Worktree Isolation
 
@@ -582,34 +544,15 @@ If no hooks are configured, this step is a no-op.
 
 Removes the worktree and everything in it, including `.flowyeah/` session files.
 
-**Before removing the worktree**, close any VSCode window that has the worktree directory open to prevent VSCode from freezing:
+Follow the **Teardown** procedure from `worktree-lifecycle.md` (at the plugin root):
 
-1. Check if `code` CLI is available (`which code`)
-2. If available, run `code --status 2>/dev/null` and check if any window lists the worktree path
-3. If a window is found, close it: `code "$WORKTREE_PATH" --command "workbench.action.closeWindow"`
-4. If `code --status` fails or isn't available, scan `/proc/*/cmdline` for VSCode processes containing the worktree path as a fallback
-5. This is best-effort — if detection or closing fails, warn and continue with teardown
+1. **Close IDE windows** — prevent VSCode from freezing
+2. **Run teardown commands** — read env from `state.md ## Worktree Env`, export, run `worktree.teardown`
+3. **Remove worktree** — `cd` to main checkout, `git worktree remove`
 
-Then run teardown commands to clean up isolated dependencies:
-
-1. Read env vars from `state.md`'s `## Worktree Env` section
-2. Export them
-3. Run each command in `worktree.teardown` sequentially
-4. Teardown is best-effort — if a command fails (e.g., database already dropped), warn and continue with cleanup
+Before removal, also update the default branch:
 
 ```bash
-# Close VSCode window on worktree (best-effort)
-if which code >/dev/null 2>&1; then
-  code "$WORKTREE_PATH" --command "workbench.action.closeWindow" 2>/dev/null || \
-    echo "Warning: Failed to close VSCode window, continuing with cleanup" >&2
-fi
-
-# Export worktree env and run teardown (before removal)
-export TEST_ENV_NUMBER=aB3xK9mQ
-export REDIS_DB=pL7nR2wY
-bundle exec rails db:drop DISABLE_DATABASE_ENVIRONMENT_CHECK=1
-
-# Remove worktree
 cd "$MAIN_WORKTREE"
 git checkout $DEFAULT_BRANCH && git pull origin $DEFAULT_BRANCH
 git worktree remove <worktree-path>
