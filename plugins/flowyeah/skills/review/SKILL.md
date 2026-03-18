@@ -368,6 +368,30 @@ If the user selects specific findings and wants to **edit** any before submissio
 
 Persist approved findings to `review-approved.md` after the batch decision is made.
 
+### `--own` Mode: Steps 5b-5c
+
+**If `--own` flag was NOT provided, skip to step 6.**
+
+#### 5b. Deliver Findings
+
+Persist approved findings to `review-approved.md` (already done in step 5). Present them as an actionable summary — a concise list showing file, label, and subject for each finding.
+
+Update `review-state.md`: set `Phase: Findings Delivered`.
+
+#### 5c. Next Action Menu
+
+Offer three options:
+
+1. **Fix now** — the skill pipeline terminates. Phase is set to `Fixing`. State files remain as informational context (the hook injects them each prompt, but they do not trigger the review pipeline). When done, the user runs `/review finalize` to clean up.
+2. **Delegate** — the skill pipeline terminates. Phase is set to `Delegated`. State files remain so the hook injects a findings summary into the next session. The hook only injects finding headers (number, file, label) — the next session should read `.flowyeah/review-approved.md` directly for full finding details. The next session uses the findings as guidance for what to fix — it does not resume the review pipeline. When done, the user (in any session) runs `/review finalize` to clean up.
+3. **Finalize** — clean up state files immediately (equivalent to `/review finalize`).
+
+#### Conflict: Re-invoking `/review` with active `--own` session
+
+If the user invokes `/review` or `/review --own` while state files exist from a previous `--own` session (`Phase: Fixing` or `Phase: Delegated`), ask: "An --own review for PR #N is still active. Finalize it first, or continue fixing?"
+
+If the user chooses to finalize, run the finalize logic and stop. The user must re-invoke `/review` for a new session.
+
 ### 6. Choose Review Type
 
 After all findings are processed, present the recommendation and ask the user:
