@@ -103,7 +103,7 @@ else
     exit 0
 fi
 
-# Detect and validate session type (review sessions use review-state.md above, never reach here)
+# Detect and validate session type (review sessions use review-state-*.md above, never reach here)
 SESSION_TYPE=$(grep -m1 '^Type:' "$SESSION_DIR/state.md" 2>/dev/null | cut -d' ' -f2- || echo "build")
 if [ "$SESSION_TYPE" != "build" ]; then
     SESSION_TYPE="build"
