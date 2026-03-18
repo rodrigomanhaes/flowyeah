@@ -512,6 +512,8 @@ Review comments are written in the language configured in `language`. Default: `
 
 ## Never
 
+**Note:** The submission rules below apply to the normal review path (steps 6-7). `--own` mode does not submit — these rules do not apply to self-audit reviews.
+
 - Post without explicit user approval
 - Include findings the user skipped
 - Use `gh pr review --comment --body` (that's not an inline review)
