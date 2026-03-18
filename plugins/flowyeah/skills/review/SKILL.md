@@ -1,15 +1,20 @@
 ---
 name: review
-description: Use when reviewing a pull request or merge request - runs code review agents, validates requirements against issues, checks for critical patterns, and submits formal reviews with inline comments
+description: Use when reviewing a pull request or merge request - runs code review agents, validates requirements against issues, checks for critical patterns, and submits formal reviews with inline comments. Use with --own for self-audit (no submission). Use finalize to clean up review state.
 ---
 
 # flowyeah:review — PR/MR Review Pipeline
 
-Reviews a pull request or merge request. Runs review agents, validates requirements, checks for critical patterns, and submits a formal review with inline comments.
+Reviews a pull request or merge request. Runs review agents, validates requirements, checks for critical patterns, and submits a formal review with inline comments. With `--own`, collects findings for self-audit without submitting. With `finalize`, tears down review state.
 
 ```
-flowyeah:review [<number>]
+flowyeah:review [--own] [<number>]
+flowyeah:review finalize
 ```
+
+## Argument Parsing
+
+If the first positional argument is `finalize`, treat it as a subcommand. Otherwise, treat it as a PR number. The `--own` flag can appear in any position. `finalize` ignores `--own` — it operates on whatever active review session exists regardless of mode.
 
 ## Pipeline
 
