@@ -9,12 +9,12 @@ Reviews a pull request or merge request. Runs review agents, validates requireme
 
 ```
 flowyeah:review [--own] [<number>]
-flowyeah:review finalize
+flowyeah:review finalize [<number>]
 ```
 
 ## Argument Parsing
 
-If the first positional argument is `finalize`, treat it as a subcommand. Otherwise, treat it as a PR number. The `--own` flag can appear in any position. `finalize` ignores `--own` — it operates on whatever active review session exists regardless of mode.
+If the first positional argument is `finalize`, the second positional (if present) is the PR number to finalize; otherwise, auto-detect from current branch. For non-finalize invocations, treat the positional as a PR number. The `--own` flag can appear in any position. `finalize` ignores `--own` — it operates on whatever active review session exists regardless of mode.
 
 ## Pipeline
 
@@ -72,7 +72,7 @@ Load the review adapter once at the start. **If the git host adapter has no `rev
 
 ## Session (Lightweight)
 
-Create `.flowyeah/review-state.md` for compaction resilience:
+Create `.flowyeah/review-state-{number}.md` for compaction resilience:
 
 ```markdown
 # Current State
@@ -98,14 +98,14 @@ Phase: <current_phase>
 | `Gathering Context` | 2-2b | Re-run context gathering |
 | `Running Agents` | 3-3b | Re-run agents (results lost) |
 | `Scoring` | 4 | Re-run scoring (agent results lost) |
-| `Interactive Approval` | 5 | Read `review-approved.md`, re-present unapproved findings |
+| `Interactive Approval` | 5 | Read `review-approved-{number}.md`, re-present unapproved findings |
 | `Choosing Review Type` | 6 | Re-ask review type question |
 | `Submitting Review` | 7 | Check if review was posted, retry or clean up |
-| `Findings Delivered` | 5b-5c | Re-present the next action menu. If `review-approved.md` is missing, re-run from step 5 (Interactive Approval). |
+| `Findings Delivered` | 5b-5c | Re-present the next action menu. If `review-approved-{number}.md` is missing, re-run from step 5 (Interactive Approval). |
 | `Fixing` | after 5c | Do not resume the review pipeline. Findings are informational context. |
 | `Delegated` | after 5c | Do not resume the review pipeline. Findings are informational context for the next session. |
 
-After the user makes approval decisions (step 5), persist results to `.flowyeah/review-approved.md`:
+After the user makes approval decisions (step 5), persist results to `.flowyeah/review-approved-{number}.md`:
 
 ```markdown
 # Approved Findings
@@ -123,20 +123,20 @@ After the user makes approval decisions (step 5), persist results to `.flowyeah/
 
 This file ensures that if compaction or a crash interrupts after approval, approved findings are recoverable.
 
-Review sessions use `review-state.md` (not `state.md`) so they never interfere with build sessions in worktrees. Both can coexist — the injection hook handles them separately.
+Review sessions use `review-state-{number}.md` (not `state.md`) so they never interfere with build sessions in worktrees. Both can coexist — the injection hook handles them separately.
 
-Update `review-state.md` after each phase transition. The hook injection ensures state survives compaction.
+Update `review-state-{number}.md` after each phase transition. The hook injection ensures state survives compaction.
 
-No `mission.md`, `progress.md`, or full `findings.md` — reviews are short-lived. Only `review-approved.md` is needed for the approval checkpoint.
+No `mission.md`, `progress.md`, or full `findings.md` — reviews are short-lived. Only `review-approved-{number}.md` is needed for the approval checkpoint.
 
 ### Crash Recovery
 
 If a review session is interrupted (compaction, crash, user abort):
 
-1. The hook injects `review-state.md` into the next prompt
+1. The hook injects `review-state-{number}.md` into the next prompt
 2. Resume from the last recorded phase
 3. If the phase was before "Interactive Approval" (step 5), re-run from that phase
-4. If during or after approval, read `review-approved.md` to recover previously approved findings and skip re-presenting them
+4. If during or after approval, read `review-approved-{number}.md` to recover previously approved findings and skip re-presenting them
 5. If the review was already submitted, clean up both state files
 6. The user can also run `/review finalize` at any time to abandon the review and clean up state files
 
@@ -153,7 +153,7 @@ When resuming a session with `Mode: own`:
 
 ### 0. Validate Configuration
 
-**Worktree guard:** if the current working directory is inside a flowyeah build worktree (`git rev-parse --show-toplevel` contains `.flowyeah/worktrees/`), **STOP.** Reviews must run from the main checkout — review session files (`.flowyeah/review-state.md`) belong to the main checkout, not to build worktrees.
+**Worktree guard:** if the current working directory is inside a flowyeah build worktree (`git rev-parse --show-toplevel` contains `.flowyeah/worktrees/`), **STOP.** Reviews must run from the main checkout — review session files (`.flowyeah/review-state-{number}.md`) belong to the main checkout, not to build worktrees.
 
 Before starting the review, validate the loaded `flowyeah.yml`:
 
@@ -366,7 +366,7 @@ After presenting the full list, ask the user for a **batch decision**:
 
 If the user selects specific findings and wants to **edit** any before submission, ask which numbers to edit and expand them one at a time for modification.
 
-Persist approved findings to `review-approved.md` after the batch decision is made.
+Persist approved findings to `review-approved-{number}.md` after the batch decision is made.
 
 ### `--own` Mode: Steps 5b-5c
 
@@ -374,21 +374,25 @@ Persist approved findings to `review-approved.md` after the batch decision is ma
 
 #### 5b. Deliver Findings
 
-Persist approved findings to `review-approved.md` (already done in step 5). Present them as an actionable summary — a concise list showing file, label, and subject for each finding.
+Persist approved findings to `review-approved-{number}.md` (already done in step 5). Present them as an actionable summary — a concise list showing file, label, and subject for each finding.
 
-Update `review-state.md`: set `Phase: Findings Delivered`.
+Update `review-state-{number}.md`: set `Phase: Findings Delivered`.
 
 #### 5c. Next Action Menu
 
 Offer three options:
 
 1. **Fix now** — the skill pipeline terminates. Phase is set to `Fixing`. State files remain as informational context (the hook injects them each prompt, but they do not trigger the review pipeline). When done, the user runs `/review finalize` to clean up.
-2. **Delegate** — the skill pipeline terminates. Phase is set to `Delegated`. State files remain so the hook injects a findings summary into the next session. The hook only injects finding headers (number, file, label) — the next session should read `.flowyeah/review-approved.md` directly for full finding details. The next session uses the findings as guidance for what to fix — it does not resume the review pipeline. When done, the user (in any session) runs `/review finalize` to clean up.
+2. **Delegate** — the skill pipeline terminates. Phase is set to `Delegated`. State files remain so the hook injects a findings summary into the next session. The hook only injects finding headers (number, file, label) — the next session should read `.flowyeah/review-approved-{number}.md` directly for full finding details. The next session uses the findings as guidance for what to fix — it does not resume the review pipeline. When done, the user (in any session) runs `/review finalize` to clean up.
 3. **Finalize** — clean up state files immediately (equivalent to `/review finalize`).
 
-#### Conflict: Re-invoking `/review` with active `--own` session
+#### Conflict: Re-invoking `/review` with active session on same branch
 
-If the user invokes `/review` or `/review --own` while state files exist from a previous `--own` session (`Phase: Fixing` or `Phase: Delegated`), ask: "An --own review for PR #N is still active. Finalize it first, or continue fixing?"
+Before starting a new review, glob `review-state-*.md` and match `Branch:` against the current branch.
+
+If a match is found with `Phase: Fixing` or `Phase: Delegated`, present: "An --own review for PR #N is still active. Finalize it first, or continue fixing?"
+
+If a match is found with any other phase, present: "A review for PR #N is already active on this branch (phase: X). Finalize it first?"
 
 If the user chooses to finalize, run the finalize logic and stop. The user must re-invoke `/review` for a new session.
 
@@ -435,20 +439,29 @@ Ask for final confirmation before posting.
 
 **APPROVE reviews must not create open threads.** When the event is `APPROVE`, do NOT submit inline comments via the `comments` array — they create review threads that block auto-merge. Instead, include all findings (with file:line references) in the review body only. The review adapter's event documentation has the details.
 
-After posting (or if the user discards), remove `.flowyeah/review-state.md` and `.flowyeah/review-approved.md` to end the session.
+After posting (or if the user discards), remove `.flowyeah/review-state-{number}.md` and `.flowyeah/review-approved-{number}.md` to end the session.
 
 ### `finalize` Subcommand
 
 A separate entry point that tears down review state. Not a pipeline step.
 
 ```
-flowyeah:review finalize
+flowyeah:review finalize [<number>]
 ```
 
-1. Check for `.flowyeah/review-state.md`. If absent, report "No active review session." and stop.
-2. Read the state file. Display: PR number, findings count, mode.
-3. Delete `.flowyeah/review-state.md` and `.flowyeah/review-approved.md` (if present).
-4. Report: "Review session finalized."
+**With explicit number:** target `review-state-{number}.md` directly. If absent, report "No active review for PR #{number}." and stop.
+
+**Without number (auto-detect):**
+1. Get current branch
+2. Glob `review-state-*.md`, extract `Branch:` from each
+3. Zero matches → list all active reviews (PR number + branch from each state file) and ask which to finalize
+4. One match → use it
+5. Multiple matches → list and ask
+
+After resolving the target:
+1. Read the state file. Display: PR number, findings count, mode.
+2. Delete `review-state-{number}.md` and `review-approved-{number}.md` (if present).
+3. Report: "Review session finalized."
 
 No confirmation prompt — the explicit `finalize` command is sufficient intent.
 

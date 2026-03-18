@@ -1,6 +1,6 @@
 {
   "name": "flowyeah",
-  "version": "1.0.26",
+  "version": "1.0.27",
   "description": "Plan-to-PR pipeline. Takes any source, produces tested, reviewed, merged PRs with git worktree isolation, TDD, code review, and CI verification.",
   "license": "MIT",
   "author": {"name": "Rodrigo Manhães"},
