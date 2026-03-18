@@ -111,9 +111,9 @@ teardown
 setup_repo
 touch flowyeah.yml
 mkdir -p .flowyeah
-echo "# Current State" > .flowyeah/review-state.md
+echo -e "# Current State\nBranch: main" > .flowyeah/review-state-42.md
 OUTPUT=$(bash "$SCRIPT_DIR/session-remind.sh" 2>&1)
-assert_output_contains "remind: outputs reminder with review session" "Update .flowyeah/review-state.md" "$OUTPUT"
+assert_output_contains "remind: outputs reminder with review session" "review-state-42.md" "$OUTPUT"
 teardown
 
 # ── session-inject.sh tests ─────────────────────────────

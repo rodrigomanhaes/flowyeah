@@ -12,10 +12,15 @@ TOPLEVEL=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
 # Fire if there's an active build or review session
 if [ -f "$TOPLEVEL/.flowyeah/state.md" ]; then
     echo "Session active: Update .flowyeah/state.md if you made progress."
-elif [ -f "$TOPLEVEL/.flowyeah/review-state.md" ]; then
-    echo "Session active: Update .flowyeah/review-state.md if you made progress."
-elif [ -f "$TOPLEVEL/.flowyeah/respond-state.md" ]; then
-    echo "Session active: Update .flowyeah/respond-state.md if you made progress."
 else
-    exit 0
+    shopt -s nullglob
+    REVIEW_FILES=("$TOPLEVEL"/.flowyeah/review-state-*.md)
+    shopt -u nullglob
+    if [ ${#REVIEW_FILES[@]} -gt 0 ]; then
+        echo "Session active: Update $(basename "${REVIEW_FILES[0]}") if you made progress."
+    elif [ -f "$TOPLEVEL/.flowyeah/respond-state.md" ]; then
+        echo "Session active: Update .flowyeah/respond-state.md if you made progress."
+    else
+        exit 0
+    fi
 fi
