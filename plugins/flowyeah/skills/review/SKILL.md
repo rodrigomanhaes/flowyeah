@@ -33,14 +33,21 @@ digraph review {
     checks [label="3b. Critical Checks"];
     score [label="4. Score & Consolidate"];
     approve [label="5. Interactive Approval"];
+    own_check [label="--own?" shape=diamond];
     type [label="6. Choose Review Type"];
     submit [label="7. Submit Formal Review"];
+    deliver [label="5b. Deliver Findings"];
+    menu [label="5c. Next Action Menu"];
 
     validate -> identify -> issue -> context;
     context -> previous -> requirements;
     requirements -> agents [label="issue found"];
     requirements -> agents [label="no issue\nskip"];
-    agents -> checks -> score -> approve -> type -> submit;
+    agents -> checks -> score -> approve -> own_check;
+    own_check -> type [label="normal"];
+    type -> submit;
+    own_check -> deliver [label="--own"];
+    deliver -> menu;
 }
 ```
 
