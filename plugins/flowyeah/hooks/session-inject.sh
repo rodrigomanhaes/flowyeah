@@ -9,24 +9,37 @@ TOPLEVEL=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
 # Only run in projects that use flowyeah
 [ -f "$TOPLEVEL/flowyeah.yml" ] || exit 0
 
-# ── Review session (separate file, never conflicts with build) ──
-if [ -f "$TOPLEVEL/.flowyeah/review-state.md" ]; then
-    echo "───── flowyeah:review session ─────"
-    echo ""
-    echo "## STATE"
-    cat "$TOPLEVEL/.flowyeah/review-state.md"
-    echo ""
+# ── Review session (namespaced by PR number, matched by branch) ──
+CURRENT_BRANCH=$(git branch --show-current 2>/dev/null)
+if [ -n "$CURRENT_BRANCH" ]; then
+    shopt -s nullglob
+    REVIEW_STATE_FILES=("$TOPLEVEL"/.flowyeah/review-state-*.md)
+    shopt -u nullglob
 
-    # Inject approved findings summary (survives compaction)
-    if [ -f "$TOPLEVEL/.flowyeah/review-approved.md" ]; then
-        echo "## APPROVED FINDINGS"
-        # Extract finding headers with file and label for quick reference
-        grep -E '^## Finding |^- File:|^- Label:' "$TOPLEVEL/.flowyeah/review-approved.md" 2>/dev/null || echo "(no approved findings yet)"
-        echo ""
-    fi
+    for state_file in "${REVIEW_STATE_FILES[@]}"; do
+        FILE_BRANCH=$(grep -m1 '^Branch:' "$state_file" 2>/dev/null | cut -d' ' -f2-)
+        if [ "$FILE_BRANCH" = "$CURRENT_BRANCH" ]; then
+            echo "───── flowyeah:review session ─────"
+            echo ""
+            echo "## STATE"
+            cat "$state_file"
+            echo ""
 
-    echo "──────────────────────────────────────────────"
-    echo ""
+            # Extract PR number from filename to find matching approved file
+            number="${state_file##*review-state-}"
+            number="${number%.md}"
+
+            if [ -f "$TOPLEVEL/.flowyeah/review-approved-${number}.md" ]; then
+                echo "## APPROVED FINDINGS"
+                grep -E '^## Finding |^- File:|^- Label:' "$TOPLEVEL/.flowyeah/review-approved-${number}.md" 2>/dev/null || echo "(no approved findings yet)"
+                echo ""
+            fi
+
+            echo "──────────────────────────────────────────────"
+            echo ""
+            break  # inject at most one review
+        fi
+    done
 fi
 
 # ── Respond session (separate file, never conflicts with build) ──

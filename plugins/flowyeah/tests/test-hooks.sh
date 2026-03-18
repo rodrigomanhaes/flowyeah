@@ -14,7 +14,7 @@ TOTAL=0
 setup_repo() {
     TMPDIR=$(mktemp -d)
     cd "$TMPDIR"
-    git init -q
+    git init -q -b main
     git commit --allow-empty -m "init" -q
 }
 
@@ -170,12 +170,13 @@ teardown
 setup_repo
 touch flowyeah.yml
 mkdir -p .flowyeah
-cat > .flowyeah/review-state.md <<'EOF'
+cat > .flowyeah/review-state-42.md <<'EOF'
 # Current State
 
 Type: review
 Status: Reviewing
 PR/MR: 42
+Branch: main
 EOF
 OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
 assert_output_contains "inject review: shows session type" "flowyeah:review session" "$OUTPUT"
@@ -190,16 +191,17 @@ teardown
 setup_repo
 touch flowyeah.yml
 mkdir -p .flowyeah
-cat > .flowyeah/review-state.md <<'EOF'
+cat > .flowyeah/review-state-42.md <<'EOF'
 # Current State
 
 Type: review
 Status: Interactive Approval
 PR/MR: 42
+Branch: main
 Findings: 5 total, 2 approved
 Phase: Interactive Approval
 EOF
-cat > .flowyeah/review-approved.md <<'EOF'
+cat > .flowyeah/review-approved-42.md <<'EOF'
 # Approved Findings
 
 ## Finding 1
@@ -226,12 +228,13 @@ teardown
 setup_repo
 touch flowyeah.yml
 mkdir -p .flowyeah
-cat > .flowyeah/review-state.md <<'EOF'
+cat > .flowyeah/review-state-42.md <<'EOF'
 # Current State
 
 Type: review
 Status: Gathering Context
 PR/MR: 42
+Branch: main
 Phase: Gathering Context
 EOF
 OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
@@ -252,18 +255,118 @@ cat > .flowyeah/worktrees/feat-webhook/.flowyeah/mission.md <<'EOF'
 Implement webhook retry.
 EOF
 mkdir -p .flowyeah
-cat > .flowyeah/review-state.md <<'EOF'
+cat > .flowyeah/review-state-42.md <<'EOF'
 # Current State
 
 Type: review
 Status: Reviewing
-PR/MR: 99
+PR/MR: 42
+Branch: main
 EOF
 OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
 assert_output_contains "inject coexist: shows review session" "flowyeah:review session" "$OUTPUT"
-assert_output_contains "inject coexist: shows review PR" "PR/MR: 99" "$OUTPUT"
+assert_output_contains "inject coexist: shows review PR" "PR/MR: 42" "$OUTPUT"
 assert_output_contains "inject coexist: shows build session" "Active session found" "$OUTPUT"
 assert_output_contains "inject coexist: shows build state" "Webhook retry" "$OUTPUT"
+teardown
+
+# Test: branch match injects correct review (only matching branch)
+setup_repo
+touch flowyeah.yml
+mkdir -p .flowyeah
+cat > .flowyeah/review-state-42.md <<'EOF'
+# Current State
+
+Type: review
+Status: Reviewing
+PR/MR: 42
+Branch: main
+EOF
+cat > .flowyeah/review-state-55.md <<'EOF'
+# Current State
+
+Type: review
+Status: Reviewing
+PR/MR: 55
+Branch: feat-payment
+EOF
+OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+assert_output_contains "inject review branch match: shows matching PR" "PR/MR: 42" "$OUTPUT"
+assert_output_not_contains "inject review branch match: hides non-matching PR" "PR/MR: 55" "$OUTPUT"
+teardown
+
+# Test: no branch match stays silent for reviews
+setup_repo
+touch flowyeah.yml
+mkdir -p .flowyeah
+cat > .flowyeah/review-state-42.md <<'EOF'
+# Current State
+
+Type: review
+Status: Reviewing
+PR/MR: 42
+Branch: feat-payment
+EOF
+OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+assert_output_not_contains "inject review no match: no review session" "flowyeah:review session" "$OUTPUT"
+teardown
+
+# Test: approved findings follow their state file by PR number
+setup_repo
+touch flowyeah.yml
+mkdir -p .flowyeah
+cat > .flowyeah/review-state-42.md <<'EOF'
+# Current State
+
+Type: review
+Status: Interactive Approval
+PR/MR: 42
+Branch: main
+Phase: Interactive Approval
+EOF
+cat > .flowyeah/review-approved-42.md <<'EOF'
+# Approved Findings
+
+## Finding 1
+- File: app/models/payment.rb:42
+- Label: issue (blocking)
+EOF
+cat > .flowyeah/review-state-55.md <<'EOF'
+# Current State
+
+Type: review
+Status: Reviewing
+PR/MR: 55
+Branch: feat-other
+EOF
+cat > .flowyeah/review-approved-55.md <<'EOF'
+# Approved Findings
+
+## Finding 9
+- File: app/controllers/api.rb:10
+- Label: suggestion (non-blocking)
+EOF
+OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+assert_output_contains "inject review approved match: shows PR 42 findings" "app/models/payment.rb:42" "$OUTPUT"
+assert_output_not_contains "inject review approved match: hides PR 55 findings" "app/controllers/api.rb:10" "$OUTPUT"
+teardown
+
+# Test: detached HEAD skips review injection
+setup_repo
+touch flowyeah.yml
+git add flowyeah.yml && git commit -q -m "add config"
+git checkout -q --detach HEAD
+mkdir -p .flowyeah
+cat > .flowyeah/review-state-42.md <<'EOF'
+# Current State
+
+Type: review
+Status: Reviewing
+PR/MR: 42
+Branch: main
+EOF
+OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+assert_output_not_contains "inject review detached HEAD: no review session" "flowyeah:review session" "$OUTPUT"
 teardown
 
 # Test: defaults to build when Type is missing
