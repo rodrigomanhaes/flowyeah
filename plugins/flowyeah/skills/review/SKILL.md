@@ -78,6 +78,7 @@ Create `.flowyeah/review-state.md` for compaction resilience:
 # Current State
 
 Type: review
+Mode: <own or absent>
 Status: Reviewing
 PR/MR: <number>
 Branch: <source_branch>
@@ -85,6 +86,8 @@ Platform: <adapter>
 Findings: <count> total, <approved> approved
 Phase: <current_phase>
 ```
+
+`Mode` is absent for normal reviews. The hook does not interpret this field — it dumps the state file as raw text. The skill's crash recovery logic reads `Mode` to decide which path to follow on resume.
 
 **Valid `Phase` values** (map to steps, used for crash recovery):
 
@@ -98,6 +101,9 @@ Phase: <current_phase>
 | `Interactive Approval` | 5 | Read `review-approved.md`, re-present unapproved findings |
 | `Choosing Review Type` | 6 | Re-ask review type question |
 | `Submitting Review` | 7 | Check if review was posted, retry or clean up |
+| `Findings Delivered` | 5b-5c | Re-present the next action menu. If `review-approved.md` is missing, re-run from step 5 (Interactive Approval). |
+| `Fixing` | after 5c | Do not resume the review pipeline. Findings are informational context. |
+| `Delegated` | after 5c | Do not resume the review pipeline. Findings are informational context for the next session. |
 
 After the user makes approval decisions (step 5), persist results to `.flowyeah/review-approved.md`:
 
@@ -132,6 +138,16 @@ If a review session is interrupted (compaction, crash, user abort):
 3. If the phase was before "Interactive Approval" (step 5), re-run from that phase
 4. If during or after approval, read `review-approved.md` to recover previously approved findings and skip re-presenting them
 5. If the review was already submitted, clean up both state files
+6. The user can also run `/review finalize` at any time to abandon the review and clean up state files
+
+#### Crash Recovery with `Mode: own`
+
+When `Mode` is absent, the logic above applies unchanged (resume from recorded phase, proceed through steps 6-7).
+
+When resuming a session with `Mode: own`:
+- Phases before `Findings Delivered` — recover normally (re-run from that phase), but skip steps 6-7 after completion.
+- `Findings Delivered` — re-present the next action menu (step 5c).
+- `Fixing` or `Delegated` — do nothing. The review pipeline is not active. State files serve as context only.
 
 ## Steps
 
