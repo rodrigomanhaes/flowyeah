@@ -437,6 +437,27 @@ Ask for final confirmation before posting.
 
 After posting (or if the user discards), remove `.flowyeah/review-state.md` and `.flowyeah/review-approved.md` to end the session.
 
+### `finalize` Subcommand
+
+A separate entry point that tears down review state. Not a pipeline step.
+
+```
+flowyeah:review finalize
+```
+
+1. Check for `.flowyeah/review-state.md`. If absent, report "No active review session." and stop.
+2. Read the state file. Display: PR number, findings count, mode.
+3. Delete `.flowyeah/review-state.md` and `.flowyeah/review-approved.md` (if present).
+4. Report: "Review session finalized."
+
+No confirmation prompt — the explicit `finalize` command is sufficient intent.
+
+No platform interaction. No re-running agents. No verification of whether findings were addressed.
+
+`finalize` works on any review session — both `--own` and normal. For normal reviews interrupted mid-pipeline (e.g., crashed after step 3), `finalize` serves as an escape hatch to discard the session without submitting.
+
+`finalize` does not display the timing summary.
+
 ### Review Body Template
 
 ```markdown
