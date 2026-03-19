@@ -331,7 +331,7 @@ How much effort goes into commit messages depends on `pull_requests.merge_strate
 
 ```bash
 # Export worktree env (read from state.md ## Worktree Env section)
-export TEST_ENV_NUMBER=aB3xK9mQ
+export DB_SUFFIX=kM4tQ8hN
 export REDIS_DB=pL7nR2wY
 
 # Test (from flowyeah.yml testing.command)
@@ -621,7 +621,7 @@ Investigation: intermittent            # set in Step 3 when --intermittent flag 
 On-Branch: true                       # set in Step 3 when --on-branch flag is passed
 
 ## Worktree Env
-TEST_ENV_NUMBER=aB3xK9mQ
+DB_SUFFIX=kM4tQ8hN
 REDIS_DB=pL7nR2wY
 
 ## Key Decisions Made

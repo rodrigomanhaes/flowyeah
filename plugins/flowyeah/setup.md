@@ -160,24 +160,17 @@ If none needed, leave empty.
 
 > Which environment variables should be unique per worktree?
 
-Suggest based on project files:
-- `Gemfile` present → suggest `TEST_ENV_NUMBER` (Rails convention — `database.yml` appends this to the database name for parallel test databases)
-- Any project → ask if they use Redis, Elasticsearch, or other stateful services that need isolation, and suggest corresponding env vars
+Concurrent worktrees sharing stateful dependencies (databases, Redis, search indexes) will corrupt each other. Ask the user which env vars their project uses to namespace these resources — both for test **and** development environments. A shared development database across worktrees causes schema dump conflicts when different branches run migrations.
 
 Each env var can have value `auto` (generates a random 8-char URL-safe base64 string per worktree) or a fixed literal value.
 
 > What commands should run after creating a worktree?
 
-These run with the env vars exported. Suggest based on project files:
-- `Gemfile` present → suggest `bundle exec rails db:test:prepare`
-- `package.json` present → suggest `npm install` (if `node_modules` isn't shared)
-- Otherwise → ask
+These run with the env vars exported. Ask the user what commands create and prepare their isolated databases and other dependencies. If the project uses `node_modules` and it isn't symlinked, ask if they need `npm install` or equivalent.
 
 > What commands should run before removing a worktree?
 
-These run with the env vars exported. Suggest based on project files:
-- `Gemfile` present → suggest `bundle exec rails db:drop DISABLE_DATABASE_ENVIRONMENT_CHECK=1`
-- Otherwise → ask
+These run with the env vars exported. Ask the user what commands clean up the isolated resources (drop databases, flush caches, etc.).
 
 ### 11. Language and commit conventions
 

@@ -44,11 +44,12 @@ Resolve `worktree.env` from `flowyeah.yml`:
 VALUE=$(head -c 6 /dev/urandom | base64 | tr '+/' '-_' | tr -d '=')
 
 # Export all resolved env vars
-export TEST_ENV_NUMBER=aB3xK9mQ
+export DB_SUFFIX=kM4tQ8hN
 export REDIS_DB=pL7nR2wY
 
-# Run setup commands
-bundle exec rails db:test:prepare
+# Run setup commands (from worktree.setup)
+<setup command 1>
+<setup command 2>
 ```
 
 If `worktree.env` is empty or absent, skip.
@@ -59,7 +60,7 @@ The calling skill **must** write the resolved env key-value pairs to its session
 
 ```markdown
 ## Worktree Env
-TEST_ENV_NUMBER=aB3xK9mQ
+DB_SUFFIX=kM4tQ8hN
 REDIS_DB=pL7nR2wY
 ```
 
@@ -95,11 +96,11 @@ fi
 
 ```bash
 # Export worktree env
-export TEST_ENV_NUMBER=aB3xK9mQ
+export DB_SUFFIX=kM4tQ8hN
 export REDIS_DB=pL7nR2wY
 
-# Run teardown commands
-bundle exec rails db:drop DISABLE_DATABASE_ENVIRONMENT_CHECK=1
+# Run teardown commands (from worktree.teardown)
+<teardown command 1>
 ```
 
 ### 3. Remove worktree
