@@ -77,11 +77,41 @@ Each key is annotated with a status marker:
 | `hosting` | 2026-03-03 | Rename to `git_host` |
 | `hooks.after_merge` | 2026-03-06 | Move to `hooks.pr.after_merge` |
 
+## Prerequisites
+
+- **Claude Code 1.0.33+** — verify with `claude --version`, update with `claude update`
+- **git** — version control operations and worktree isolation
+
+Depending on which adapters you use:
+
+| Adapter | Requires |
+|---------|----------|
+| GitHub, GitHub Actions | [`gh`](https://cli.github.com/) (GitHub CLI) — authenticate with `gh auth login` |
+| GitLab | `curl`, `jq`, and a [personal access token](https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html) |
+| Linear | [Claude Code Linear MCP plugin](https://github.com/anthropics/claude-code-linear) |
+| Bugsink | `curl`, `jq`, and a Bugsink API token |
+| New Relic | `curl`, `jq`, and a [NerdGraph API key](https://docs.newrelic.com/docs/apis/intro-apis/new-relic-api-keys/) |
+
+## Install
+
+Add the marketplace and install the plugin:
+
+```
+/plugin marketplace add rodrigomanhaes/flowyeah
+/plugin install flowyeah@rodrigomanhaes-flowyeah
+```
+
+By default, the plugin installs at user scope (available in all projects). To install at a different scope:
+
+```
+/plugin install flowyeah@rodrigomanhaes-flowyeah --scope project  # shared via .claude/settings.json
+/plugin install flowyeah@rodrigomanhaes-flowyeah --scope local    # gitignored, personal only
+```
+
 ## Setup
 
-1. Install the plugin in Claude Code
-2. Run `flowyeah:build` or `flowyeah:review` in your project — either will interactively create `flowyeah.yml` on first run
-3. Commit `flowyeah.yml` to your repo
+1. Run `flowyeah:build` or `flowyeah:review` in your project — either will interactively create `flowyeah.yml` on first run
+2. Commit `flowyeah.yml` to your repo
 
 The build pipeline automatically adds `.flowyeah/` and `tmp/` to `.gitignore` when creating worktrees.
 
