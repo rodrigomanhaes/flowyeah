@@ -197,6 +197,7 @@ Collect in parallel:
 6. **Git blame** — for changed lines, run `git blame` on the base branch version to understand original intent and authorship
 7. **Previous PR/MR feedback** — search recent merged PRs/MRs that touched the same files, collect review comments (via review adapter). Look for recurring themes — if a reviewer flagged the same pattern before, it's worth flagging again
 8. **Previous review findings** — via review adapter's `Fetch Own Discussions`. Fetch all discussions/review comments authored by the authenticated user on this MR/PR. Parse Conventional Comments format to extract structured findings. If none found (first review), skip previous-review logic entirely
+9. **Other reviewers' open threads** — via review adapter, fetch all open (unresolved) review threads on the current PR/MR from other reviewers. For each thread, note: author, file:line, concern raised. Use these to avoid duplicating what others already flagged and to identify opportunities to complement their feedback (e.g., adding technical context, confirming a concern, or expanding on a suggestion)
 
 #### 2.8 Classify Previous Review Findings
 
@@ -304,7 +305,8 @@ Run directly (not delegated to agents):
 2. Sort by severity (blocker first), then by confidence within each severity level
 3. Group by category
 4. Deduplicate against previous findings — if an agent finding matches an unresolved previous finding (same file, overlapping lines, same concern), remove the agent finding in favor of the previous one. The previous finding carries more weight as a "previously raised" item
-5. Inject `unresolved_findings[]` into the consolidated list. Each gets tagged `(previously raised, still unresolved)`. They keep their original severity — no escalation, no demotion
+5. Deduplicate against other reviewers' open threads — if a finding raises the same concern another reviewer already flagged (same file, overlapping lines, same issue), drop the finding. Instead, if you have useful context to add, note it for a reply to their thread (see step 5 presentation). Don't repeat what someone else already said
+6. Inject `unresolved_findings[]` into the consolidated list. Each gets tagged `(previously raised, still unresolved)`. They keep their original severity — no escalation, no demotion
 
 **False positive rubric — do NOT flag:**
 - Something that looks like a bug but isn't
@@ -356,6 +358,24 @@ Comment (Conventional Comments format):
 
 ... (all remaining findings)
 ```
+
+**Other reviewers' open threads:** After the findings list, if any open threads from other reviewers were found (step 2.9) and you have complementary context to add (technical justification, confirmation with evidence, expanded scope), present them separately:
+
+```
+───────────────────────────────────────────────────────
+Other reviewers' open threads — complement opportunities
+───────────────────────────────────────────────────────
+
+Thread A (@reviewer · file:line):
+  Their concern: [summary]
+  Your complement: [what you'd add — e.g., confirming with evidence, expanding scope]
+
+Thread B (@reviewer · file:line):
+  Their concern: [summary]
+  Your complement: [what you'd add]
+```
+
+These are **not** findings — they are reply suggestions. The user can approve, edit, or skip each. Approved complements are posted as replies to the existing threads (via the review adapter) alongside the formal review submission in step 7.
 
 After presenting the full list, ask the user for a **batch decision**:
 
