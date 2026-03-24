@@ -457,7 +457,11 @@ Load the review adapter and follow its instructions to:
 
 Ask for final confirmation before posting.
 
-**APPROVE reviews must not create open threads.** When the event is `APPROVE`, do NOT submit inline comments via the `comments` array — they create review threads that block auto-merge. Instead, include all findings (with file:line references) in the review body only. The review adapter's event documentation has the details.
+**APPROVE review comment placement:** When the event is `APPROVE`, split findings by type:
+- **Praise findings** → include in the review body only (the approval itself is the positive signal; inline praise is noise)
+- **Non-praise findings** (suggestions, issues, nitpicks, questions, etc.) → submit as inline comments to create open threads, ensuring they get read
+
+This differs from `COMMENT` and `REQUEST CHANGES`, where all findings (including praise) are posted as inline comments. The review adapter's event documentation has the details.
 
 After posting (or if the user discards), remove `.flowyeah/review-state-{number}.md` and `.flowyeah/review-approved-{number}.md` to end the session.
 
