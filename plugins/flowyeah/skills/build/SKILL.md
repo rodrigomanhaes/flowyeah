@@ -671,6 +671,8 @@ Implement webhook retry with exponential backoff for failed deliveries.
 
 ### progress.md — Checklist (update after each item)
 
+Has two sections: **Items** (implementation tasks from the plan) and **Pipeline** (operational steps from step 5 onward). Both are updated as work progresses. The pipeline checklist ensures no post-implementation step is skipped — particularly after-merge hooks, which are easy to forget after a long session.
+
 ```markdown
 # Progress
 
@@ -681,11 +683,30 @@ Implement webhook retry with exponential backoff for failed deliveries.
 - [ ] Controller integration
 - [ ] Feature specs
 
+## Pipeline
+- [ ] Commit
+- [ ] Test
+- [ ] Implementation approval
+- [ ] Rebase + push
+- [ ] Create PR/MR
+- [ ] CI + code review
+- [ ] Merge
+- [ ] After-merge hooks
+- [ ] Mark task done
+- [ ] Cleanup worktree
+
 ## Stats
 - Total: 5
 - Done: 2
 - Remaining: 3
 ```
+
+**Pipeline section rules:**
+- Created when the first commit is made (step 5)
+- Each item is checked off as it completes
+- The hook injection shows unchecked pipeline items on every prompt, preventing skipped steps
+- If `implementation.approval` is `auto` and auto-approved, check it off with a note
+- If `pull_requests.merge` is `manual`, check off Merge as "manual — reported URL" and skip After-merge hooks
 
 ### findings.md — Accumulated Knowledge (update after discoveries)
 
