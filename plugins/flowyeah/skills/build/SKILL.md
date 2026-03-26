@@ -684,16 +684,18 @@ Has two sections: **Items** (implementation tasks from the plan) and **Pipeline*
 - [ ] Feature specs
 
 ## Pipeline
-- [ ] Commit
-- [ ] Test
-- [ ] Implementation approval
-- [ ] Rebase + push
-- [ ] Create PR/MR
-- [ ] CI + code review
-- [ ] Merge
-- [ ] After-merge hooks
-- [ ] Mark task done
-- [ ] Cleanup worktree
+- [ ] Commit (5)
+- [ ] Test (6)
+- [ ] Implementation approval (6b)
+- [ ] Rebase + push (6c)
+- [ ] Issue linkage (6d)
+- [ ] Create PR/MR (7)
+- [ ] PR hooks (7a)
+- [ ] CI + code review (7b)
+- [ ] Merge decision (7c)
+- [ ] After-merge hooks (8)
+- [ ] Mark task done (9)
+- [ ] Cleanup worktree (10)
 
 ## Stats
 - Total: 5
@@ -706,7 +708,10 @@ Has two sections: **Items** (implementation tasks from the plan) and **Pipeline*
 - Each item is checked off as it completes
 - The hook injection shows unchecked pipeline items on every prompt, preventing skipped steps
 - If `implementation.approval` is `auto` and auto-approved, check it off with a note
-- If `pull_requests.merge` is `manual`, check off Merge as "manual — reported URL" and skip After-merge hooks
+- If the source was an issue tracker (Issue-Ref already set), check off Issue linkage as "N/A — source is issue tracker"
+- If `issues.create_when_missing` is `never`, check off Issue linkage as "skipped — create_when_missing: never"
+- If `hooks.pr.after_create` is not configured, check off PR hooks as "N/A — no after_create hook"
+- If `pull_requests.merge` is `manual`, check off Merge decision as "manual — reported URL" and skip After-merge hooks
 
 ### findings.md — Accumulated Knowledge (update after discoveries)
 
