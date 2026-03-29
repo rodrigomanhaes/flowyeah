@@ -198,12 +198,12 @@ cd .flowyeah/worktrees/<type>-<slug>
 
 # Copy flowyeah.yml if missing (first run — not yet in any branch)
 if [ ! -f flowyeah.yml ] && [ -f "$MAIN_WORKTREE/flowyeah.yml" ]; then
-  cp "$MAIN_WORKTREE/flowyeah.yml" ./flowyeah.yml
+  /bin/cp "$MAIN_WORKTREE/flowyeah.yml" ./flowyeah.yml
 fi
 
 # Copy .gitignore if it was modified (for .flowyeah/ and tmp/ entries)
 if [ -f "$MAIN_WORKTREE/.gitignore" ]; then
-  cp "$MAIN_WORKTREE/.gitignore" ./.gitignore
+  /bin/cp "$MAIN_WORKTREE/.gitignore" ./.gitignore
 fi
 ```
 

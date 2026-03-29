@@ -13,7 +13,7 @@ Run these steps in order inside the worktree.
 Resolve `worktree.symlinks` from `flowyeah.yml`. For each entry:
 
 ```bash
-MAIN_WORKTREE=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+MAIN_WORKTREE=$(git worktree list --porcelain | /usr/bin/head -1 | /usr/bin/sed 's/worktree //')
 TARGET="$MAIN_WORKTREE/<path>"
 
 # Skip if target doesn't exist in main checkout
@@ -23,9 +23,9 @@ if [ ! -e "$TARGET" ]; then
 fi
 
 # Create parent directories if needed (for nested paths like vendor/bundle)
-mkdir -p "$(dirname "<path>")"
+/bin/mkdir -p "$(/usr/bin/dirname "<path>")"
 
-ln -s "$TARGET" "<path>"
+/bin/ln -s "$TARGET" "<path>"
 ```
 
 If `worktree.symlinks` is empty or absent, skip.
@@ -42,7 +42,7 @@ Resolve `worktree.env` from `flowyeah.yml`:
 
 ```bash
 # Generate env values (for each "auto" entry)
-VALUE=$(head -c 6 /dev/urandom | base64 | tr '+/' '-_' | tr -d '=')
+VALUE=$(/usr/bin/head -c 6 /dev/urandom | /usr/bin/base64 | /usr/bin/tr '+/' '-_' | /usr/bin/tr -d '=')
 
 # Export all resolved env vars
 export DB_SUFFIX=kM4tQ8hN
@@ -52,7 +52,7 @@ export REDIS_DB=pL7nR2wY
 git update-index --assume-unchanged .envrc 2>/dev/null
 
 # Append flowyeah env vars to .envrc (preserves project's existing direnv config)
-cat >> .envrc <<'ENVRC'
+/bin/cat >> .envrc <<'ENVRC'
 
 # BEGIN flowyeah
 export DB_SUFFIX=kM4tQ8hN
@@ -61,7 +61,7 @@ export REDIS_DB=pL7nR2wY
 ENVRC
 
 # Auto-approve for direnv if available
-which direnv >/dev/null 2>&1 && direnv allow .
+/usr/bin/which direnv >/dev/null 2>&1 && direnv allow .
 
 # Run setup commands (from worktree.setup)
 <setup command 1>
@@ -97,7 +97,7 @@ Prevent VSCode from freezing when the worktree directory disappears:
 5. Best-effort — if detection or closing fails, warn and continue
 
 ```bash
-if which code >/dev/null 2>&1; then
+if /usr/bin/which code >/dev/null 2>&1; then
   code "$WORKTREE_PATH" --command "workbench.action.closeWindow" 2>/dev/null || \
     echo "Warning: Failed to close VSCode window, continuing with cleanup" >&2
 fi
