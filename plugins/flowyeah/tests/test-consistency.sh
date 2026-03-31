@@ -221,6 +221,47 @@ while IFS= read -r adapter; do
     fi
 done <<< "$tree_adapters"
 
+# ── Section: Setup template ↔ schema ───────────────────
+
+echo ""
+echo "=== Setup template <-> schema ==="
+
+# Extract the YAML template block from setup.md (between "```yaml" and "```" in the ## Generate section)
+SETUP_TEMPLATE=$(sed -n '/^## Generate/,/^## /p' "$SETUP" | sed -n '/^```yaml/,/^```/p')
+
+# Every non-adapter, non-wildcard schema key's leaf should appear in the template
+while IFS= read -r key; do
+    [ -z "$key" ] && continue
+    # Skip schema-free adapter keys (contain '<')
+    case "$key" in
+        *\<*) continue ;;
+    esac
+    leaf="$(echo "$key" | sed 's/.*\.//')"
+    assert_contains "schema key '$key' (leaf: $leaf) in setup.md YAML template" "$leaf:" "$SETUP"
+done <<< "$schema_keys"
+
+# Hooks must use nested structure (hooks.pr.*), not flat (hooks.after_merge)
+# The YAML template should contain "  pr:" under hooks, and "    after_create:" / "    after_merge:" under pr
+assert_contains "setup.md template has nested hooks.pr structure" "  pr:" "$SETUP"
+assert_contains "setup.md template has hooks.pr.after_create" "after_create:" "$SETUP"
+assert_contains "setup.md template has hooks.pr.after_merge" "after_merge:" "$SETUP"
+
+# The YAML template must NOT contain the deprecated flat hooks.after_merge pattern
+# (i.e., "after_merge:" should only appear under "pr:", not directly under "hooks:")
+TOTAL=$((TOTAL + 1))
+FLAT_HOOKS=$(echo "$SETUP_TEMPLATE" | grep -E '^  after_merge:' || true)
+if [ -z "$FLAT_HOOKS" ]; then
+    PASS=$((PASS + 1))
+else
+    FAIL=$((FAIL + 1))
+    echo "FAIL: setup.md template has deprecated flat hooks.after_merge"
+    echo "  expected: hooks.pr.after_merge (nested)"
+    echo "  found: hooks.after_merge (flat)"
+fi
+
+# Setup questions should mention after_create hook point
+assert_contains "setup.md questions mention after_create hook" "after_create" "$SETUP"
+
 # ── Results ──────────────────────────────────────────────
 
 echo ""
