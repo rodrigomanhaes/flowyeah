@@ -24,6 +24,10 @@ plugins/flowyeah/
 └── flowyeah.yml      # Generated per-project config (not in this repo)
 ```
 
+## Critical: Edit Source, Not Installed Copy
+
+When editing plugin files (skills, adapters, hooks, config schema), always edit the files in the current working directory — this is the source repo. NEVER edit the locally installed copy that Claude Code uses at runtime. The Skill tool loads content from the installed copy, but that path is NOT where edits belong.
+
 ## Key Conventions
 
 - **Adapters are prose, not code.** Each `.md` file contains instructions and curl/CLI templates that Claude follows. They are NOT executed as scripts.
