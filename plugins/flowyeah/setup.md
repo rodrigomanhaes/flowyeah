@@ -217,12 +217,10 @@ Default:
 agents:
   - pr-review-toolkit:code-reviewer
   - pr-review-toolkit:silent-failure-hunter
-optional_agents:
-  - pr-review-toolkit:comment-analyzer
-  - pr-review-toolkit:type-design-analyzer
+optional_agents: []
 ```
 
-Ask if they want to customize the list.
+Ask if they want to customize the list. If asked about optional agents, suggest `pr-review-toolkit:comment-analyzer` and `pr-review-toolkit:type-design-analyzer` as examples.
 
 ### 14. Review instructions
 
