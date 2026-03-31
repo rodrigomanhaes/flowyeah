@@ -382,9 +382,22 @@ If the source was NOT an issue tracker (file, conversation, Bugsink, New Relic, 
 
 | `issues.create_when_missing` | Action |
 |------------------------------|--------|
-| `ask` | **STOP and ask the user:** "Deseja criar uma issue para rastrear este trabalho?" If yes, create via `issues.adapter`. If no, skip. **You MUST ask — do not silently skip.** |
+| `ask` | **TWO-TURN STOP.** See `ask` protocol below. |
 | `always` | Create one automatically via `issues.adapter`. |
 | `never` | Skip silently. |
+
+**`ask` protocol — MANDATORY two-turn flow:**
+
+When `issues.create_when_missing` is `ask`, you MUST split the question and the action across two separate response turns.
+
+**Turn 1 — Ask and STOP:**
+1. Ask the user: "Deseja criar uma issue para rastrear este trabalho? (Yes/No)"
+2. **END YOUR RESPONSE.** Do NOT create the issue. Do NOT proceed to step 7. Your response ends here — return control to the user.
+
+**Turn 2 — Act on the user's answer (next message):**
+- User says **yes** → create via `issues.adapter`, save Issue Linkage values, proceed to step 7
+- User says **no** → skip issue creation, proceed to step 7
+- User says something ambiguous → ask again (repeat Turn 1)
 
 When creating an issue, use the source adapter pointed to by `issues.adapter` to create it. Save the resulting Issue Linkage values (`Issue-Ref`, `Issue-Close`) to `state.md` — they will be used for the PR title and body in step 7.
 
@@ -480,7 +493,30 @@ After PR/MR creation (or when an existing open PR is found), check `hooks.pr.aft
 |----------------------|--------|----------------|
 | `auto` | Use the git host adapter to merge | Yes |
 | `manual` | **STOP.** Report the PR/MR URL and do NOT merge. Do NOT proceed to step 8. Skip directly to step 9 (mark task) and step 10 (cleanup). | **No. Never.** |
-| `ask` | **STOP.** Ask the user: "Merge agora?" with options Yes/No. Only merge if they say yes. If they say no, report the PR/MR URL, skip to step 9 and 10. | **Only if user says yes** |
+| `ask` | **TWO-TURN STOP.** See `ask` protocol below. | **Only if user says yes in a separate turn** |
+
+**`ask` protocol — MANDATORY two-turn flow:**
+
+When `pull_requests.merge` is `ask`, you MUST split the question and the action across two separate response turns. This is not optional.
+
+**Turn 1 — Ask and STOP:**
+1. Update `state.md`: set `Status: Awaiting merge decision`
+2. Present the PR/MR URL and ask: "Merge agora? (Yes/No)"
+3. **END YOUR RESPONSE.** Do NOT call any merge API. Do NOT proceed to step 8. Do NOT execute any further pipeline steps. Your response ends here — return control to the user.
+
+**Turn 2 — Act on the user's answer (next message):**
+- User says **yes** → merge via the git host adapter, proceed to step 8
+- User says **no** → report the PR/MR URL, skip to step 9 and 10
+- User says something ambiguous → ask again (repeat Turn 1)
+
+**Red flags — if you're thinking any of these during Turn 1, STOP:**
+
+| Thought | Reality |
+|---------|---------|
+| "I'll just ask and merge in the same message" | That defeats the entire purpose. STOP. |
+| "The user will probably say yes anyway" | You don't know that. STOP. |
+| "I can ask and then call the merge API" | Question + action in the same turn = bug. STOP. |
+| "I'll save time by not waiting" | You are violating the user's configured control. STOP. |
 
 **If `pull_requests.merge` is `manual` or `ask` (and user says no), the pipeline ends here for this task.** Steps 8 (hooks) only run after a successful merge — skip them. Proceed to step 9 (mark task done in plan) and step 10 (cleanup worktree), then pick the next task.
 
@@ -907,5 +943,6 @@ The core skill reads the adapter and follows its instructions. **Config lookup r
 - **Waste effort on commit messages when `merge_strategy: squash`** — they're thrown away; apply conventions to the PR title instead
 - **Skip conventions on PR title when `merge_strategy: squash` or `merge`** — the PR title IS the final commit message
 - **Merge a PR/MR when `pull_requests.merge` is `manual`** — STOP and report the URL
-- **Merge a PR/MR when `pull_requests.merge` is `ask` without asking the user first**
-- **Skip the issue creation question when `issues.create_when_missing` is `ask`** — you MUST ask
+- **Merge a PR/MR when `pull_requests.merge` is `ask` without the user's explicit answer** — the question and the merge MUST be in separate response turns. Asking and merging in the same turn is a bug, even if you "know" the user would say yes.
+- **Create an issue when `issues.create_when_missing` is `ask` without the user's explicit answer** — the question and the creation MUST be in separate response turns
+- **Combine a question and its corresponding action in the same response turn when the config says `ask`** — this applies to ALL `ask`-mode settings. The question ends your turn. The action starts the next turn, after the user answers.
