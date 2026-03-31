@@ -13,10 +13,10 @@ Single source of truth for `flowyeah.yml` configuration. Referenced by setup, bu
 | `testing.scope` | string | `related` \| `full` | `related` | `related` = changed files + related specs; `full` = entire suite |
 | `implementation.brainstorm` | string | `always` \| `auto` | `auto` | `always` = brainstorm every task; `auto` = AI decides based on complexity |
 | `implementation.approval` | string | `always` \| `auto` | `auto` | `always` = present for approval before push; `auto` = AI assesses risk |
-| `implementation.process_skills.brainstorming` | string | skill name | none | Skill invoked for brainstorming phase. If absent, brainstorm inline without a skill |
-| `implementation.process_skills.planning` | string | skill name | none | Skill invoked for planning phase. If absent, plan inline without a skill |
-| `implementation.process_skills.tdd` | string | skill name | none | Skill invoked for TDD phase. If absent, do TDD inline without a skill |
-| `implementation.process_skills.debugging` | string | skill name | none | Skill invoked for debugging/investigation. If absent, debug inline without a skill |
+| `implementation.process_skills.brainstorming` | string | skill name | none | **Mandatory** when configured — skill invoked for brainstorming phase. If absent, brainstorm inline. Independent of `implementation.brainstorm` (which controls whether the phase runs, not how) |
+| `implementation.process_skills.planning` | string | skill name | none | **Mandatory** when configured — skill invoked for planning phase. If absent, plan inline. Independent of `implementation.brainstorm` |
+| `implementation.process_skills.tdd` | string | skill name | none | **Mandatory** when configured — skill invoked for TDD phase. If absent, do TDD inline. Applies even when `brainstorm: auto` skips to direct TDD |
+| `implementation.process_skills.debugging` | string | skill name | none | **Mandatory** when configured — skill invoked for debugging/investigation. If absent, debug inline |
 | `commits.conventions` | string | `conventional` \| `freeform` | `conventional` | Applied to commits or PR title depending on `merge_strategy` |
 | `commits.writer` | string | agent name or `null` | `git-commit-writer` | `null` = write commit messages inline |
 | `pull_requests.delete_source_branch` | boolean | `true` \| `false` | `true` | Delete source branch after merge |

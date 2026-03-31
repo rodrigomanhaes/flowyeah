@@ -81,7 +81,7 @@ CI failures are always `fix` tasks — build a debugging-oriented plan:
 - [ ] Verify CI passes
 ```
 
-The core skill should use the debugging skill configured in `implementation.process_skills.debugging` for the investigation phase (if configured).
+The core skill MUST invoke `implementation.process_skills.debugging` for the investigation phase when configured (mandatory — same rule as all process skills).
 
 ## Branch Naming
 

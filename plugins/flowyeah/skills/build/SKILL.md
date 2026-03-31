@@ -277,20 +277,52 @@ Use `$MAIN_WORKTREE/tmp/flowyeah/plans/<key>.md` to access plan files from insid
 
 ### 4. Implement
 
-**Check `implementation.brainstorm` in `flowyeah.yml`:**
+**Two independent decisions control this step:**
 
-- **`always`** — brainstorm → plan → TDD for every task, regardless of apparent complexity. Use this for large or complex codebases where even small changes need discussion.
+1. **Which phases run?** — controlled by `implementation.brainstorm`
+2. **How does each phase execute?** — controlled by `implementation.process_skills`
+
+These are independent. `brainstorm` decides WHETHER brainstorming/planning happen. `process_skills` decides HOW each phase executes when it runs. A configured process skill is **mandatory** for its phase — it is not a suggestion, not a "nice to have", and not something to skip because the task looks simple.
+
+**Decision 1 — Which phases run (`implementation.brainstorm`):**
+
+- **`always`** — brainstorm → plan → TDD for every task, regardless of apparent complexity.
 - **`auto`** (default) — trivial tasks (single config change, rename, docs-only) go straight to TDD; non-trivial tasks go through the full brainstorm → plan → TDD cycle.
 
+**Decision 2 — How each phase executes (`implementation.process_skills`):**
+
+| Phase | Skill configured? | Execution |
+|-------|-------------------|-----------|
+| Brainstorm | Yes | **MUST** invoke the configured skill via Skill tool |
+| Brainstorm | No | Brainstorm inline |
+| Plan | Yes | **MUST** invoke the configured skill via Skill tool |
+| Plan | No | Plan inline |
+| TDD | Yes | **MUST** invoke the configured skill via Skill tool |
+| TDD | No | Do TDD inline |
+| Debug | Yes | **MUST** invoke the configured skill via Skill tool |
+| Debug | No | Debug inline |
+
+**Configured process skills are mandatory.** If `process_skills.tdd` is configured and you are about to do TDD, you MUST invoke that skill — even if the task is trivial, even if you're on the "direct TDD" path, even if the source is a one-line fix from ghactions.
+
 **Full cycle (when brainstorming):**
-1. **Brainstorm** — explore task, constraints, edge cases. If `implementation.process_skills.brainstorming` is configured, invoke that skill. Otherwise, brainstorm directly.
-2. **Plan** — create implementation steps. If `implementation.process_skills.planning` is configured, invoke that skill. Otherwise, plan directly.
-3. **TDD** — test first, minimal code, refactor. If `implementation.process_skills.tdd` is configured, invoke that skill. Otherwise, do TDD directly.
+1. **Brainstorm** — explore task, constraints, edge cases. Invoke `process_skills.brainstorming` if configured; brainstorm inline otherwise.
+2. **Plan** — create implementation steps. Invoke `process_skills.planning` if configured; plan inline otherwise.
+3. **TDD** — test first, minimal code, refactor. Invoke `process_skills.tdd` if configured; do TDD inline otherwise.
 4. Update `state.md` on every phase transition.
 
 **Direct TDD (when skipping brainstorm):**
-1. Write failing test → make pass → refactor. If `implementation.process_skills.tdd` is configured, invoke that skill. Otherwise, do TDD directly.
+1. Write failing test → make pass → refactor. Invoke `process_skills.tdd` if configured; do TDD inline otherwise.
 2. Update `state.md` after completion.
+
+**Red flags — if you're thinking any of these, STOP:**
+
+| Thought | Reality |
+|---------|---------|
+| "This is a trivial fix, I don't need the TDD skill" | `brainstorm` controls phases, not skills. Configured skills are mandatory for every phase that runs. |
+| "I already understand the problem, I'll skip brainstorming" | Fine if `brainstorm: auto` — but if a brainstorming skill is configured AND you decide to brainstorm, you MUST use it. |
+| "The ghactions/CI fix is simple, I'll just code it" | TDD still runs. If `process_skills.tdd` is configured, invoke it. |
+| "I brainstormed with the user in Step 1 already" | Step 1 brainstorming (source resolution) is about WHAT to build. Step 4 brainstorming is about HOW to build it. They serve different purposes. |
+| "The process skill is overkill for this change" | The user configured it for a reason. Invoke it. |
 
 **When `Investigation: intermittent` is set in state.md:**
 
@@ -298,7 +330,7 @@ Replace the standard investigation with an escalating approach. The goal is to i
 
 **Escalation levels** (stop as soon as the cause is found):
 
-1. **Run the failing test in isolation.** Does it fail by itself? If yes, the failure is not intermittent — fall back to standard debugging. If `implementation.process_skills.debugging` is configured, invoke that skill.
+1. **Run the failing test in isolation.** Does it fail by itself? If yes, the failure is not intermittent — fall back to standard debugging. Invoke `process_skills.debugging` if configured (mandatory — same rule as other process skills).
 
 2. **Check ordering dependency.** Run the full spec file (or suite) with the seed from the CI log. Reproduce the failure with the same test ordering.
 
@@ -946,3 +978,4 @@ The core skill reads the adapter and follows its instructions. **Config lookup r
 - **Merge a PR/MR when `pull_requests.merge` is `ask` without the user's explicit answer** — the question and the merge MUST be in separate response turns. Asking and merging in the same turn is a bug, even if you "know" the user would say yes.
 - **Create an issue when `issues.create_when_missing` is `ask` without the user's explicit answer** — the question and the creation MUST be in separate response turns
 - **Combine a question and its corresponding action in the same response turn when the config says `ask`** — this applies to ALL `ask`-mode settings. The question ends your turn. The action starts the next turn, after the user answers.
+- **Skip a configured process skill because the task looks simple** — `implementation.brainstorm` controls which phases run; `implementation.process_skills` controls how each phase executes. These are independent decisions. A configured skill is mandatory for its phase regardless of task complexity or source type.
