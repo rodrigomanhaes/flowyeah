@@ -328,11 +328,13 @@ These are independent. `brainstorm` decides WHETHER brainstorming/planning happe
 
 Replace the standard investigation with an escalating approach. The goal is to identify why a test fails intermittently, not just make it pass once.
 
+**CI log source:** Read the failure log from `mission.md` (persisted there by the source adapter during Step 1). Do NOT re-fetch from the CI API — the original run may have been re-triggered and passed since, making the failure log unavailable. Session files are the authoritative source for the failure context.
+
 **Escalation levels** (stop as soon as the cause is found):
 
 1. **Run the failing test in isolation.** Does it fail by itself? If yes, the failure is not intermittent — fall back to standard debugging. Invoke `process_skills.debugging` if configured (mandatory — same rule as other process skills).
 
-2. **Check ordering dependency.** Run the full spec file (or suite) with the seed from the CI log. Reproduce the failure with the same test ordering.
+2. **Check ordering dependency.** Run the full spec file (or suite) with the seed from the CI log (in `mission.md`). Reproduce the failure with the same test ordering.
 
 3. **Analyze shared state.** Look for: database records leaking between tests, global variable mutation, file system side effects, time-dependent assertions (`Time.now`, `Date.today`), external service dependencies.
 

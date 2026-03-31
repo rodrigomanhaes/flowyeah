@@ -46,6 +46,8 @@ gh run view {run_id} --log-failed
 
 Returns only the log lines from failed steps. Use this output as the failure log in the plan.
 
+**Anchoring rule:** The `run_id` and `job_id` from the source URL/prefix identify a specific historical run. NEVER re-query the same workflow expecting to see the failure — the job may have been re-run and passed since. The fetched log and metadata are frozen evidence. When `--intermittent` is used, persist the full failure log to `mission.md` under a `## CI Failure Log` section so it survives context compaction and is available during investigation (Step 4) without requiring a fresh API call.
+
 ## Fetch PR Context
 
 ```bash
