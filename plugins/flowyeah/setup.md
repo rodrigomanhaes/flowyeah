@@ -236,6 +236,18 @@ If **Yes**: ask for the file path (suggest `.flowyeah/review-guidelines.md`), va
 
 If **No**: skip, don't add the key.
 
+### 14b. Review comment evaluation
+
+> Use a skill to evaluate review comments during `flowyeah:respond`?
+
+When configured, this skill is invoked for each unresolved review comment during the respond pipeline's triage step. It produces an assessment (agree/disagree/needs-clarification) with a recommended action (implement/reject/discuss), helping the user make faster triage decisions.
+
+Options: **No** (default), **Yes**
+
+If **Yes**: ask for the skill name. Add `code_review.evaluation_skill: <skill>` to the generated YAML.
+
+If **No**: skip, don't add the key. Comments will be presented raw without automated assessment.
+
 ### 15. Issues
 
 > Create issues automatically when the source wasn't an issue tracker?
@@ -309,6 +321,7 @@ code_review:
   optional_agents:
     - <answer>
   instructions: <answer>                  # omit if not configured
+  evaluation_skill: <answer>              # omit if not configured
 
 issues:
   adapter: <answer>
