@@ -46,7 +46,7 @@ curl -s -H "Authorization: Bearer $TOKEN" \
   "<url>/api/canonical/0/events/?issue=<issue_id>"
 ```
 
-**Response:** paginated list. Take `results[0].id` as the latest event ID.
+**Response:** paginated list sorted by newest first. Take `results[0].id` as the latest event ID — only the most recent event is needed for debugging context, so pagination beyond the first page is unnecessary.
 
 ### Step 3: Event detail with stacktrace
 
