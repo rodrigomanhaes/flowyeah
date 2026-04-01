@@ -555,6 +555,64 @@ assert_output_not_contains "inject partial: no brainstorming" "brainstorming" "$
 assert_output_not_contains "inject partial: no planning" "planning" "$OUTPUT"
 teardown
 
+# Test: quoted values → quotes stripped from skill name
+setup_repo
+cat > flowyeah.yml <<'EOF'
+testing:
+  command: echo test
+implementation:
+  process_skills:
+    tdd: "superpowers:test-driven-development"
+    debugging: 'superpowers:systematic-debugging'
+EOF
+mkdir -p .flowyeah
+echo -e "Type: build\nStatus: Implementing\nStep: 4" > .flowyeah/state.md
+OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+assert_output_contains "inject quoted: shows tdd skill without quotes" "superpowers:test-driven-development" "$OUTPUT"
+assert_output_contains "inject quoted: shows debugging skill without quotes" "superpowers:systematic-debugging" "$OUTPUT"
+assert_output_not_contains "inject quoted: no double quotes in output" '"superpowers' "$OUTPUT"
+assert_output_not_contains "inject quoted: no single quotes in output" "'superpowers" "$OUTPUT"
+teardown
+
+# Test: inline comments → comment stripped from skill name
+setup_repo
+cat > flowyeah.yml <<'EOF'
+testing:
+  command: echo test
+implementation:
+  process_skills:
+    tdd: superpowers:test-driven-development  # TDD skill
+    debugging: superpowers:systematic-debugging # debug
+EOF
+mkdir -p .flowyeah
+echo -e "Type: build\nStatus: Implementing\nStep: 4" > .flowyeah/state.md
+OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+assert_output_contains "inject comments: shows tdd skill" "superpowers:test-driven-development" "$OUTPUT"
+assert_output_not_contains "inject comments: no inline comment in tdd" "# TDD" "$OUTPUT"
+assert_output_not_contains "inject comments: no inline comment in debugging" "# debug" "$OUTPUT"
+teardown
+
+# Test: null/empty values → phase not listed
+setup_repo
+cat > flowyeah.yml <<'EOF'
+testing:
+  command: echo test
+implementation:
+  process_skills:
+    brainstorming: null
+    planning:
+    tdd: superpowers:test-driven-development
+    debugging: ~
+EOF
+mkdir -p .flowyeah
+echo -e "Type: build\nStatus: Implementing\nStep: 4" > .flowyeah/state.md
+OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+assert_output_contains "inject null: shows tdd skill" "superpowers:test-driven-development" "$OUTPUT"
+assert_output_not_contains "inject null: no brainstorming (null)" "brainstorming" "$OUTPUT"
+assert_output_not_contains "inject null: no planning (empty)" "planning" "$OUTPUT"
+assert_output_not_contains "inject null: no debugging (tilde)" "debugging" "$OUTPUT"
+teardown
+
 # ── respond session tests ─────────────────────────────
 
 echo ""
