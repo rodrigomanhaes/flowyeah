@@ -160,7 +160,13 @@ if [ "$SESSION_TYPE" = "build" ]; then
         SKILL=$(awk -v phase="$phase" '
             /^  process_skills:/ { in_block=1; next }
             in_block && /^  [^ ]/ { in_block=0 }
-            in_block && $0 ~ "^    " phase ":" { sub(/^    [a-z]+: */, ""); print; exit }
+            in_block && $0 ~ "^    " phase ":" {
+                sub(/^    [a-z]+: */, "")
+                sub(/ *#.*$/, "")
+                gsub(/["'"'"']/, "")
+                if ($0 == "null" || $0 == "~" || $0 == "") next
+                print; exit
+            }
         ' "$TOPLEVEL/flowyeah.yml" 2>/dev/null)
         if [ -n "$SKILL" ]; then
             SKILLS="${SKILLS:+$SKILLS, }$phase=$SKILL"
