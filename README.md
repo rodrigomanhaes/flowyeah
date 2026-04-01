@@ -77,6 +77,20 @@ Each key is annotated with a status marker:
 | `hosting` | 2026-03-03 | Rename to `git_host` |
 | `hooks.after_merge` | 2026-03-06 | Move to `hooks.pr.after_merge` |
 
+## `flowyeah:status`
+
+Project health overview: active sessions, plans, worktrees, and disk usage.
+
+```
+flowyeah:status
+flowyeah:status clean
+```
+
+| Subcommand | Purpose |
+|------------|---------|
+| *(none)* | Read-only report of all sessions, plans, and worktrees |
+| `clean` | Interactive removal of completed plans, stale artifacts, and orphaned worktrees |
+
 ## Prerequisites
 
 - **Claude Code 1.0.33+** — verify with `claude --version`, update with `claude update`

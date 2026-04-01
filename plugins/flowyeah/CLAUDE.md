@@ -10,7 +10,8 @@ plugins/flowyeah/
 │   ├── build/        # Main pipeline: source → plan → worktree → TDD → PR
 │   ├── review/       # Formal code review with inline comments
 │   ├── respond/     # Address review feedback on PRs/MRs
-│   └── check/        # Config audit: validates flowyeah.yml against schema
+│   ├── check/        # Config audit: validates flowyeah.yml against schema
+│   └── status/       # Project health: sessions, plans, worktrees, cleanup
 ├── adapters/         # Platform integrations (shared across skills)
 │   ├── gitlab/       # connection, source, git host, review, respond
 │   ├── github/       # connection, source, git host, review, respond
