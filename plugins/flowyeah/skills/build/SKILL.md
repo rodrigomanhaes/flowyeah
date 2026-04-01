@@ -630,6 +630,18 @@ git worktree remove <worktree-path>
 
 ## Continuous Mode (`--continuous`)
 
+**Before entering the loop**, check for another active continuous session on the same plan:
+
+```bash
+# Scan active worktrees for sessions targeting the same plan file
+for state_file in "$MAIN_WORKTREE"/.flowyeah/worktrees/*/.flowyeah/state.md; do
+  PLAN=$(grep -m1 '^Plan:' "$state_file" 2>/dev/null | cut -d' ' -f2-)
+  MODE=$(grep -m1 '^Mode:' "$state_file" 2>/dev/null | cut -d' ' -f2-)
+done
+```
+
+If any active session has the same `Plan:` path AND `Mode: continuous`, **STOP**: "Another continuous session is already working on this plan (<worktree name>). Running two continuous sessions on the same plan risks concurrent file writes when marking tasks done. Use a single continuous session per plan, or run without `--continuous`."
+
 ```
 loop:
   1. Pick next task
@@ -860,7 +872,7 @@ Before claiming a task, check if another instance is already working on it:
 2. Branch with task slug exists → task claimed → pick next
 3. Creating branch = claiming the task
 
-**Known limitation:** Two `--continuous` sessions working on the same plan file can race when marking tasks as `[x]`. Branch coordination prevents picking the same task, but concurrent file writes are unguarded. Recommend one `--continuous` session per plan.
+**Concurrent `--continuous` guard:** Two continuous sessions on the same plan file can race when marking tasks as `[x]`. Branch coordination prevents picking the same task, but concurrent file writes to the plan file are unguarded. The continuous mode entry check (see Continuous Mode section) detects and blocks this scenario.
 
 ## Task Sizing
 
