@@ -14,7 +14,7 @@ flowyeah:build [from <source>] [--continuous] [--intermittent] [--on-branch <bra
 |------|---------|---------|
 | `from <source>` | Specify the input source (see table below) | Uses current conversation context |
 | `--continuous` | Keep the pipeline running after merge, pick up new tasks | `false` |
-| `--intermittent` | Run the pipeline intermittently, checking for new tasks periodically | `false` |
+| `--intermittent` | Investigate an intermittent test failure with escalating analysis (seed reproduction, shared state, bisect) | `false` |
 | `--on-branch <branch>` | Target branch for PRs/MRs instead of default | Uses `git.default_branch` from config |
 
 ### Supported Sources
