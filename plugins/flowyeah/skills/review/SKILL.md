@@ -437,8 +437,8 @@ Present the recommendation alongside the options. Mark the recommended option:
 
 Load the review adapter and follow its instructions to:
 
-1. Build inline comments array (each approved finding with file:line)
-2. Build review body (consolidated summary + findings without specific lines)
+1. Build inline comments array — **every approved finding** becomes an inline comment. If a finding lacks a precise line, find the best anchor (see Error Handling). No findings go in the review body — the body is a summary, not a fallback destination.
+2. Build review body (consolidated summary only — requirements validation, previous review follow-up, and overview. No findings.)
 3. Submit the formal review with the event type chosen in step 6
 
 **All inline comments use [Conventional Comments](https://conventionalcomments.org/) format:**
@@ -545,7 +545,7 @@ Review comments are written in the language configured in `language`. Default: `
 | PR/MR not found | Ask user for number/URL |
 | Agent fails | Report which failed, continue with others |
 | Remote communication failure (401, 403, 429, 5xx, timeout) | Retry up to 2 times with a short pause. If still failing, **STOP and report the error to the user.** Do not attempt alternative approaches or workarounds. |
-| Inline comment position not in diff | Move finding to review body |
+| Inline comment position not in diff | Find the best anchor: the most relevant changed line in the same file, or the file's first changed line. If the file has no changed lines at all (finding from a cross-cutting concern), anchor on the most relevant file's first changed hunk. Every finding MUST become an inline comment — never move findings to the review body. |
 
 ## Never
 
@@ -557,3 +557,4 @@ Review comments are written in the language configured in `language`. Default: `
 - Post a generic timeline comment instead of a formal review
 - Skip the review type question
 - Submit a review without inline comments (when there are approved findings with file:line)
+- Put findings in the review body instead of as inline comments. Every finding is a stop-point for the reviewed developer — it must create an open thread they need to resolve. The review body is a summary layer only.
