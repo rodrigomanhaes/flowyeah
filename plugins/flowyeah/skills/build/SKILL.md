@@ -153,6 +153,17 @@ Parse command arguments, read content, convert to canonical plan format. Save to
 
 Create worktree and branch. **Always worktree, always branch.**
 
+**When `--intermittent` is passed:**
+
+Intermittent failure investigations are **always independent** from the origin PR. Even if the source is a CI failure from a PR, the investigation starts fresh from the configured main branch — because intermittent failures are usually pre-existing issues that surfaced randomly on that run.
+
+- **Always create the worktree from `$DEFAULT_BRANCH`** — never from the PR branch, never from `--on-branch`.
+- **If `--on-branch` is also passed, ignore it** — intermittent takes precedence. The investigation needs a clean main-branch environment.
+- **Do NOT checkout or reproduce on the origin PR's branch** during investigation. Step 4 handles the case where the failure turns out to be PR-specific (see "PR-caused failure escape hatch" in the intermittent escalation).
+- **The `CI-PR` field in state.md is informational only** — it records where the failure was observed, but the investigation and any resulting fix are separate from that PR.
+
+After this, follow the standard worktree creation flow below (starting from `git checkout $DEFAULT_BRANCH && git pull`).
+
 **When `--on-branch <branch>` is passed:**
 
 Skip the normal branch creation flow. Instead, attach to the existing branch:
@@ -332,6 +343,8 @@ Replace the standard investigation with an escalating approach. The goal is to i
 
 **Escalation levels** (stop as soon as the cause is found):
 
+All escalation levels run on the main branch (the worktree was created from `$DEFAULT_BRANCH` in Step 3). This is intentional — intermittent failures are investigated where the codebase lives, not on a PR branch.
+
 1. **Run the failing test in isolation.** Does it fail by itself? If yes, the failure is not intermittent — fall back to standard debugging. Invoke `process_skills.debugging` if configured (mandatory — same rule as other process skills).
 
 2. **Check ordering dependency.** Run the full spec file (or suite) with the seed from the CI log (in `mission.md`). Reproduce the failure with the same test ordering.
@@ -347,7 +360,9 @@ Replace the standard investigation with an escalating approach. The goal is to i
    | `jest` | `jest --runInBand` to isolate ordering effects |
    | Other | Report automated bisect is unavailable, suggest manual investigation |
 
-5. **STOP and report.** If bisect doesn't reveal the cause, the problem may be infrastructure-level (timing, external services, resource contention). Present findings and ask for guidance.
+5. **PR-caused failure escape hatch.** If levels 1–4 cannot reproduce the failure on main at all, and the source has a `CI-PR` field, the failure may not be intermittent — it may be caused by the PR's own changes. STOP the intermittent investigation and report: "Could not reproduce on main. This failure may be caused by the PR itself, not an intermittent issue." Let the user decide how to proceed.
+
+6. **STOP and report.** If bisect or other levels found evidence of intermittency but couldn't isolate the root cause, the problem may be infrastructure-level (timing, external services, resource contention). Present findings and ask for guidance.
 
 ### 5. Commit
 
