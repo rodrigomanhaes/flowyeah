@@ -622,7 +622,7 @@ echo "=== session-inject.sh (respond) ==="
 setup_repo
 touch flowyeah.yml
 mkdir -p .flowyeah
-cat > .flowyeah/respond-state.md <<'EOF'
+cat > .flowyeah/respond-state-55.md <<'EOF'
 # Current State
 
 Type: respond
@@ -646,7 +646,7 @@ teardown
 setup_repo
 touch flowyeah.yml
 mkdir -p .flowyeah
-cat > .flowyeah/respond-state.md <<'EOF'
+cat > .flowyeah/respond-state-55.md <<'EOF'
 # Current State
 
 Type: respond
@@ -654,7 +654,7 @@ Status: Responding
 PR/MR: 55
 Phase: Implementing
 EOF
-cat > .flowyeah/respond-decisions.md <<'EOF'
+cat > .flowyeah/respond-decisions-55.md <<'EOF'
 # Triage Decisions
 
 ## Comment 1
@@ -680,7 +680,7 @@ teardown
 setup_repo
 touch flowyeah.yml
 mkdir -p .flowyeah
-cat > .flowyeah/respond-state.md <<'EOF'
+cat > .flowyeah/respond-state-55.md <<'EOF'
 # Current State
 
 Type: respond
@@ -690,6 +690,32 @@ Phase: Fetching Comments
 EOF
 OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
 assert_output_not_contains "inject respond no decisions: no DECISIONS section" "## TRIAGE DECISIONS" "$OUTPUT"
+teardown
+
+# Test: respond session injects --own-mode finding decisions
+setup_repo
+touch flowyeah.yml
+mkdir -p .flowyeah
+cat > .flowyeah/respond-state-55.md <<'EOF'
+# Current State
+
+Type: respond
+Status: Responding
+PR/MR: 55
+Phase: Implementing
+EOF
+cat > .flowyeah/respond-decisions-55.md <<'EOF'
+# Triage Decisions
+
+## Finding 1
+- Thread: own-55-1
+- File: app/models/payment.rb:42
+- Action: implement
+EOF
+OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+assert_output_contains "inject respond finding: shows DECISIONS section" "## TRIAGE DECISIONS" "$OUTPUT"
+assert_output_contains "inject respond finding: shows finding 1" "## Finding 1" "$OUTPUT"
+assert_output_contains "inject respond finding: shows file" "app/models/payment.rb:42" "$OUTPUT"
 teardown
 
 # Test: respond session coexists with build worktree sessions
@@ -706,7 +732,7 @@ cat > .flowyeah/worktrees/feat-webhook/.flowyeah/mission.md <<'EOF'
 Implement webhook retry.
 EOF
 mkdir -p .flowyeah
-cat > .flowyeah/respond-state.md <<'EOF'
+cat > .flowyeah/respond-state-77.md <<'EOF'
 # Current State
 
 Type: respond
@@ -719,13 +745,42 @@ assert_output_contains "inject respond coexist: shows respond PR" "PR/MR: 77" "$
 assert_output_contains "inject respond coexist: shows build session" "Active session found" "$OUTPUT"
 teardown
 
+# Test: multiple concurrent respond sessions both surface
+setup_repo
+touch flowyeah.yml
+mkdir -p .flowyeah
+cat > .flowyeah/respond-state-55.md <<'EOF'
+# Current State
+
+Type: respond
+Status: Responding
+PR/MR: 55
+Branch: feat-payment
+Phase: Interactive Triage
+EOF
+cat > .flowyeah/respond-state-77.md <<'EOF'
+# Current State
+
+Type: respond
+Status: Responding
+PR/MR: 77
+Branch: fix-auth
+Phase: Fetching Comments
+EOF
+OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+assert_output_contains "inject respond multi: shows first PR" "PR/MR: 55" "$OUTPUT"
+assert_output_contains "inject respond multi: shows second PR" "PR/MR: 77" "$OUTPUT"
+assert_output_contains "inject respond multi: shows first branch" "feat-payment" "$OUTPUT"
+assert_output_contains "inject respond multi: shows second branch" "fix-auth" "$OUTPUT"
+teardown
+
 # Test: session-remind.sh outputs reminder for respond session
 setup_repo
 touch flowyeah.yml
 mkdir -p .flowyeah
-echo "# Current State" > .flowyeah/respond-state.md
+echo -e "# Current State\nPR/MR: 55" > .flowyeah/respond-state-55.md
 OUTPUT=$(bash "$SCRIPT_DIR/session-remind.sh" 2>&1)
-assert_output_contains "remind: outputs reminder with respond session" "Update .flowyeah/respond-state.md" "$OUTPUT"
+assert_output_contains "remind: outputs reminder with respond session" "Update respond-state-55.md" "$OUTPUT"
 teardown
 
 # ── Results ──────────────────────────────────────────────

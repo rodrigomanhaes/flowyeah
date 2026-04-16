@@ -7,11 +7,22 @@ description: Use when addressing review feedback on a PR/MR - fetches comments, 
 
 Addresses review feedback on a pull request or merge request. Fetches unresolved comments, evaluates them via a configurable skill, presents them for interactive triage, implements approved fixes, replies to comment threads, resolves conversations, and conditionally re-requests review.
 
+With `--own`, the source of items swaps from unresolved PR comments to findings produced by `/flowyeah:review --own [N]`. The pipeline reads `.flowyeah/review-approved-{N}.md`, runs the same evaluation + triage + implement flow, and closes the review round by setting `Phase: Responded` on the review session. No thread replies, resolves, or re-requests are sent because the findings were never public. Multiple rounds of `review --own` → `respond --own` can iterate on the same PR without explicit finalization between rounds.
+
 Completes the PR lifecycle: `build` creates PRs, `review` evaluates them, `respond` addresses feedback.
 
 ```
-flowyeah:respond [<number>]
+flowyeah:respond [--own] [<number>]
 ```
+
+## Argument Parsing
+
+The `--own` flag may appear in any position. The positional argument (if present) is the PR number; otherwise auto-detect from the current branch via the respond adapter.
+
+In `--own` mode:
+- Platform-specific fetch (step 2 normal path) is replaced by reading the findings file.
+- Thread reply, thread resolve, and re-request-review steps are skipped (no public threads exist for self-findings).
+- Cleanup marks the linked review session as `Phase: Responded` instead of leaving it alone.
 
 ## Pipeline
 
@@ -72,7 +83,7 @@ Load the respond adapter once at the start. **If the git host adapter has no `re
 
 ## Session (Lightweight)
 
-Create `.flowyeah/respond-state.md` for compaction resilience:
+Create `.flowyeah/respond-state-{N}.md` for compaction resilience:
 
 ```markdown
 # Current State
@@ -94,15 +105,15 @@ Phase: <current_phase>
 | `Identifying PR` | 1 | Re-run from start |
 | `Fetching Comments` | 2 | Re-run from step 2 |
 | `Evaluating` | 3 | Re-run from step 2 (comments lost) |
-| `Interactive Triage` | 4 | Read `respond-decisions.md`, re-present undecided comments |
-| `Setting Up Worktree` | 5 | Read `respond-decisions.md`, retry worktree setup |
-| `Implementing` | 6 | Read `respond-decisions.md`, check git log for completed commits, continue with remaining items |
+| `Interactive Triage` | 4 | Read `respond-decisions-{N}.md`, re-present any finding without a recorded decision. Decisions already recorded (including `Final critique:`) are preserved. |
+| `Setting Up Worktree` | 5 | Read `respond-decisions-{N}.md`, retry worktree setup |
+| `Implementing` | 6 | Read `respond-decisions-{N}.md`. For each `Action: implement` entry, check `git log` in the worktree for a commit whose subject references the finding (file + subject). Resume from the first implement decision with no corresponding commit. Re-apply the re-surface safety net on remaining pending decisions. |
 | `Testing` | 7 | Re-run tests |
 | `Pushing & Replying` | 8 | Check which threads already have replies, continue with remaining |
 | `Re-requesting Review` | 9 | Check if re-request was sent, retry if not |
-| `Cleaning Up Worktree` | 10 | Check if worktree still exists, retry removal |
+| `Cleaning Up Worktree` | 10 | In `--own` mode, check `review-state-{N}.md`'s phase — if not yet `Responded`, re-apply step 10. In normal mode, check if the worktree still exists and retry removal. Always verify respond state files are gone before declaring the session clean. |
 
-After the user makes triage decisions (step 4), persist results to `.flowyeah/respond-decisions.md`:
+After the user makes triage decisions (step 4), persist results to `.flowyeah/respond-decisions-{N}.md`:
 
 ```markdown
 # Triage Decisions
@@ -111,28 +122,38 @@ After the user makes triage decisions (step 4), persist results to `.flowyeah/re
 - Thread: <thread_id>
 - File: app/services/payment_service.rb:42
 - Action: implement
-- Note: Add null check guard
+- Final critique:
+    Assessment: agree
+    Reasoning: null pointer possible when OAuth skips email scope
+    Recommendation: implement
 
 ## Comment 2
 - Thread: <thread_id>
 - File: (general)
 - Action: reject
-- Reply: Single implementation, YAGNI applies
+- Final critique:
+    Assessment: disagree
+    Reasoning: single implementation, YAGNI applies
+    Recommendation: reject
 
 ## Comment 3
 - Thread: <thread_id>
 - File: app/controllers/api/v1/payments_controller.rb:18
 - Action: discuss
 - Reply: Good point, but the validation happens upstream in the service layer — see PaymentValidator#call
+- Final critique:
+    Assessment: needs-clarification
+    Reasoning: behaviour depends on which layer owns validation
+    Recommendation: discuss
 ```
 
 This file ensures that if compaction or a crash interrupts after triage, decisions are recoverable.
 
-Respond sessions use `respond-state.md` (not `state.md`) so they never interfere with build sessions in worktrees. Respond and build sessions can coexist (different PRs). Respond and review sessions should not coexist for the same PR.
+Respond sessions use `respond-state-{N}.md` (not `state.md`) so they never interfere with build sessions in worktrees. Respond and build sessions can coexist (different PRs). Respond and review sessions should not coexist for the same PR.
 
-Update `respond-state.md` after each phase transition. The hook injection ensures state survives compaction.
+Update `respond-state-{N}.md` after each phase transition. The hook injection ensures state survives compaction.
 
-Both `respond-state.md` and `respond-decisions.md` are removed in step 10 (cleanup).
+Both `respond-state-{N}.md` and `respond-decisions-{N}.md` are removed in step 10 (cleanup).
 
 ## Steps
 
@@ -144,8 +165,9 @@ Before starting, validate the loaded `flowyeah.yml`:
 2. **Check required keys:** `git_host` must point to an adapter with `respond.md`.
 3. **Check evaluation skill:** if `code_review.evaluation_skill` is present, verify the skill exists. If missing, **warn** (don't block) — proceed without evaluation in step 3.
 4. **Run validation rules:** execute relevant checks from the "Validation Rules" section of the schema.
-5. **Auth verification:** verify credentials for the git host adapter.
-6. **Report all issues at once** — collect validation failures and present together.
+5. **Detect legacy state files:** if `.flowyeah/respond-state.md` (without a PR number) exists, STOP with: *"Found legacy `.flowyeah/respond-state.md` — this file format is no longer supported. Remove it manually with `rm .flowyeah/respond-state.md .flowyeah/respond-decisions.md 2>/dev/null` and re-run."* Do not attempt to migrate.
+6. **Auth verification:** verify credentials for the git host adapter.
+7. **Report all issues at once** — collect validation failures and present together.
 
 If validation fails, STOP with actionable error messages.
 
@@ -155,7 +177,41 @@ If `<number>` is provided, use it. Otherwise, detect from current branch via the
 
 Display PR/MR summary: title, author, branch, review state.
 
+### 1.5 `--own` Mode Preflight
+
+**Skip this section if `--own` was not provided.**
+
+Before proceeding, verify all of the following. Report every failure as STOP with the indicated message:
+
+1. **Main checkout only:** if `git rev-parse --show-toplevel` contains `.flowyeah/worktrees/`, STOP: *"respond --own must start from the main checkout, not from inside a worktree."*
+2. **Review session exists for this PR:** require `.flowyeah/review-state-{N}.md` to exist. If missing, STOP: *"No review session for PR #{N}. Run `/flowyeah:review --own {N}` first."*
+3. **Review phase is Delegated:** parse the `Phase:` line from `review-state-{N}.md`.
+   - If `Phase: Responded`, STOP: *"Previous round complete. Run `/flowyeah:review --own {N}` for a new round."*
+   - If `Phase: Findings Delivered`, STOP: *"Review pipeline is still at the Next Action menu — return to that session and pick `Delegate`."*
+   - If any other phase, STOP: *"Review for PR #{N} is mid-pipeline (Phase: X). Finalize or resume the review session first."*
+4. **Findings file present:** require `.flowyeah/review-approved-{N}.md` to exist and contain at least one `## Finding ` heading. If missing or empty, STOP: *"No approved findings for PR #{N}. Run `/flowyeah:review finalize {N}` and start over."*
+5. **Worktree exists for branch:** parse `Branch:` from `review-state-{N}.md`. Verify a directory exists under `.flowyeah/worktrees/` for that branch. If not, STOP: *"No worktree for branch `X`. Run `/flowyeah:build` first to create one."*
+
+On success, echo: *"Responding to <count> findings from PR #{N}."*
+
 ### 2. Fetch Review Comments
+
+**If `--own` mode:** skip the adapter fetch. Read `.flowyeah/review-approved-{N}.md` and construct synthetic comments from it using this mapping:
+
+| respond field | `--own` value |
+|---|---|
+| Reviewer name | `self (review --own)` |
+| Comment body | the Conventional Comments block from the finding (`**label (decoration):** subject` plus body) |
+| File path + line | from the finding's `- File:` line |
+| Thread ID | synthetic: `own-{N}-{index}` where index is 1-based position in the file |
+| Review state | `SELF_REVIEW` |
+| Conventional parse | already in format — direct parse |
+
+Group by reviewer is trivial (all `self`). If no findings are parseable, STOP: *"review-approved-{N}.md exists but contains no parseable findings — cannot proceed."*
+
+If zero synthetic comments result, the subsequent steps have nothing to do — report "No findings to respond to" and exit cleanly (do not mark Phase: Responded).
+
+**Normal mode** (no `--own`): continue with the existing adapter fetch below.
 
 Via the respond adapter, fetch all unresolved review comments/threads. For each comment capture:
 
@@ -182,36 +238,123 @@ If configured, invoke the evaluation skill via the Skill tool. For each comment 
 - **Reasoning**: brief technical justification (verified against codebase)
 - **Recommended action**: implement / reject / discuss
 
-### 4. Interactive Triage
-
-Present all comments as a numbered list, grouped by reviewer. Show each reviewer's review state (e.g., `CHANGES_REQUESTED`, `COMMENTED`). Show evaluation assessment if available.
+**Per-finding evaluation errors:** if `evaluation_skill` is configured but fails for a specific comment/finding (timeout, exception, malformed output), do not abort the entire run. Instead, mark that finding's critique as unavailable and proceed. In step 4, the per-finding UX shows:
 
 ```
-Comment 1 — @reviewer-name (CHANGES_REQUESTED)
-File:        app/services/payment_service.rb:42
-Comment:     "Missing null check on user.email"
-Assessment:  Agree — user.email can be nil when OAuth skips email scope
+─ Critique ─
+Assessment:  unavailable (evaluation skill error)
+Reasoning:   <error message or "evaluation skipped">
+Recommended: —
+```
+
+The `[d]iscuss` option is still available — a discussion round may succeed where the initial evaluation didn't. The `[i]` and `[r]` options use pure human judgment.
+
+### 4. Interactive Triage (per-finding discussion loop)
+
+Present findings one at a time. For each, show the finding plus its round-1 critique (from step 3), then enter a loop until the user decides. No code is modified in this step — all decisions are recorded and implementation happens in batch during step 6.
+
+#### Per-finding UX
+
+For each item `i` in order (severity → confidence, as delivered by the evaluation in step 3):
+
+```
+[Finding i of N]  ·  severity: <label>  ·  confidence: <0-100>
+─────────────────────────────────────────
+File:    <path>:<line>
+
+<Conventional Comments body: **label (decoration):** subject + body>
+
+─ Critique (round 1) ─
+Assessment:  <agree | disagree | needs-clarification>
+Reasoning:   <evaluation_skill's reasoning from step 3>
+Recommended: <implement | reject | discuss>
+
+[d]iscuss  [i]mplement  [r]eject
+>
+```
+
+Accept a single-letter action:
+
+- **`d` — discuss:** prompt the user for a follow-up question, then dispatch an additional `evaluation_skill` round with the extended-contract input (see below). Display the revised critique. Stay in the loop, re-showing the `[d] [i] [r]` menu.
+- **`i` — implement:** record the decision, move to the next finding. Do not modify code.
+- **`r` — reject:** record the decision, move to the next finding.
+
+In normal (non-`--own`) mode, the menu also shows `[s]` (discuss-with-reviewer: reply to the reviewer and mark for thread reply in step 8). In `--own` mode, only `[d] [i] [r]` are offered — there is no reviewer to reply to.
+
+#### Example discuss round
+
+```
+> d
+Your counter or question:
+> Check the actual isolation level — my Rails config should be READ COMMITTED.
+
+[critique round 2...]
+
+─ Critique (round 2) ─
+Assessment:  agree (revised)
+Reasoning:   config/initializers/database.rb:14 sets
+             :read_committed. The race is real.
 Recommended: implement
 
-Comment 2 — @reviewer-name (CHANGES_REQUESTED)
-File:        (general)
-Comment:     "Consider using a factory pattern here"
-Assessment:  Disagree — single implementation, YAGNI applies
-Recommended: reject
-
-Comment 3 — @other-reviewer (COMMENTED)
-File:        app/controllers/api/v1/payments_controller.rb:18
-Comment:     "Should this validate the payment amount?"
-Assessment:  (no evaluation skill configured)
+[d]iscuss  [i]mplement  [r]eject
+>
 ```
 
-User decides with batch input:
+#### `evaluation_skill` contract (extended)
 
-- `implement all` / `reject all`
-- `implement 1,3 | reject 2 | discuss 4`
-- For "discuss" items: prompt user for reply text
+`evaluation_skill` is invoked twice in this skill:
+1. **Step 3** (initial critique, once per finding): input `{ finding }`, output `{ assessment, reasoning, recommendation }`. This is the existing contract.
+2. **Step 4** (discussion rounds, on-demand): input `{ finding, prior_rounds, user_question }` where `prior_rounds` is an ordered list of `{ assessment, reasoning, recommendation, user_question? }` entries (round 1 has no `user_question`). Output is the same shape: `{ assessment, reasoning, recommendation }`.
 
-Persist decisions to `.flowyeah/respond-decisions.md`.
+**Backward compatibility:** skills that only implement the round-1 contract still work — for discussion rounds, fall back to calling the skill with `{ finding }` augmented with a prose preamble summarizing prior rounds and the user's question. The result is lower-quality but functional.
+
+#### Persistence
+
+After every decision (implement/reject), upsert an entry for that finding in `.flowyeah/respond-decisions-{N}.md` — write the block if it doesn't exist, or replace the existing block for that finding. Mid-discussion (before a terminal `[i]` or `[r]`), no persistence happens: decisions are only recorded when the user commits to a terminal action. Schema:
+
+```markdown
+# Triage Decisions
+
+## Finding 1
+- Thread: own-{N}-1
+- File: app/models/payment.rb:42
+- Action: implement
+- Final critique:
+    Assessment: agree (after round 2 discussion)
+    Reasoning: race is real under READ COMMITTED isolation
+    Recommendation: implement
+
+## Finding 2
+- Thread: own-{N}-2
+- File: (general)
+- Action: reject
+- Final critique:
+    Assessment: disagree
+    Reasoning: single implementation, YAGNI applies
+    Recommendation: reject
+
+## Comment 3
+- Thread: <thread_id>
+- File: app/controllers/api/v1/payments_controller.rb:18
+- Action: discuss
+- Reply: Validation lives upstream in PaymentValidator#call — see service layer
+- Final critique:
+    Assessment: needs-clarification
+    Reasoning: behaviour depends on which layer owns validation
+    Recommendation: discuss
+```
+
+For normal-mode respond, `Thread:` uses the platform's real thread ID and headings use `## Comment` instead of `## Finding`. The `Final critique:` block is new in both modes and stores the **last** round's assessment (after any discussion). If the user rejects without discussing, `Final critique:` mirrors the round-1 critique. The `[s]` path (normal mode only, see Per-finding UX) produces `Action: discuss` plus a `Reply:` field capturing the user's reply to post at step 8.
+
+#### Termination
+
+When all findings have a decision, exit the loop. Display a one-line summary:
+
+```
+Triage complete: <implement_count> implement, <reject_count> reject.
+```
+
+Proceed to step 5 (setup worktree) if any decisions are `implement`. Otherwise, in `--own` mode, stop here with "No findings to implement — review round closed." and proceed directly to step 10 (cleanup). In normal mode, proceed to step 8 (push & reply) to post replies for rejected items and for `[s]`-path discussion replies.
 
 ### 5. Setup Worktree
 
@@ -231,19 +374,47 @@ git worktree add .flowyeah/worktrees/<branch> <branch>
 Then follow the **Setup** procedure from `worktree-lifecycle.md` (at the plugin root):
 
 1. **Symlinks** — resolve `worktree.symlinks` from `flowyeah.yml`
-2. **Environment** — resolve `worktree.env`, persist to `respond-state.md` under `## Worktree Env`, export, run `worktree.setup` commands
+2. **Environment** — resolve `worktree.env`, persist to `respond-state-{N}.md` under `## Worktree Env`, export, run `worktree.setup` commands
 
 Track whether the worktree was **created** by this respond session (vs. reused from a build session) — only cleanup worktrees that respond created.
 
 ### 6. Implement Fixes
 
-Navigate to the worktree. For each "implement" item:
+Navigate to the worktree. Read `.flowyeah/respond-decisions-{N}.md` (main checkout path) into memory — it contains all triage decisions including `Final critique:` blocks.
 
-1. Read relevant code context (file, surrounding lines, related code)
-2. Make the change
-3. Commit using `commits.writer` from config
+For each decision with `Action: implement`, in the order they appear:
 
-**Grouping:** when multiple implement items touch the same file or the same concern, group them into a single commit.
+1. **Read context:** file, surrounding lines, related code paths identified by the final critique.
+2. **Make the change** informed by the `Final critique:` reasoning — not just the finding's raw body. The critique may have been revised through discussion and reflects the user's latest understanding.
+3. **Commit** using `commits.writer` from config. Commit message should reference the finding (file + subject). One commit per implemented decision is the default.
+
+**Grouping:** when the decisions already queued for implementation naturally touch the same file or the same concern, you may group them into a single commit. Do not force grouping if it obscures intent. One-commit-per-finding is always acceptable.
+
+#### Re-surface on conflict (safety net)
+
+After each commit, before moving to the next implement decision, scan the remaining pending implement decisions and check for potential invalidation:
+
+```
+for later_decision in remaining_pending_implement_decisions:
+    if later_decision.file == current_decision.file
+       and abs(later_decision.line - current_decision.line) <= 20:
+        PAUSE and present to user:
+          "Fix for finding <i> changed <file> near line <line>.
+           Finding <j> was also in this region (line <j_line>).
+           Does its decision still hold?
+           [k]eep decision  [r]e-open discussion  [s]kip finding <j>"
+```
+
+User responses:
+- **`k`** — keep the existing decision, continue.
+- **`r`** — re-open the discussion loop from step 4 for just that finding, then update the decision. Resume implementation from the next pending decision.
+- **`s`** — change finding `<j>`'s action to `reject` and record the reason ("skipped after re-surface: superseded by finding <i>'s fix"). Continue.
+
+The 20-line proximity window is a heuristic. Cross-file refactors won't trigger the safety net — that's acceptable; the user can always interrupt the implementation manually if they notice a bigger landscape shift.
+
+#### After all implement decisions are done
+
+Proceed to step 7 (Test). Do not push yet.
 
 ### 7. Test (if code changed)
 
@@ -253,6 +424,12 @@ Run tests using `testing.command` and `testing.scope` from config. If tests fail
 
 ### 8. Push & Reply
 
+**In `--own` mode:**
+1. Push the branch as normal.
+2. **Skip thread reply entirely** — there are no threads to reply to.
+3. **Skip thread resolve entirely** — there are no threads to resolve.
+
+**In normal mode:**
 1. **Push the branch** (from the worktree, if one was used)
 2. **Reply to each comment thread** via the respond adapter:
    - **Implemented:** describe what was done (e.g., "Fixed — added guard clause for nil `user.email`")
@@ -261,6 +438,8 @@ Run tests using `testing.command` and `testing.scope` from config. If tests fail
 3. **Resolve each thread after replying**
 
 ### 9. Re-request Review
+
+**In `--own` mode, skip this step entirely** — there are no external reviewers to re-request from. Proceed directly to step 10.
 
 Re-request behavior depends on whether code was changed (steps 5-7 executed) or only replies were posted (skipped to step 8).
 
@@ -303,26 +482,49 @@ No push happened, so approvals remain intact. Only re-request from reviewers wit
 
 Via the respond adapter.
 
-### 10. Cleanup Worktree
+### 10. Cleanup
 
-**Only if a worktree was created by this respond session** (not reused from a build session). If no worktree was used (replies only), skip.
+Cleanup has two paths depending on mode.
+
+#### `--own` mode
+
+Do **not** remove the worktree — it's owned by `build`. Specifically:
+
+1. **Update the review session state:** rewrite `.flowyeah/review-state-{N}.md` (at the main checkout path) so that `Phase:` is `Responded`. Leave all other fields intact. Touch the file's mtime.
+2. **Remove the findings file:** `rm .flowyeah/review-approved-{N}.md` (findings are consumed).
+3. **Remove respond state files:** `rm .flowyeah/respond-state-{N}.md .flowyeah/respond-decisions-{N}.md`.
+4. **Do not touch** `.flowyeah/worktrees/...` or any files inside the worktree.
+
+Display the end-of-round guidance:
+
+```
+Round complete. Next options:
+  /flowyeah:review --own {N}       — start another review round
+  /flowyeah:review finalize {N}    — close out the review relationship (when done)
+```
+
+#### Normal mode (worktree created by this respond session)
 
 Follow the **Teardown** procedure from `worktree-lifecycle.md` (at the plugin root):
 
 1. **Close IDE windows** — prevent VSCode from freezing
-2. **Run teardown commands** — read env from `respond-state.md ## Worktree Env`, export, run `worktree.teardown`
+2. **Run teardown commands** — read env from `respond-state-{N}.md ## Worktree Env`, export, run `worktree.teardown`
 3. **Remove worktree** — `git worktree remove`
 
-Then remove session files (`respond-state.md` and `respond-decisions.md`).
+Then remove session files (`respond-state-{N}.md` and `respond-decisions-{N}.md`).
+
+#### Normal mode (worktree was reused from a build session)
+
+Skip worktree removal. Remove session files (`respond-state-{N}.md` and `respond-decisions-{N}.md`) only.
 
 ## Crash Recovery
 
 If a respond session is interrupted (compaction, crash, user abort):
 
-1. The hook injects `respond-state.md` into the next prompt
+1. The hook injects `respond-state-{N}.md` into the next prompt
 2. Resume from the last recorded phase using the recovery table above
 3. If the phase was before "Interactive Triage" (step 4), re-run from that phase
-4. If during or after triage, read `respond-decisions.md` to recover previously made decisions
+4. If during or after triage, read `respond-decisions-{N}.md` to recover previously made decisions
 5. If all replies were already posted and review re-requested, clean up both state files
 
 ## Comment Language
@@ -347,9 +549,10 @@ Thread replies are written in the language configured in `language` from `flowye
 After all steps complete (or on early exit), display a summary:
 
 ```
-Respond complete — N comments (M implemented, K rejected, J discussed)
+Respond complete — N items (M implemented, K rejected, J discussed)
   Code changes: yes/no | Tests: passed/skipped
-  Re-request review: yes (2 reviewers) / no
+  In --own mode: review round closed, Phase: Responded
+  In normal mode: Re-request review: yes (2 reviewers) / no
 ```
 
 ## Never

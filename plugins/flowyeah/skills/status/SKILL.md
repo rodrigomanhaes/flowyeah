@@ -49,9 +49,11 @@ shopt -u nullglob
 **Respond sessions:**
 
 ```bash
-if [ -f .flowyeah/respond-state.md ]; then
-  # Extract: PR number, branch, phase, comments count
-fi
+shopt -s nullglob
+for state_file in .flowyeah/respond-state-*.md; do
+  # Extract: PR number (from filename), branch, phase, item count
+done
+shopt -u nullglob
 ```
 
 **Output format:**
@@ -66,11 +68,13 @@ Active Sessions
 
   Review:
     PR #42           → feat/login-redesign (Phase: Interactive Approval, 5 findings)
+    PR #44           → feat/webhook-v2 (Phase: Responded, round closed)
 
   Respond:
-    PR #38           → fix/null-check (Phase: Implementing, 3 comments)
+    PR #38           → fix/null-check (Phase: Implementing, 3 items)
+    PR #45           → feat/webhook-v2 (--own mode, Phase: Interactive Triage, 6 findings)
 
-  Total: 4 active sessions
+  Total: 5 active sessions
 ```
 
 If no sessions of a type, omit that section. If no sessions at all: "No active sessions."
@@ -233,7 +237,7 @@ For worktrees, follow the **Teardown** procedure from `worktree-lifecycle.md` be
 **5. Stale review/respond state files** (branch no longer exists):
 
 ```bash
-for state_file in .flowyeah/review-state-*.md .flowyeah/respond-state.md; do
+for state_file in .flowyeah/review-state-*.md .flowyeah/respond-state-*.md; do
   BRANCH=$(grep -m1 '^Branch:' "$state_file" 2>/dev/null | cut -d' ' -f2-)
   # Check if branch exists locally or remotely
   git show-ref --verify --quiet "refs/heads/$BRANCH" 2>/dev/null || \
@@ -249,6 +253,31 @@ Stale state files to remove:
 Remove 1 stale state file? (yes/no)
 ```
 
+**6. Closed review rounds** (`Phase: Responded`, no pending respond state):
+
+```bash
+for state_file in .flowyeah/review-state-*.md; do
+  PHASE=$(grep -m1 '^Phase:' "$state_file" 2>/dev/null | cut -d' ' -f2-)
+  if [ "$PHASE" = "Responded" ]; then
+    NUMBER="${state_file##*review-state-}"
+    NUMBER="${NUMBER%.md}"
+    if [ ! -f ".flowyeah/respond-state-${NUMBER}.md" ]; then
+      # candidate for clean
+      :
+    fi
+  fi
+done
+```
+
+```
+Closed review rounds to finalize:
+  - .flowyeah/review-state-42.md (Phase: Responded, no active respond)
+
+Finalize 1 closed review round? (yes/no)
+```
+
+"Finalize" here means running the equivalent of `/flowyeah:review finalize {N}` — remove `review-state-{N}.md`. Not a destructive operation on the PR itself.
+
 ### Cleanup Rules
 
 - **Each category is confirmed independently.** The user can say yes to plans and no to worktrees.
@@ -258,6 +287,7 @@ Remove 1 stale state file? (yes/no)
 - **Aborted sessions keep the 30-day threshold.** Recent aborted sessions may still be useful for post-mortem.
 - **Active sessions are never offered for cleanup.** If a worktree has a session file, it's active — skip it.
 - **Never force-remove worktrees.** If `git worktree remove` fails (uncommitted changes), report the error and skip.
+- **`Phase: Responded` is safe-to-finalize when no active respond session exists.** The round is complete; the review relationship may still have future rounds, so finalization is the user's call, not automatic.
 
 ### Summary
 

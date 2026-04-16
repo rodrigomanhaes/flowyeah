@@ -42,24 +42,31 @@ if [ -n "$CURRENT_BRANCH" ]; then
     done
 fi
 
-# ── Respond session (separate file, never conflicts with build) ──
-if [ -f "$TOPLEVEL/.flowyeah/respond-state.md" ]; then
+# ── Respond session (namespaced by PR number) ──
+shopt -s nullglob
+RESPOND_STATE_FILES=("$TOPLEVEL"/.flowyeah/respond-state-*.md)
+shopt -u nullglob
+
+for state_file in "${RESPOND_STATE_FILES[@]}"; do
     echo "───── flowyeah:respond session ─────"
     echo ""
     echo "## STATE"
-    cat "$TOPLEVEL/.flowyeah/respond-state.md"
+    cat "$state_file"
     echo ""
 
-    # Inject triage decisions summary (survives compaction)
-    if [ -f "$TOPLEVEL/.flowyeah/respond-decisions.md" ]; then
+    # Extract PR number from filename to find matching decisions file
+    number="${state_file##*respond-state-}"
+    number="${number%.md}"
+
+    if [ -f "$TOPLEVEL/.flowyeah/respond-decisions-${number}.md" ]; then
         echo "## TRIAGE DECISIONS"
-        grep -E '^## Comment |^- File:|^- Action:|^- Thread:' "$TOPLEVEL/.flowyeah/respond-decisions.md" 2>/dev/null || echo "(no decisions yet)"
+        grep -E '^## (Comment|Finding) |^- File:|^- Action:|^- Thread:' "$TOPLEVEL/.flowyeah/respond-decisions-${number}.md" 2>/dev/null || echo "(no decisions yet)"
         echo ""
     fi
 
     echo "──────────────────────────────────────────────"
     echo ""
-fi
+done
 
 # ── Build session: either in current worktree or scan .flowyeah/worktrees/ ──
 SESSION_DIR=""

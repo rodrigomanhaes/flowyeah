@@ -104,6 +104,7 @@ Phase: <current_phase>
 | `Findings Delivered` | 5b-5c | Re-present the next action menu. If `review-approved-{number}.md` is missing, re-run from step 5 (Interactive Approval). |
 | `Fixing` | after 5c | Do not resume the review pipeline. Findings are informational context. |
 | `Delegated` | after 5c | Do not resume the review pipeline. Findings are informational context for the next session. |
+| `Responded` | after 5c | Do not resume the review pipeline. A prior `respond --own` cycle closed this round. A fresh `review --own` invocation overwrites state silently; `review finalize` is still valid. |
 
 After the user makes approval decisions (step 5), persist results to `.flowyeah/review-approved-{number}.md`:
 
@@ -147,7 +148,7 @@ When `Mode` is absent, the logic above applies unchanged (resume from recorded p
 When resuming a session with `Mode: own`:
 - Phases before `Findings Delivered` — recover normally (re-run from that phase), but skip steps 6-7 after completion.
 - `Findings Delivered` — re-present the next action menu (step 5c).
-- `Fixing` or `Delegated` — do nothing. The review pipeline is not active. State files serve as context only.
+- `Fixing`, `Delegated`, or `Responded` — do nothing. The review pipeline is not active. State files serve as context only. For `Responded`, a fresh `/flowyeah:review --own {N}` invocation will start a new round and silently overwrite state.
 
 ## Steps
 
@@ -403,12 +404,14 @@ Update `review-state-{number}.md`: set `Phase: Findings Delivered`.
 Offer three options:
 
 1. **Fix now** — the skill pipeline terminates. Phase is set to `Fixing`. State files remain as informational context (the hook injects them each prompt, but they do not trigger the review pipeline). When done, the user runs `/review finalize` to clean up.
-2. **Delegate** — the skill pipeline terminates. Phase is set to `Delegated`. State files remain so the hook injects a findings summary into the next session. The hook only injects finding headers (number, file, label) — the next session should read `.flowyeah/review-approved-{number}.md` directly for full finding details. The next session uses the findings as guidance for what to fix — it does not resume the review pipeline. When done, the user (in any session) runs `/review finalize` to clean up.
+2. **Delegate** — the skill pipeline terminates. Phase is set to `Delegated`. Open a fresh session in the main checkout and run `/flowyeah:respond --own {N}` to critique, discuss, and fix. The respond pipeline will read `.flowyeah/review-approved-{N}.md` and the new `Phase: Responded` is written when the round completes, enabling a fresh `review --own` for the next round.
 3. **Finalize** — clean up state files immediately (equivalent to `/review finalize`).
 
 #### Conflict: Re-invoking `/review` with active session on same branch
 
 Before starting a new review, glob `review-state-*.md` and match `Branch:` against the current branch.
+
+If a match is found with `Phase: Responded`, proceed silently — the prior round is closed. Overwrite the existing state files as if no session existed. Do not prompt.
 
 If a match is found with `Phase: Fixing` or `Phase: Delegated`, present: "An --own review for PR #N is still active. Finalize it first, or continue fixing?"
 
