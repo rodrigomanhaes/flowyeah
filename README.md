@@ -2,113 +2,7 @@
 
 Plan-to-PR pipeline for Claude Code. Takes any source — issues, error trackers, plan files, or conversation — and produces tested, reviewed, merged PRs with git worktree isolation.
 
-## `flowyeah:build`
-
-Full pipeline: source → plan → worktree → TDD → commit → PR → CI → merge.
-
-```
-flowyeah:build [from <source>] [--continuous] [--intermittent] [--on-branch <branch>]
-```
-
-| Flag | Purpose | Default |
-|------|---------|---------|
-| `from <source>` | Specify the input source (see table below) | Uses current conversation context |
-| `--continuous` | Keep the pipeline running after merge, pick up new tasks | `false` |
-| `--intermittent` | Investigate an intermittent test failure with escalating analysis (seed reproduction, shared state, bisect) | `false` |
-| `--on-branch <branch>` | Target branch for PRs/MRs instead of default | Uses `git.default_branch` from config |
-
-### Supported Sources
-
-| Source | Example |
-|--------|---------|
-| GitLab issue | `flowyeah:build from gitlab:#5588` |
-| GitHub issue | `flowyeah:build from github:#45` |
-| Linear issue | `flowyeah:build from linear:PROJ-123` |
-| Bugsink error | `flowyeah:build from bugsink:68b87507-8b6f-4250-9d5c-55a1dc39d9c6` |
-| Bugsink URL | `flowyeah:build from https://bugsink.example.com/issues/issue/{id}/` |
-| New Relic error | `flowyeah:build from newrelic:MXxBUE18...` |
-| GitHub Actions failure | `flowyeah:build from ghactions:12345678` |
-| GitHub Actions URL | `flowyeah:build from https://github.com/{owner}/{repo}/actions/runs/{run_id}/job/{job_id}` |
-| Local file | `flowyeah:build from docs/plans/redesign.md` |
-| Conversation | `flowyeah:build` (uses current context) |
-
-## `flowyeah:review`
-
-Formal code review with inline comments via platform API.
-
-```
-flowyeah:review [<number>]
-```
-
-| Argument | Purpose | Default |
-|----------|---------|---------|
-| `<number>` | PR/MR number to review | Auto-detected from current branch |
-
-## `flowyeah:respond`
-
-Address review feedback: triage, implement, reply, resolve, re-request.
-
-```
-flowyeah:respond [<number>]
-```
-
-| Argument | Purpose | Default |
-|----------|---------|---------|
-| `<number>` | PR/MR number to respond to | Auto-detected from current branch |
-
-## `flowyeah:check`
-
-Audit `flowyeah.yml` against the config schema. Takes no arguments.
-
-Each key is annotated with a status marker:
-
-| Marker | Meaning |
-|--------|---------|
-| `# ✅` | Explicitly set in file |
-| `# ⬚ default: <value>` | Absent, using default |
-| `# ⚠ deprecated` | Key present but deprecated |
-| `# ❌ <error message>` | Validation error |
-
-### Deprecated Keys
-
-| Key | Removed | Migration |
-|-----|---------|-----------|
-| `sources` | 2026-03-02 | Remove — adapters with `source.md` are automatic |
-| `hosting` | 2026-03-03 | Rename to `git_host` |
-| `hooks.after_merge` | 2026-03-06 | Move to `hooks.pr.after_merge` |
-
-## `flowyeah:status`
-
-Project health overview: active sessions, plans, worktrees, and disk usage.
-
-```
-flowyeah:status
-flowyeah:status clean
-```
-
-| Subcommand | Purpose |
-|------------|---------|
-| *(none)* | Read-only report of all sessions, plans, and worktrees |
-| `clean` | Interactive removal of completed plans, stale artifacts, and orphaned worktrees |
-
-## Prerequisites
-
-- **Claude Code 1.0.33+** — verify with `claude --version`, update with `claude update`
-- **git** — version control operations and worktree isolation
-
-Depending on which adapters you use:
-
-| Adapter | Requires |
-|---------|----------|
-| GitHub, GitHub Actions | [`gh`](https://cli.github.com/) (GitHub CLI) — authenticate with `gh auth login` |
-| GitLab | `curl`, `jq`, and a [personal access token](https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html) |
-| Linear | [Claude Code Linear MCP plugin](https://github.com/anthropics/claude-code-linear) |
-| Bugsink | `curl`, `jq`, and a Bugsink API token |
-| New Relic | `curl`, `jq`, and a [NerdGraph API key](https://docs.newrelic.com/docs/apis/intro-apis/new-relic-api-keys/) |
-
 ## Install
-
-Add the marketplace and install the plugin:
 
 ```
 /plugin marketplace add rodrigomanhaes/flowyeah
@@ -128,6 +22,215 @@ By default, the plugin installs at user scope (available in all projects). To in
 2. Commit `flowyeah.yml` to your repo
 
 The build pipeline automatically adds `.flowyeah/` and `tmp/` to `.gitignore` when creating worktrees.
+
+## Prerequisites
+
+- **Claude Code 1.0.33+** — verify with `claude --version`, update with `claude update`
+- **git** — version control operations and worktree isolation
+
+Depending on which adapters you use:
+
+| Adapter | Requires |
+|---------|----------|
+| GitHub, GitHub Actions | [`gh`](https://cli.github.com/) (GitHub CLI) — authenticate with `gh auth login` |
+| GitLab | `curl`, `jq`, and a [personal access token](https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html) |
+| Linear | [Claude Code Linear MCP plugin](https://github.com/anthropics/claude-code-linear) |
+| Bugsink | `curl`, `jq`, and a Bugsink API token |
+| New Relic | `curl`, `jq`, and a [NerdGraph API key](https://docs.newrelic.com/docs/apis/intro-apis/new-relic-api-keys/) |
+
+## Use Cases
+
+### Implement an issue from a tracker
+
+Point `flowyeah:build` at any issue and it drives the full cycle: fetch the issue, generate a plan, create a worktree, implement with TDD, open a PR, wait for CI and code review, and merge.
+
+```
+flowyeah:build from github:#45
+flowyeah:build from gitlab:#5588
+flowyeah:build from linear:PROJ-123
+```
+
+**What happens:**
+
+1. Fetches the issue and extracts requirements into a task plan
+2. Creates an isolated git worktree and claims the issue in the tracker
+3. Picks the first task — brainstorms approach if the task is complex
+4. Implements via TDD: write a failing test, make it pass, refactor
+5. Commits, runs the test suite, and pushes
+6. Opens a PR linking back to the issue
+7. Runs code review agents in parallel and waits for CI
+8. If CI or review finds problems, fixes and re-pushes (up to 3 CI attempts before asking for help)
+9. Merges (or stops and asks, depending on your `pull_requests.merge` setting)
+10. Cleans up the worktree
+
+### Fix a production error
+
+Feed an error tracker URL or ID directly. The pipeline fetches the error details, stack trace, and context, then follows the same build cycle.
+
+```
+flowyeah:build from bugsink:68b87507-8b6f-4250-9d5c-55a1dc39d9c6
+flowyeah:build from https://bugsink.example.com/issues/issue/{id}/
+flowyeah:build from newrelic:MXxBUE18...
+```
+
+### Fix a CI failure
+
+Point at a failing GitHub Actions run. The pipeline fetches the failure log, identifies the root cause, and builds a fix.
+
+```
+flowyeah:build from ghactions:12345678
+flowyeah:build from https://github.com/{owner}/{repo}/actions/runs/{run_id}/job/{job_id}
+```
+
+### Investigate an intermittent test failure
+
+When a CI failure looks non-deterministic, `--intermittent` runs an escalating investigation from a clean main branch — independent of the PR that triggered the failure.
+
+```
+flowyeah:build from ghactions:12345678 --intermittent
+```
+
+**What happens:**
+
+1. Creates a worktree from **main** (not the PR branch)
+2. Runs the failing test in isolation
+3. Reproduces with the CI seed to match test ordering
+4. Analyzes shared state: database leaks, globals, time dependencies
+5. Runs framework-specific bisect (`rspec --bisect`, `pytest`, `jest`)
+6. If root cause found, switches to the normal TDD fix cycle
+7. If not reproducible on main, stops and reports — the flakiness may be PR-specific
+
+### Build from a plan or conversation
+
+No tracker needed. Describe what you want in the conversation, or point at a local plan file.
+
+```
+flowyeah:build from docs/plans/redesign.md
+flowyeah:build
+```
+
+When invoked without `from`, the pipeline uses the current conversation context as the source.
+
+### Work through a multi-task plan without stopping
+
+`--continuous` keeps the pipeline running after each merge, picking up the next unchecked task from the plan until everything is done.
+
+```
+flowyeah:build from github:#45 --continuous
+```
+
+The pipeline stops if it hits an ambiguous task that needs clarification or 3 consecutive CI failures.
+
+### Resume work on an existing branch
+
+`--on-branch` attaches to an existing branch instead of creating a new one. Useful for picking up where a previous session left off.
+
+```
+flowyeah:build --on-branch feat/webhook-v2
+```
+
+Skips branch creation, issue claiming, and status transitions. Reuses the existing worktree if one exists for that branch.
+
+### Review a pull request
+
+`flowyeah:review` runs code review agents in parallel, validates requirements against the linked issue, and submits a formal review with inline comments.
+
+```
+flowyeah:review 42
+flowyeah:review          # auto-detects PR from current branch
+```
+
+**What happens:**
+
+1. Gathers context: diff, commit history, CLAUDE.md rules, git blame, previous review comments
+2. Launches all review agents from `code_review.agents` in parallel
+3. Runs critical checks: DB concurrency, API compatibility, naming consistency
+4. Consolidates findings, removes duplicates, sorts by severity
+5. Presents each finding interactively — you approve, filter by severity, or edit before submission
+6. You choose the review type: Request Changes, Comment, or Approve
+7. Submits the review with inline comments to the PR
+
+### Self-review before submitting
+
+`--own` runs the full review pipeline but does not submit to the PR. Useful for catching issues before asking for a human review.
+
+```
+flowyeah:review --own 42
+```
+
+After showing findings, you choose:
+- **Fix now** — fix manually, then `flowyeah:review finalize 42`
+- **Delegate** — hand off to `flowyeah:respond --own 42` for automated fixes
+- **Finalize** — clean up immediately
+
+You can run multiple `--own` rounds before finalizing.
+
+### Address review feedback on a PR
+
+`flowyeah:respond` fetches unresolved review comments, lets you triage each one, implements fixes, replies to threads, and re-requests review.
+
+```
+flowyeah:respond 42
+flowyeah:respond         # auto-detects PR from current branch
+```
+
+**What happens:**
+
+1. Fetches all unresolved review threads, grouped by reviewer
+2. Evaluates each comment (if `code_review.evaluation_skill` is configured): agree, disagree, or needs clarification
+3. You triage each finding interactively:
+   - **`i`** — implement the fix
+   - **`r`** — reject (disagree with the finding)
+   - **`d`** — discuss further (back-and-forth with the evaluation skill)
+   - **`s`** — reply directly to the reviewer thread
+4. Sets up a worktree, implements all accepted fixes via TDD
+5. Pushes, replies to each thread with what was done, resolves conversations
+6. Re-requests review from all reviewers (new commits invalidate prior approvals)
+
+### Implement fixes from a self-review
+
+`flowyeah:respond --own` addresses findings from a prior `flowyeah:review --own` session. Same triage and implementation flow, but no thread replies or review re-requests since there are no external reviewers.
+
+```
+flowyeah:respond --own 42
+```
+
+After completion, you can run another `flowyeah:review --own` round or finalize.
+
+### Validate your configuration
+
+`flowyeah:check` audits `flowyeah.yml` against the config schema. No arguments, no mutations — read-only.
+
+```
+flowyeah:check
+```
+
+Shows every key annotated with a status marker:
+
+| Marker | Meaning |
+|--------|---------|
+| `# ✅` | Explicitly set in file |
+| `# ⬚ default: <value>` | Absent, using default |
+| `# ⚠ deprecated` | Key present but deprecated |
+| `# ❌ <error message>` | Validation error |
+
+Ends with a summary of errors, warnings, and optional keys with their defaults.
+
+### See what's active and clean up
+
+`flowyeah:status` shows all active sessions, plans, worktrees, and disk usage.
+
+```
+flowyeah:status
+```
+
+Add `clean` for interactive removal of completed plans, stale artifacts, and orphaned worktrees:
+
+```
+flowyeah:status clean
+```
+
+Each category is presented separately — you confirm or skip before anything is removed.
 
 ## Project Configuration
 
