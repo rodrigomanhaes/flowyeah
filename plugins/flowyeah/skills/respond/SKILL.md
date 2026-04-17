@@ -253,6 +253,33 @@ The `[d]iscuss` option is still available — a discussion round may succeed whe
 
 Present findings one at a time. For each, show the finding plus its round-1 critique (from step 3), then enter a loop until the user decides. No code is modified in this step — all decisions are recorded and implementation happens in batch during step 6.
 
+**MANDATORY: one finding per prompt.** Do not collapse multiple findings into a single review memo, table, or batch approval form. Each finding gets its own prompt with its own `[d]/[i]/[r]` action. Persist the decision, then advance to the next finding.
+
+#### Anti-pattern (do not do this)
+
+```
+✗ WRONG — batch triage memo
+
+Triage — 6 findings from review --own #8880
+
+  Finding 1 · nitpick · in-scope-now
+  File: …
+  - Assessment: agree
+  - Recommendation: implement
+
+  Finding 2 · nitpick · in-scope-now
+  …
+
+Proposed triage: implement 1, 2, 3 · reject 4, 5, 6.
+Confirmar com ok, ou d 3 / r 2 para alterar.
+```
+
+This shape is forbidden because it:
+- Skips the per-finding discussion loop (no `[d]` round possible on one finding in isolation).
+- Invents a `d 3` / `r 2` syntax that is not in the skill.
+- Defers persistence — decisions only hit `respond-decisions-{N}.md` after bulk confirm, so a compaction mid-memo loses everything.
+- Merges step 3 (evaluation output) and step 4 (interactive triage) into a single blob.
+
 #### Per-finding UX
 
 For each item `i` in order (severity → confidence, as delivered by the evaluation in step 3):
@@ -561,6 +588,7 @@ Respond complete — N items (M implemented, K rejected, J discussed)
 - Reply to comments the user skipped
 - Resolve threads without replying first
 - Skip the triage step
+- Present findings as a batch summary, table, or triage memo — step 4 is one finding per prompt, single-letter action, persist, advance (see §4 anti-pattern)
 - Implement without user approval
 - Re-request review from `DISMISSED` reviewers (GitHub)
 - Re-request review from `APPROVED` reviewers when no code was changed (GitHub)
