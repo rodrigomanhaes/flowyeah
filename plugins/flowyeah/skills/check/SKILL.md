@@ -61,7 +61,7 @@ implementation:
 
 commits:
   conventions: conventional              # ⬚ default: conventional
-  writer: git-commit-writer              # ⬚ default: git-commit-writer
+  writer: null                           # ⬚ default: null (write inline)
 
 pull_requests:
   delete_source_branch: true             # ✅

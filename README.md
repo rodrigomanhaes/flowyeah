@@ -259,7 +259,7 @@ implementation:
 
 commits:
   conventions: conventional               # conventional | freeform (default: conventional)
-  writer: git-commit-writer               # Agent name or null (default: git-commit-writer)
+  writer: null                            # Agent name or null (default: null — write inline)
 
 pull_requests:
   delete_source_branch: true              # Delete branch after merge (default: true)

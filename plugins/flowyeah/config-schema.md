@@ -18,7 +18,7 @@ Single source of truth for `flowyeah.yml` configuration. Referenced by setup, bu
 | `implementation.process_skills.tdd` | string | skill name | none | **Mandatory** when configured — skill invoked for TDD phase. If absent, do TDD inline. Applies even when `brainstorm: auto` skips to direct TDD |
 | `implementation.process_skills.debugging` | string | skill name | none | **Mandatory** when configured — skill invoked for debugging/investigation. If absent, debug inline |
 | `commits.conventions` | string | `conventional` \| `freeform` | `conventional` | Applied to commits or PR title depending on `merge_strategy` |
-| `commits.writer` | string | agent name or `null` | `git-commit-writer` | `null` = write commit messages inline |
+| `commits.writer` | string | agent name or `null` | `null` | Agent name = delegate commit message authoring to that agent; `null` = write commit messages inline |
 | `pull_requests.delete_source_branch` | boolean | `true` \| `false` | `true` | Delete source branch after merge |
 | `pull_requests.rebase` | boolean | `true` \| `false` | `true` | Rebase onto target before push |
 | `pull_requests.merge` | string | `auto` \| `manual` \| `ask` | `manual` | `auto` = merge via adapter; `manual` = report URL, never merge; `ask` = prompt user |

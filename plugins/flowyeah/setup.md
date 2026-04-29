@@ -184,9 +184,9 @@ Options: `conventional` (default), `freeform`
 
 > Use a commit writer agent?
 
-Options: `git-commit-writer` (default), `null` (write manually)
+Options: agent name (e.g. `my-commit-agent`), or `null` (default — write inline)
 
-If `git-commit-writer`, the pipeline delegates commit message authoring to that agent. If `null`, commits are written inline.
+If an agent name is provided, the pipeline delegates commit message authoring to that agent. If `null`, commits are written inline.
 
 ### 12. PR/MR preferences
 
