@@ -72,7 +72,7 @@ Load the review adapter once at the start. **If the git host adapter has no `rev
 
 ## Session (Lightweight)
 
-Create `.flowyeah/review-state-{number}.md` for compaction resilience:
+Create `.flowyeah/review-state-{N}.md` for compaction resilience:
 
 ```markdown
 # Current State
@@ -98,15 +98,15 @@ Phase: <current_phase>
 | `Gathering Context` | 2-2b | Re-run context gathering |
 | `Running Agents` | 3-3b | Re-run agents (results lost) |
 | `Scoring` | 4 | Re-run scoring (agent results lost) |
-| `Interactive Approval` | 5 | Read `review-approved-{number}.md`, re-present unapproved findings |
+| `Interactive Approval` | 5 | Read `review-approved-{N}.md`, re-present unapproved findings |
 | `Choosing Review Type` | 6 | Re-ask review type question |
 | `Submitting Review` | 7 | Check if review was posted, retry or clean up |
-| `Findings Delivered` | 5b-5c | Re-present the next action menu. If `review-approved-{number}.md` is missing, re-run from step 5 (Interactive Approval). |
+| `Findings Delivered` | 5b-5c | Re-present the next action menu. If `review-approved-{N}.md` is missing, re-run from step 5 (Interactive Approval). |
 | `Fixing` | after 5c | Do not resume the review pipeline. Findings are informational context. |
 | `Delegated` | after 5c | Do not resume the review pipeline. Findings are informational context for the next session. |
 | `Responded` | after 5c | Do not resume the review pipeline. A prior `respond --own` cycle closed this round. A fresh `review --own` invocation overwrites state silently; `review finalize` is still valid. |
 
-After the user makes approval decisions (step 5), persist results to `.flowyeah/review-approved-{number}.md`:
+After the user makes approval decisions (step 5), persist results to `.flowyeah/review-approved-{N}.md`:
 
 ```markdown
 # Approved Findings
@@ -124,20 +124,20 @@ After the user makes approval decisions (step 5), persist results to `.flowyeah/
 
 This file ensures that if compaction or a crash interrupts after approval, approved findings are recoverable.
 
-Review sessions use `review-state-{number}.md` (not `state.md`) so they never interfere with build sessions in worktrees. Both can coexist — the injection hook handles them separately.
+Review sessions use `review-state-{N}.md` (not `state.md`) so they never interfere with build sessions in worktrees. Both can coexist — the injection hook handles them separately.
 
-Update `review-state-{number}.md` after each phase transition. The hook injection ensures state survives compaction.
+Update `review-state-{N}.md` after each phase transition. The hook injection ensures state survives compaction.
 
-No `mission.md`, `progress.md`, or full `findings.md` — reviews are short-lived. Only `review-approved-{number}.md` is needed for the approval checkpoint.
+No `mission.md`, `progress.md`, or full `findings.md` — reviews are short-lived. Only `review-approved-{N}.md` is needed for the approval checkpoint.
 
 ### Crash Recovery
 
 If a review session is interrupted (compaction, crash, user abort):
 
-1. The hook injects `review-state-{number}.md` into the next prompt
+1. The hook injects `review-state-{N}.md` into the next prompt
 2. Resume from the last recorded phase
 3. If the phase was before "Interactive Approval" (step 5), re-run from that phase
-4. If during or after approval, read `review-approved-{number}.md` to recover previously approved findings and skip re-presenting them
+4. If during or after approval, read `review-approved-{N}.md` to recover previously approved findings and skip re-presenting them
 5. If the review was already submitted, clean up both state files
 6. The user can also run `/review finalize` at any time to abandon the review and clean up state files
 
@@ -154,7 +154,7 @@ When resuming a session with `Mode: own`:
 
 ### 0. Validate Configuration
 
-**Worktree guard:** if the current working directory is inside a flowyeah build worktree (`git rev-parse --show-toplevel` contains `.flowyeah/worktrees/`), **STOP.** Reviews must run from the main checkout — review session files (`.flowyeah/review-state-{number}.md`) belong to the main checkout, not to build worktrees.
+**Worktree guard:** if the current working directory is inside a flowyeah build worktree (`git rev-parse --show-toplevel` contains `.flowyeah/worktrees/`), **STOP.** Reviews must run from the main checkout — review session files (`.flowyeah/review-state-{N}.md`) belong to the main checkout, not to build worktrees.
 
 Before starting the review, validate the loaded `flowyeah.yml`:
 
@@ -414,7 +414,7 @@ After presenting the full list, ask the user for a **batch decision**:
 
 If the user selects specific findings and wants to **edit** any before submission, ask which numbers to edit and expand them one at a time for modification.
 
-Persist approved findings to `review-approved-{number}.md` after the batch decision is made.
+Persist approved findings to `review-approved-{N}.md` after the batch decision is made.
 
 ### `--own` Mode: Steps 5b-5c
 
@@ -422,9 +422,9 @@ Persist approved findings to `review-approved-{number}.md` after the batch decis
 
 #### 5b. Deliver Findings
 
-Persist approved findings to `review-approved-{number}.md` (already done in step 5). Present them as an actionable summary — a concise list showing file, label, and subject for each finding.
+Persist approved findings to `review-approved-{N}.md` (already done in step 5). Present them as an actionable summary — a concise list showing file, label, and subject for each finding.
 
-Update `review-state-{number}.md`: set `Phase: Findings Delivered`.
+Update `review-state-{N}.md`: set `Phase: Findings Delivered`.
 
 #### 5c. Next Action Menu
 
@@ -493,7 +493,7 @@ Ask for final confirmation before posting.
 
 This differs from `COMMENT` and `REQUEST CHANGES`, where all findings (including praise) are posted as inline comments. The review adapter's event documentation has the details.
 
-After posting (or if the user discards), remove `.flowyeah/review-state-{number}.md` and `.flowyeah/review-approved-{number}.md` to end the session. **Do not** remove `.flowyeah/own-rejections-{number}.md` here — that file persists until the user explicitly runs `/flowyeah:review finalize {number}` (a normal-mode submitted review is unrelated to the `--own` rejection ledger).
+After posting (or if the user discards), remove `.flowyeah/review-state-{N}.md` and `.flowyeah/review-approved-{N}.md` to end the session. **Do not** remove `.flowyeah/own-rejections-{N}.md` here — that file persists until the user explicitly runs `/flowyeah:review finalize {N}` (a normal-mode submitted review is unrelated to the `--own` rejection ledger).
 
 ### `finalize` Subcommand
 
@@ -503,7 +503,7 @@ A separate entry point that tears down review state. Not a pipeline step.
 flowyeah:review finalize [<number>]
 ```
 
-**With explicit number:** target `review-state-{number}.md` directly. If absent, report "No active review for PR #{number}." and stop.
+**With explicit number:** target `review-state-{N}.md` directly. If absent, report "No active review for PR #{N}." and stop.
 
 **Without number (auto-detect):**
 1. Get current branch
@@ -514,7 +514,7 @@ flowyeah:review finalize [<number>]
 
 After resolving the target:
 1. Read the state file. Display: PR number, findings count, mode.
-2. Delete `review-state-{number}.md`, `review-approved-{number}.md` (if present), and `own-rejections-{number}.md` (if present).
+2. Delete `review-state-{N}.md`, `review-approved-{N}.md` (if present), and `own-rejections-{N}.md` (if present).
 3. Report: "Review session finalized."
 
 No confirmation prompt — the explicit `finalize` command is sufficient intent.
