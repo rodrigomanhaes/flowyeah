@@ -310,11 +310,10 @@ Add an adapter directory, configure it in `flowyeah.yml`, and the pipeline picks
 
 ## Development
 
-After cloning, install the git hooks:
+After cloning, point Git at the versioned hooks directory:
 
 ```
-echo '#!/bin/bash
-bash "$(git rev-parse --show-toplevel)/scripts/bump-version.sh"' > .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+git config core.hooksPath scripts/git-hooks
 ```
 
 This auto-bumps the patch version in `plugin.json` and `marketplace.json` on every commit.
