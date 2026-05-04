@@ -253,6 +253,27 @@ Stale state files to remove:
 Remove 1 stale state file? (yes/no)
 ```
 
+**5b. Orphaned `own-rejections-{N}.md` files** (no matching `review-state-{N}.md`):
+
+```bash
+for rej_file in .flowyeah/own-rejections-*.md; do
+  number="${rej_file##*own-rejections-}"
+  number="${number%.md}"
+  if [ ! -f ".flowyeah/review-state-${number}.md" ]; then
+    echo "orphaned: $rej_file"
+  fi
+done
+```
+
+```
+Orphaned --own rejection ledgers to remove:
+  - .flowyeah/own-rejections-42.md (no review session)
+
+Remove 1 orphaned ledger? (yes/no)
+```
+
+This catches the case where the user finalized a review without going through `/flowyeah:review finalize` (e.g., manually deleted the state file). It does **not** fire while a review session for that PR is still on disk — the ledger is intentionally long-lived during the active review relationship.
+
 **6. Closed review rounds** (`Phase: Responded`, no pending respond state):
 
 ```bash
@@ -276,7 +297,7 @@ Closed review rounds to finalize:
 Finalize 1 closed review round? (yes/no)
 ```
 
-"Finalize" here means running the equivalent of `/flowyeah:review finalize {N}` — remove `review-state-{N}.md`. Not a destructive operation on the PR itself.
+"Finalize" here means running the equivalent of `/flowyeah:review finalize {N}` — remove `review-state-{N}.md`, `review-approved-{N}.md` (if present), and `own-rejections-{N}.md` (if present). Not a destructive operation on the PR itself.
 
 ### Cleanup Rules
 
