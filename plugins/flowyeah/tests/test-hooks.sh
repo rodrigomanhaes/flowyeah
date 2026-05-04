@@ -224,6 +224,87 @@ assert_output_contains "inject review approved: shows label" "issue (blocking)" 
 assert_output_contains "inject review approved: shows finding 3" "## Finding 3" "$OUTPUT"
 teardown
 
+# Test: review session injects own-rejections count when file exists
+setup_repo
+touch flowyeah.yml
+mkdir -p .flowyeah
+cat > .flowyeah/review-state-42.md <<'EOF'
+# Current State
+
+Type: review
+Status: Reviewing
+PR/MR: 42
+Branch: main
+Mode: own
+EOF
+cat > .flowyeah/own-rejections-42.md <<'EOF'
+# Previously Rejected Findings (PR #42)
+
+## Rejection 1
+- File: app/services/foo.rb:42
+- Label: issue
+- Subject: Missing null check
+- Rejected at: 2026-05-04T15:30:00Z
+- Reasoning: |
+    DB constraint already enforces this.
+
+## Rejection 2
+- File: (general)
+- Label: suggestion
+- Subject: Extract service object
+- Rejected at: 2026-05-04T18:12:00Z
+- Reasoning: |
+    YAGNI.
+EOF
+OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+assert_output_contains "inject own-rejections: shows count line" "Previously rejected: 2" "$OUTPUT"
+teardown
+
+# Test: review session without own-rejections file shows no count line
+setup_repo
+touch flowyeah.yml
+mkdir -p .flowyeah
+cat > .flowyeah/review-state-42.md <<'EOF'
+# Current State
+
+Type: review
+Status: Reviewing
+PR/MR: 42
+Branch: main
+Mode: own
+EOF
+OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+assert_output_not_contains "inject no rejections: no count line" "Previously rejected:" "$OUTPUT"
+teardown
+
+# Test: own-rejections count is per-PR (other PR's file does not leak)
+setup_repo
+touch flowyeah.yml
+mkdir -p .flowyeah
+cat > .flowyeah/review-state-42.md <<'EOF'
+# Current State
+
+Type: review
+Status: Reviewing
+PR/MR: 42
+Branch: main
+Mode: own
+EOF
+cat > .flowyeah/own-rejections-77.md <<'EOF'
+# Previously Rejected Findings (PR #77)
+
+## Rejection 1
+- File: x.rb:1
+- Label: issue
+- Subject: Foo
+- Rejected at: 2026-05-04T00:00:00Z
+- Reasoning: |
+    Bar.
+EOF
+OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+assert_output_not_contains "inject other PR rejections: no count line" "Previously rejected:" "$OUTPUT"
+teardown
+
 # Test: review session without approved findings shows no APPROVED section
 setup_repo
 touch flowyeah.yml
