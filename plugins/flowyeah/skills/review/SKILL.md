@@ -234,7 +234,31 @@ Calibration examples:
 
 **Findings without file:line** (review body findings) — can't be diff-checked. Classify as **unresolved** unless resolved on the platform.
 
-**Output:** two lists — `addressed_findings[]` and `unresolved_findings[]`.
+**Output (platform discussions):** two lists — `addressed_findings[]` and `unresolved_findings[]`.
+
+##### 2.8a Classify Persisted `--own` Rejections
+
+**Skip if `--own` flag was not provided OR if `.flowyeah/own-rejections-{N}.md` does not exist.**
+
+In `--own` mode, the platform-fetch path above produces nothing (rejections were never posted as platform discussions). Instead, read each `## Rejection ` block from `.flowyeah/own-rejections-{N}.md` (schema documented in `respond/SKILL.md`'s "Cross-Round Persistence: `own-rejections-{N}.md`" section) and apply the same diff-overlap rule used for platform findings:
+
+```
+File: line still present in changed hunks?
+├── line not in any hunk → STILL_REJECTED (carry forward as agent context)
+│   The line is either untouched this round or was reverted; the diff alone cannot distinguish
+│   those cases, so the conservative default keeps the rejection in effect.
+│   Cleared by /flowyeah:review finalize {N}.
+└── line in a changed hunk
+    └── Semantic check: does the new code at that location address the concern?
+        ├── uncertain/no → STILL_REJECTED
+        └── yes (the author's recent edits target the rejected concern) → STALE_REJECTION (drop silently — semantic check confirmed the concern was addressed; surfacing it again would be noise)
+```
+
+For entries with `File: (general)` (no precise line), the diff-overlap rule cannot apply. Treat them as `STILL_REJECTED` unconditionally — there is no signal that says they have been addressed. The author can clear all persisted rejections (general and specific alike) by running `/flowyeah:review finalize {N}`, which removes the entire ledger.
+
+**Output (persisted rejections):** one list — `previously_rejected_findings[]`. Each entry preserves `File:`, `Label:`, `Subject:`, and `Reasoning:`.
+
+This list is **separate** from `unresolved_findings[]`. It does not get carried forward as a user-visible finding (see step 4, consolidation rule 6) — it is used only as agent context (see step 7).
 
 ### 2b. Requirements Validation
 

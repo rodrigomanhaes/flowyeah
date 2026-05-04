@@ -196,7 +196,7 @@ Schema:
 
 **Dedup key:** `(File, Subject)`. Two entries with the same key must not coexist; the later write replaces the earlier one (and updates `Rejected at:`).
 
-**Lifecycle:** `own-rejections-{N}.md` is written by `respond --own` step 10, read by `review --own` step 2.8, and removed by `review finalize {N}`.
+**Lifecycle:** `own-rejections-{N}.md` is written by `respond --own` step 10, read by `review --own` step 2.8a, and removed by `review finalize {N}`.
 Specifically, `own-rejections-{N}.md` is NOT removed by `respond --own` cleanup — only `respond-decisions-{N}.md` and `respond-state-{N}.md` are.
 
 ## Steps
