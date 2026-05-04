@@ -237,6 +237,7 @@ For worktrees, follow the **Teardown** procedure from `worktree-lifecycle.md` be
 **5. Stale review/respond state files** (branch no longer exists):
 
 ```bash
+shopt -s nullglob
 for state_file in .flowyeah/review-state-*.md .flowyeah/respond-state-*.md; do
   BRANCH=$(grep -m1 '^Branch:' "$state_file" 2>/dev/null | cut -d' ' -f2-)
   # Check if branch exists locally or remotely
@@ -244,6 +245,7 @@ for state_file in .flowyeah/review-state-*.md .flowyeah/respond-state-*.md; do
   git show-ref --verify --quiet "refs/remotes/origin/$BRANCH" 2>/dev/null || \
   echo "stale"
 done
+shopt -u nullglob
 ```
 
 ```
@@ -256,6 +258,7 @@ Remove 1 stale state file? (yes/no)
 **5b. Orphaned `own-rejections-{N}.md` files** (no matching `review-state-{N}.md`):
 
 ```bash
+shopt -s nullglob
 for rej_file in .flowyeah/own-rejections-*.md; do
   number="${rej_file##*own-rejections-}"
   number="${number%.md}"
@@ -263,6 +266,7 @@ for rej_file in .flowyeah/own-rejections-*.md; do
     echo "orphaned: $rej_file"
   fi
 done
+shopt -u nullglob
 ```
 
 ```
@@ -277,6 +281,7 @@ This catches the case where the user finalized a review without going through `/
 **6. Closed review rounds** (`Phase: Responded`, no pending respond state):
 
 ```bash
+shopt -s nullglob
 for state_file in .flowyeah/review-state-*.md; do
   PHASE=$(grep -m1 '^Phase:' "$state_file" 2>/dev/null | cut -d' ' -f2-)
   if [ "$PHASE" = "Responded" ]; then
@@ -288,6 +293,7 @@ for state_file in .flowyeah/review-state-*.md; do
     fi
   fi
 done
+shopt -u nullglob
 ```
 
 ```
