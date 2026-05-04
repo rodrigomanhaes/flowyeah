@@ -47,7 +47,7 @@ Tests run in isolated temp git repos. No external dependencies beyond bash and g
 ## Hook Internals
 
 - **`${CLAUDE_PLUGIN_ROOT}`** — Claude Code sets this variable to the plugin's installation directory at runtime. The hooks use it to resolve script paths in `hooks.json`.
-- **`session-inject.sh`** — injects session files on every prompt. Build sessions use `state.md` (with mission, progress, findings summary). Review sessions use `review-state-{number}.md` (namespaced by PR number, matched by current branch). Both can coexist without interference.
+- **`session-inject.sh`** — injects session files on every prompt. Build sessions use `state.md` (with mission, progress, findings summary). Review sessions use `review-state-{N}.md` (namespaced by PR number, matched by current branch); when an `--own` round has produced rejections, an additional `Previously rejected: N` count line points the model at `own-rejections-{N}.md`. Build and review sessions can coexist without interference.
 - **`session-remind.sh`** — nudges to update state after Edit/Write/NotebookEdit operations. Detects `state.md` (build), `review-state-*.md` (review), and `respond-state-*.md` (respond).
 
 ## Adding an Adapter
