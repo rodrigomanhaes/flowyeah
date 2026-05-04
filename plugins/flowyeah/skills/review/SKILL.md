@@ -258,7 +258,7 @@ For entries with `File: (general)` (no precise line), the diff-overlap rule cann
 
 **Output (persisted rejections):** one list — `previously_rejected_findings[]`. Each entry preserves `File:`, `Label:`, `Subject:`, and `Reasoning:`.
 
-This list is **separate** from `unresolved_findings[]`. It does not get carried forward as a user-visible finding (see step 4, consolidation rule 6) — it is used only as agent context (see step 7).
+This list is **separate** from `unresolved_findings[]`. It does not get carried forward as a user-visible finding (see step 4, consolidation rule 7) — it is used only as agent context (see step 3, Run Review Agents).
 
 ### 2b. Requirements Validation
 
@@ -282,6 +282,8 @@ Launch agents from `code_review.agents` in parallel using the Task tool:
 If `code_review.instructions` is configured, include the file contents as additional context passed to each agent alongside the PR diff and changed files.
 
 If `unresolved_findings[]` from step 2.8 is non-empty, pass them to each agent as additional context: "The following findings were raised in a previous review and remain unresolved. Do not re-flag these — they will be carried forward separately." This prevents agents from producing duplicates.
+
+If `previously_rejected_findings[]` from step 2.8a is non-empty (only possible in `--own` mode), pass them to each agent as a **second** additional context block — kept separate from `unresolved_findings[]` because the directives differ (the first block is an unconditional "do not re-flag"; the second is conditional on whether the agent has new information): "The author has previously reviewed and rejected the following concerns with explicit reasoning. Do not re-flag any of them unless you have substantively new information that the author's reasoning did not account for. If you genuinely have new information, raise it as a new finding — do not duplicate the rejected one." Include each entry's `File:`, `Subject:`, and full `Reasoning:` block. The "substantively new information" clause matters: a rejection is not permanent infallibility, but the bar is high. The operational test: the diff itself must have changed the factual basis of the rejection — e.g., a migration the reasoning relied on was reverted, a config the reasoning assumed was added, an upstream caller the reasoning ignored is now in scope. A different way of framing the same concern is NOT new information; only a change in the underlying facts is. When the test is met, the agent flags it as a fresh finding (not as a re-raised rejection).
 
 **Conditional agents** from `code_review.optional_agents` — launch based on what changed (e.g., security analyst if auth code was touched). Use judgment.
 
@@ -332,6 +334,7 @@ Run directly (not delegated to agents):
 4. Deduplicate against previous findings — if an agent finding matches an unresolved previous finding (same file, overlapping lines, same concern), remove the agent finding in favor of the previous one. The previous finding carries more weight as a "previously raised" item
 5. Deduplicate against other reviewers' open threads — if a finding raises the same concern another reviewer already flagged (same file, overlapping lines, same issue), drop the finding. Instead, if you have useful context to add, note it for a reply to their thread (see step 5 presentation). Don't repeat what someone else already said
 6. Inject `unresolved_findings[]` into the consolidated list. Each gets tagged `(previously raised, still unresolved)`. They keep their original severity — no escalation, no demotion
+7. Do **not** inject `previously_rejected_findings[]` into the consolidated list. The user already rejected these — re-presenting them would defeat the persistence mechanism. They served their purpose as agent context in step 3. The only thing that surfaces them again is if an agent legitimately raises the same concern with new information, in which case it lands as a regular new finding (not as a rejected-and-re-raised one — the agent has attested to new facts, so the prior rejection no longer applies; annotating the finding as "previously rejected" would prejudice the user against the agent's new framing).
 
 **False positive rubric — do NOT flag:**
 - Something that looks like a bug but isn't
