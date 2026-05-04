@@ -562,9 +562,14 @@ Cleanup has two paths depending on mode.
 Do **not** remove the worktree — it's owned by `build`. Specifically:
 
 1. **Update the review session state:** rewrite `.flowyeah/review-state-{N}.md` (at the main checkout path) so that `Phase:` is `Responded`. Leave all other fields intact. Touch the file's mtime.
-2. **Remove the findings file:** `rm .flowyeah/review-approved-{N}.md` (findings are consumed).
-3. **Remove respond state files:** `rm .flowyeah/respond-state-{N}.md .flowyeah/respond-decisions-{N}.md`.
-4. **Do not touch** `.flowyeah/worktrees/...` or any files inside the worktree.
+2. **Persist cross-round rejections:** read `.flowyeah/respond-decisions-{N}.md` and update `.flowyeah/own-rejections-{N}.md` per the rules below. Create the rejections file (with header `# Previously Rejected Findings (PR #{N})` and a single trailing blank line) if it does not exist. The rules:
+   - For each `## Finding K` block in `respond-decisions-{N}.md` with `Action: reject` — upsert a `## Rejection M` block into `own-rejections-{N}.md`. The dedup key is `(File, Subject)`. If a matching entry exists, replace it: overwrite all fields (`File`, `Label`, `Subject`, `Reasoning`) with the new values derived from the matching `respond-decisions-{N}.md` entry, and set `Rejected at:` to the current timestamp. Otherwise append a new entry. `M` is the next available 1-based index after the highest existing `## Rejection` heading. (Indices are never reused after deletion; gaps in the sequence are expected and benign.) See the schema in the "Cross-Round Persistence" section above for field mapping.
+   - For each `## Finding K` block with `Action: implement` — if a matching entry exists in `own-rejections-{N}.md` (same `File:` and `Subject:`), remove it. The user has overridden their previous rejection by choosing to fix the issue this round; the rejection no longer applies. If no match exists, do nothing.
+   - `Action: discuss` blocks (only present in normal mode) are ignored. Same for any other action value.
+   - If after all updates `own-rejections-{N}.md` contains no `## Rejection ` headings (regardless of whether the `# Previously Rejected Findings` header line is present), delete the file. A header-only file is noise.
+3. **Remove the findings file:** `rm .flowyeah/review-approved-{N}.md` (findings are consumed).
+4. **Remove respond state files:** `rm .flowyeah/respond-state-{N}.md .flowyeah/respond-decisions-{N}.md`. Do **not** touch `own-rejections-{N}.md` here — it persists across rounds.
+5. **Do not touch** `.flowyeah/worktrees/...` or any files inside the worktree.
 
 Display the end-of-round guidance:
 
