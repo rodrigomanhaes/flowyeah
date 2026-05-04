@@ -493,7 +493,7 @@ Ask for final confirmation before posting.
 
 This differs from `COMMENT` and `REQUEST CHANGES`, where all findings (including praise) are posted as inline comments. The review adapter's event documentation has the details.
 
-After posting (or if the user discards), remove `.flowyeah/review-state-{number}.md` and `.flowyeah/review-approved-{number}.md` to end the session.
+After posting (or if the user discards), remove `.flowyeah/review-state-{number}.md` and `.flowyeah/review-approved-{number}.md` to end the session. **Do not** remove `.flowyeah/own-rejections-{number}.md` here — that file persists until the user explicitly runs `/flowyeah:review finalize {number}` (a normal-mode submitted review is unrelated to the `--own` rejection ledger).
 
 ### `finalize` Subcommand
 
@@ -514,7 +514,7 @@ flowyeah:review finalize [<number>]
 
 After resolving the target:
 1. Read the state file. Display: PR number, findings count, mode.
-2. Delete `review-state-{number}.md` and `review-approved-{number}.md` (if present).
+2. Delete `review-state-{number}.md`, `review-approved-{number}.md` (if present), and `own-rejections-{number}.md` (if present).
 3. Report: "Review session finalized."
 
 No confirmation prompt — the explicit `finalize` command is sufficient intent.
