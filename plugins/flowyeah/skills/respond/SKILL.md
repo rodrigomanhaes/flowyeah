@@ -155,6 +155,50 @@ Update `respond-state-{N}.md` after each phase transition. The hook injection en
 
 Both `respond-state-{N}.md` and `respond-decisions-{N}.md` are removed in step 10 (cleanup).
 
+### Cross-Round Persistence: `own-rejections-{N}.md`
+
+Only used in `--own` mode. This file is **long-lived** — it survives across `review --own` / `respond --own` rounds and is removed only by `/flowyeah:review finalize {N}`. Its purpose: record findings the author rejected with reasoning so the next round's review agents do not re-flag the same concerns.
+
+Path: `.flowyeah/own-rejections-{N}.md` (at the main checkout, never inside a worktree).
+
+Schema:
+
+```markdown
+# Previously Rejected Findings (PR #{N})
+
+## Rejection 1
+- File: app/services/foo.rb:42
+- Label: issue
+- Subject: Missing null check on user.email
+- Rejected at: 2026-05-04T15:30:00Z
+- Reasoning: |
+    Field is non-nullable at the DB level (see schema.rb).
+    The agent did not account for the migration in commit abc1234.
+
+## Rejection 2
+- File: (general)
+- Label: suggestion
+- Subject: Extract validation into a service object
+- Rejected at: 2026-05-04T18:12:00Z
+- Reasoning: |
+    YAGNI — single call site, premature abstraction.
+```
+
+**Field semantics:**
+
+| Field | Required | Source |
+|-------|----------|--------|
+| `File:` | yes | Copied from the matching entry in `respond-decisions-{N}.md`. Use `(general)` for findings without `file:line`. |
+| `Label:` | yes | Conventional Comments label from the original finding, with decorations preserved (e.g., `issue (blocking)`, `suggestion (non-blocking)`). Mirrors the format used in `review-approved-{N}.md` and `respond-decisions-{N}.md`. |
+| `Subject:` | yes | The first non-empty line of the original finding body, stripped of label prefix. Used as the dedup key together with `File:`. |
+| `Rejected at:` | yes | ISO 8601 UTC timestamp at the moment cleanup ran. |
+| `Reasoning:` | yes | Multi-line block (literal `|` YAML scalar). Copied from the `Final critique:` block of the matching `respond-decisions-{N}.md` entry — specifically the `Reasoning:` sub-field. If the user rejected without discussion, the round-1 critique reasoning is what lands here. |
+
+**Dedup key:** `(File, Subject)`. Two entries with the same key must not coexist; the later write replaces the earlier one (and updates `Rejected at:`).
+
+**Lifecycle:** `own-rejections-{N}.md` is written by `respond --own` step 10, read by `review --own` step 2.8, and removed by `review finalize {N}`.
+Specifically, `own-rejections-{N}.md` is NOT removed by `respond --own` cleanup — only `respond-decisions-{N}.md` and `respond-state-{N}.md` are.
+
 ## Steps
 
 ### 0. Validate Configuration
