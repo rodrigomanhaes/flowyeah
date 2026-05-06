@@ -73,6 +73,17 @@ assert_exit_zero() {
     fi
 }
 
+assert_exit_eq() {
+    local label="$1" expected="$2" actual="$3"
+    TOTAL=$((TOTAL + 1))
+    if [ "$actual" -eq "$expected" ]; then
+        PASS=$((PASS + 1))
+    else
+        FAIL=$((FAIL + 1))
+        echo "FAIL: $label (expected exit $expected, got $actual)"
+    fi
+}
+
 # ── session-remind.sh tests ─────────────────────────────
 
 echo "=== session-remind.sh ==="
@@ -863,6 +874,178 @@ echo -e "# Current State\nPR/MR: 55" > .flowyeah/respond-state-55.md
 OUTPUT=$(bash "$SCRIPT_DIR/session-remind.sh" 2>&1)
 assert_output_contains "remind: outputs reminder with respond session" "Update respond-state-55.md" "$OUTPUT"
 teardown
+
+# ── review-tree-guard.sh tests ─────────────────────────
+
+echo ""
+echo "=== review-tree-guard.sh ==="
+
+if ! command -v jq >/dev/null 2>&1; then
+    echo "skipped (jq not installed)"
+else
+    GUARD="$SCRIPT_DIR/review-tree-guard.sh"
+    GUARD_RC=0
+    GUARD_OUT=""
+
+    # Invoke the hook with a synthetic Bash tool payload. Sets GUARD_RC and
+    # GUARD_OUT (combined stdout+stderr). Tolerates non-zero exits under set -e.
+    guard_run() {
+        local payload
+        payload=$(jq -n --arg c "$1" --arg w "$2" \
+            '{tool_name:"Bash", tool_input:{command:$c}, cwd:$w}')
+        GUARD_RC=0
+        GUARD_OUT=$(printf '%s' "$payload" | bash "$GUARD" 2>&1) || GUARD_RC=$?
+    }
+
+    # ── Active review session in primary checkout: mutating commands blocked ──
+
+    setup_repo
+    touch flowyeah.yml
+    mkdir -p .flowyeah
+    cat > .flowyeah/review-state-42.md <<'EOF'
+Type: review
+PR/MR: 42
+Branch: main
+Phase: Running Agents
+Worktree: none
+EOF
+
+    guard_run "git checkout pr-branch -- ." "$TMPDIR"
+    assert_exit_eq "guard: blocks git checkout in primary" 2 "$GUARD_RC"
+    assert_output_contains "guard: block message names PR" "PR/MR #42" "$GUARD_OUT"
+    assert_output_contains "guard: block message names branch" "branch: main" "$GUARD_OUT"
+    assert_output_contains "guard: block message points at finalize" "/flowyeah:review finalize 42" "$GUARD_OUT"
+
+    guard_run "git reset --hard HEAD~1" "$TMPDIR"
+    assert_exit_eq "guard: blocks git reset --hard" 2 "$GUARD_RC"
+
+    guard_run "cd somewhere && git switch other" "$TMPDIR"
+    assert_exit_eq "guard: blocks chained git switch" 2 "$GUARD_RC"
+
+    guard_run "git stash" "$TMPDIR"
+    assert_exit_eq "guard: blocks git stash" 2 "$GUARD_RC"
+
+    guard_run "git restore ." "$TMPDIR"
+    assert_exit_eq "guard: blocks git restore" 2 "$GUARD_RC"
+
+    guard_run "git apply patch.diff" "$TMPDIR"
+    assert_exit_eq "guard: blocks git apply" 2 "$GUARD_RC"
+
+    guard_run "git rebase main" "$TMPDIR"
+    assert_exit_eq "guard: blocks git rebase" 2 "$GUARD_RC"
+
+    guard_run "git pull" "$TMPDIR"
+    assert_exit_eq "guard: blocks git pull" 2 "$GUARD_RC"
+
+    guard_run "git clean -fd" "$TMPDIR"
+    assert_exit_eq "guard: blocks git clean" 2 "$GUARD_RC"
+
+    # ── Active review session: read-only and unrelated commands allowed ──
+
+    guard_run "git fetch origin" "$TMPDIR"
+    assert_exit_eq "guard: allows git fetch" 0 "$GUARD_RC"
+
+    guard_run "git show abc123:path/file.rb" "$TMPDIR"
+    assert_exit_eq "guard: allows git show" 0 "$GUARD_RC"
+
+    guard_run "git blame abc123 -- path/file.rb" "$TMPDIR"
+    assert_exit_eq "guard: allows git blame" 0 "$GUARD_RC"
+
+    guard_run "gh pr diff 42" "$TMPDIR"
+    assert_exit_eq "guard: allows gh pr diff" 0 "$GUARD_RC"
+
+    guard_run "ls -la" "$TMPDIR"
+    assert_exit_eq "guard: allows ls" 0 "$GUARD_RC"
+
+    guard_run "git log --oneline -10 path/file.rb" "$TMPDIR"
+    assert_exit_eq "guard: allows git log" 0 "$GUARD_RC"
+
+    # False-positive guard: 'gitlab-checkout' is not 'git checkout'.
+    guard_run "echo gitlab-checkout-notify" "$TMPDIR"
+    assert_exit_eq "guard: allows non-git-verb substring" 0 "$GUARD_RC"
+
+    # ── Allowed: cwd inside the review worktree (mutation is sanctioned there) ──
+
+    git -C "$TMPDIR" config --local user.email test@example.com
+    git -C "$TMPDIR" config --local user.name test
+    git -C "$TMPDIR" worktree add -q --detach .flowyeah/review-worktrees/42
+
+    guard_run "git checkout other -- ." "$TMPDIR/.flowyeah/review-worktrees/42"
+    assert_exit_eq "guard: allows mutation inside review worktree" 0 "$GUARD_RC"
+
+    guard_run "git reset --hard" "$TMPDIR/.flowyeah/review-worktrees/42"
+    assert_exit_eq "guard: allows reset inside review worktree" 0 "$GUARD_RC"
+
+    # ── Allowed: cwd inside a build worktree (review hook does not interfere) ──
+
+    git -C "$TMPDIR" worktree add -q --detach .flowyeah/worktrees/build-thing
+
+    guard_run "git checkout other -- ." "$TMPDIR/.flowyeah/worktrees/build-thing"
+    assert_exit_eq "guard: allows mutation inside build worktree" 0 "$GUARD_RC"
+
+    git -C "$TMPDIR" worktree remove --force .flowyeah/review-worktrees/42 2>/dev/null || true
+    git -C "$TMPDIR" worktree remove --force .flowyeah/worktrees/build-thing 2>/dev/null || true
+    teardown
+
+    # ── Allowed: review session exists but for a different branch ──
+
+    setup_repo
+    touch flowyeah.yml
+    mkdir -p .flowyeah
+    cat > .flowyeah/review-state-99.md <<'EOF'
+Type: review
+PR/MR: 99
+Branch: feat-other
+Phase: Running Agents
+EOF
+    guard_run "git reset --hard" "$TMPDIR"
+    assert_exit_eq "guard: allows when branch does not match" 0 "$GUARD_RC"
+    teardown
+
+    # ── Allowed: no review session at all ──
+
+    setup_repo
+    touch flowyeah.yml
+    guard_run "git reset --hard" "$TMPDIR"
+    assert_exit_eq "guard: allows when no review session exists" 0 "$GUARD_RC"
+    teardown
+
+    # ── Allowed: not a flowyeah project ──
+
+    setup_repo
+    guard_run "git reset --hard" "$TMPDIR"
+    assert_exit_eq "guard: allows in non-flowyeah project" 0 "$GUARD_RC"
+    teardown
+
+    # ── Allowed: non-Bash tool calls ──
+
+    setup_repo
+    touch flowyeah.yml
+    mkdir -p .flowyeah
+    cat > .flowyeah/review-state-42.md <<'EOF'
+Type: review
+PR/MR: 42
+Branch: main
+EOF
+    NON_BASH_PAYLOAD=$(jq -n --arg w "$TMPDIR" \
+        '{tool_name:"Read", tool_input:{file_path:"foo"}, cwd:$w}')
+    NON_BASH_RC=0
+    NON_BASH_OUT=$(printf '%s' "$NON_BASH_PAYLOAD" | bash "$GUARD" 2>&1) || NON_BASH_RC=$?
+    assert_exit_eq "guard: ignores non-Bash tool calls" 0 "$NON_BASH_RC"
+    assert_empty "guard: silent on non-Bash tool calls" "$NON_BASH_OUT"
+
+    # Empty payload → must allow, not crash.
+    EMPTY_RC=0
+    EMPTY_OUT=$(printf '' | bash "$GUARD" 2>&1) || EMPTY_RC=$?
+    assert_exit_eq "guard: allows on empty stdin" 0 "$EMPTY_RC"
+
+    # Malformed JSON → must allow, not crash.
+    GARBAGE_RC=0
+    GARBAGE_OUT=$(printf 'not json' | bash "$GUARD" 2>&1) || GARBAGE_RC=$?
+    assert_exit_eq "guard: allows on malformed JSON" 0 "$GARBAGE_RC"
+
+    teardown
+fi
 
 # ── Results ──────────────────────────────────────────────
 

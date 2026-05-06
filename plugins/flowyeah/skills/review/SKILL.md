@@ -12,6 +12,23 @@ flowyeah:review [--own] [<number>]
 flowyeah:review finalize [<number>]
 ```
 
+## Invariant: Primary Checkout Is Untouched
+
+The review pipeline must not mutate the working tree, the index, or HEAD of the checkout it was invoked from (the "primary checkout"). Forbidden in that checkout, at every phase: `git checkout`, `git restore`, `git switch`, `git reset`, `git apply`, `git am`, `git merge`, `git rebase`, `git pull`, `git stash`, `git clean`, and any form like `git checkout <ref> -- <path>` that overwrites tracked files. `git fetch` (refs only, no working-tree side effects) is allowed.
+
+Default to read-only commands when gathering context — they cover the great majority of needs:
+
+| Need | Command |
+|------|---------|
+| PR diff, file list, commits | Review adapter API (`gh pr diff <N>`, GitLab diff endpoint) |
+| File content at any SHA | `git show <sha>:<file>` |
+| Per-line authorship at a SHA | `git blame <sha> -- <file>` |
+| File history | `git log --oneline -10 <file>` |
+
+When deeper inspection is genuinely justified — running code at PR HEAD, applying a candidate patch to verify behavior, full-tree LSP/recursive-grep navigation against materialized files — create a dedicated review worktree at `.flowyeah/review-worktrees/{N}/`, perform the work there, and remove it before the session terminates. The worktree path is recorded in `Worktree:` inside `review-state-{N}.md` so `finalize` and crash recovery can clean it up unconditionally. The review worktree is **separate** from build worktrees at `.flowyeah/worktrees/` — never reuse a build worktree, and `finalize` for review must never touch build worktrees.
+
+If a step appears to require a primary-checkout mutation, STOP and ask Rodrigo — the skill is wrong, not your judgment.
+
 ## Argument Parsing
 
 If the first positional argument is `finalize`, the second positional (if present) is the PR number to finalize; otherwise, auto-detect from current branch. For non-finalize invocations, treat the positional as a PR number. The `--own` flag can appear in any position. `finalize` ignores `--own` — it operates on whatever active review session exists regardless of mode.
@@ -85,9 +102,12 @@ Branch: <source_branch>
 Platform: <adapter>
 Findings: <count> total, <approved> approved
 Phase: <current_phase>
+Worktree: <relative path under .flowyeah/review-worktrees/{N}/ or "none">
 ```
 
 `Mode` is absent for normal reviews. The hook does not interpret this field — it dumps the state file as raw text. The skill's crash recovery logic reads `Mode` to decide which path to follow on resume.
+
+`Worktree` defaults to `none`. When the skill creates a review worktree (see "Invariant: Primary Checkout Is Untouched"), update this field to the path immediately and clear it back to `none` once the worktree is removed. The hook injects this field as-is on every prompt so context recovery can verify worktree state.
 
 **Valid `Phase` values** (map to steps, used for crash recovery):
 
@@ -141,6 +161,14 @@ If a review session is interrupted (compaction, crash, user abort):
 5. If the review was already submitted, clean up both state files
 6. The user can also run `/review finalize` at any time to abandon the review and clean up state files
 
+**Worktree reconciliation on resume.** If `Worktree:` in the recovered state is not `none`, run `git worktree list --porcelain` and check the recorded path:
+- Path registered AND directory exists → reuse it
+- Path registered but directory missing → run `git worktree prune`, then recreate or set `Worktree: none`
+- Path unregistered but directory exists (orphaned) → `rm -rf` the directory and set `Worktree: none`
+- Path is neither registered nor present → set `Worktree: none`
+
+Never assume a recovered worktree is in the same state it was left in. Treat it as scratch.
+
 #### Crash Recovery with `Mode: own`
 
 When `Mode` is absent, the logic above applies unchanged (resume from recorded phase, proceed through steps 6-7).
@@ -154,7 +182,7 @@ When resuming a session with `Mode: own`:
 
 ### 0. Validate Configuration
 
-**Worktree guard:** if the current working directory is inside a flowyeah build worktree (`git rev-parse --show-toplevel` contains `.flowyeah/worktrees/`), **STOP.** Reviews must run from the main checkout — review session files (`.flowyeah/review-state-{N}.md`) belong to the main checkout, not to build worktrees.
+**Worktree guard:** if the current working directory is inside a flowyeah build worktree (`git rev-parse --show-toplevel` contains `.flowyeah/worktrees/`) or inside another review's dedicated worktree (`.flowyeah/review-worktrees/`), **STOP.** Reviews must be invoked from the primary checkout — review session files (`.flowyeah/review-state-{N}.md`) belong to the primary checkout, not to any worktree. Once invoked, the pipeline may itself create a worktree under `.flowyeah/review-worktrees/{N}/` for justified inspection (see "Invariant: Primary Checkout Is Untouched").
 
 Before starting the review, validate the loaded `flowyeah.yml`:
 
@@ -188,14 +216,14 @@ Fetch issue details using the appropriate source adapter (load `adapters/<source
 
 ### 2. Gather Context
 
-Collect in parallel:
+Collect in parallel. **All commands here are read-only against the primary checkout** — no `checkout`, no `restore`, no `switch`. See "Invariant: Primary Checkout Is Untouched" if a step seems to require materializing files at a different ref.
 
-1. **PR/MR diff** — via review adapter
-2. **Files changed** — via review adapter
+1. **PR/MR diff** — via review adapter (`gh pr diff <N>` for GitHub, GitLab diff endpoint). Do NOT reconstruct via `git diff <base>...<head>` after a checkout.
+2. **Files changed** — via review adapter. New-side file content, when needed beyond what the diff shows, comes from `git show <head_sha>:<file>` (read-only) — do not check out the PR branch into the primary checkout.
 3. **Commit messages** — via review adapter
 4. **CLAUDE.md files** — find all: global (`~/.claude/CLAUDE.md`), project root, `.claude/CLAUDE.md`, `.claude/standards/*.md`
 5. **Git history** — for each changed file: `git log --oneline -10 <file>`
-6. **Git blame** — for changed lines, run `git blame` on the base branch version to understand original intent and authorship
+6. **Git blame** — for changed lines, run `git blame <base_sha> -- <file>` against the base SHA reported by the adapter. Do NOT check out the base branch.
 7. **Previous PR/MR feedback** — search recent merged PRs/MRs that touched the same files, collect review comments (via review adapter). Look for recurring themes — if a reviewer flagged the same pattern before, it's worth flagging again
 8. **Previous review findings** — via review adapter's `Fetch Own Discussions`. Fetch all discussions/review comments authored by the authenticated user on this MR/PR. Parse Conventional Comments format to extract structured findings. If none found (first review), skip previous-review logic entirely
 9. **Other reviewers' open threads** — via review adapter, fetch all open (unresolved) review threads on the current PR/MR from other reviewers. For each thread, note: author, file:line, concern raised. Use these to avoid duplicating what others already flagged and to identify opportunities to complement their feedback (e.g., adding technical context, confirming a concern, or expanding on a suggestion)
@@ -493,7 +521,7 @@ Ask for final confirmation before posting.
 
 This differs from `COMMENT` and `REQUEST CHANGES`, where all findings (including praise) are posted as inline comments. The review adapter's event documentation has the details.
 
-After posting (or if the user discards), remove `.flowyeah/review-state-{N}.md` and `.flowyeah/review-approved-{N}.md` to end the session. **Do not** remove `.flowyeah/own-rejections-{N}.md` here — that file persists until the user explicitly runs `/flowyeah:review finalize {N}` (a normal-mode submitted review is unrelated to the `--own` rejection ledger).
+After posting (or if the user discards), remove `.flowyeah/review-state-{N}.md` and `.flowyeah/review-approved-{N}.md` to end the session. If `Worktree:` is set in the state file, also run `git worktree remove --force <path>` and `rm -rf` the directory if anything remains. **Do not** remove `.flowyeah/own-rejections-{N}.md` here — that file persists until the user explicitly runs `/flowyeah:review finalize {N}` (a normal-mode submitted review is unrelated to the `--own` rejection ledger).
 
 ### `finalize` Subcommand
 
@@ -513,9 +541,11 @@ flowyeah:review finalize [<number>]
 5. Multiple matches → list and ask
 
 After resolving the target:
-1. Read the state file. Display: PR number, findings count, mode.
-2. Delete `review-state-{N}.md`, `review-approved-{N}.md` (if present), and `own-rejections-{N}.md` (if present).
-3. Report: "Review session finalized."
+1. Read the state file. Display: PR number, findings count, mode, worktree path (if any).
+2. If `Worktree:` is set and not `none`: run `git worktree remove --force <path>`, then `rm -rf <path>` if the directory still exists. Report any failure but proceed with the remaining cleanup — the state file deletion must not be blocked by a stuck worktree.
+3. Delete `review-state-{N}.md`, `review-approved-{N}.md` (if present), and `own-rejections-{N}.md` (if present).
+4. Never touch anything under `.flowyeah/worktrees/` — those belong to build sessions, not to review.
+5. Report: "Review session finalized."
 
 No confirmation prompt — the explicit `finalize` command is sufficient intent.
 
@@ -588,3 +618,4 @@ Review comments are written in the language configured in `language`. Default: `
 - Skip the review type question
 - Submit a review without inline comments (when there are approved findings with file:line)
 - Put findings in the review body instead of as inline comments. Every finding is a stop-point for the reviewed developer — it must create an open thread they need to resolve. The review body is a summary layer only.
+- Mutate the working tree, index, or HEAD of the primary checkout at any phase, including context gathering. Use `.flowyeah/review-worktrees/{N}/` for any necessary mutation (see "Invariant: Primary Checkout Is Untouched"). The pre-tool-use hook `review-tree-guard.sh` enforces this — if it blocks a command, do not retry, escalate, or work around it; either move the work into the review worktree or stop and ask Rodrigo.
