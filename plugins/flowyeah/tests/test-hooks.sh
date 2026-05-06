@@ -875,15 +875,15 @@ OUTPUT=$(bash "$SCRIPT_DIR/session-remind.sh" 2>&1)
 assert_output_contains "remind: outputs reminder with respond session" "Update respond-state-55.md" "$OUTPUT"
 teardown
 
-# ── review-tree-guard.sh tests ─────────────────────────
+# ── tree-guard.sh tests ────────────────────────────────
 
 echo ""
-echo "=== review-tree-guard.sh ==="
+echo "=== tree-guard.sh ==="
 
 if ! command -v jq >/dev/null 2>&1; then
     echo "skipped (jq not installed)"
 else
-    GUARD="$SCRIPT_DIR/review-tree-guard.sh"
+    GUARD="$SCRIPT_DIR/tree-guard.sh"
     GUARD_RC=0
     GUARD_OUT=""
 
@@ -1044,6 +1044,88 @@ EOF
     GARBAGE_OUT=$(printf 'not json' | bash "$GUARD" 2>&1) || GARBAGE_RC=$?
     assert_exit_eq "guard: allows on malformed JSON" 0 "$GARBAGE_RC"
 
+    teardown
+
+    # ── Active respond session: same blocking rules as review ──
+
+    setup_repo
+    touch flowyeah.yml
+    mkdir -p .flowyeah
+    cat > .flowyeah/respond-state-77.md <<'EOF'
+Type: respond
+PR/MR: 77
+Branch: main
+Phase: Implementing
+Worktree: none
+EOF
+
+    guard_run "git checkout other -- ." "$TMPDIR"
+    assert_exit_eq "guard respond: blocks git checkout in primary" 2 "$GUARD_RC"
+    assert_output_contains "guard respond: block message names session type" "respond session" "$GUARD_OUT"
+    assert_output_contains "guard respond: block message names PR" "PR/MR #77" "$GUARD_OUT"
+    assert_output_contains "guard respond: block message points at worktree" ".flowyeah/worktrees/main/" "$GUARD_OUT"
+    assert_output_contains "guard respond: block message has abort hint" "respond-state-77.md" "$GUARD_OUT"
+
+    guard_run "git reset --hard" "$TMPDIR"
+    assert_exit_eq "guard respond: blocks git reset" 2 "$GUARD_RC"
+
+    guard_run "git stash" "$TMPDIR"
+    assert_exit_eq "guard respond: blocks git stash" 2 "$GUARD_RC"
+
+    # Read-only commands still pass during respond.
+    guard_run "git fetch origin" "$TMPDIR"
+    assert_exit_eq "guard respond: allows git fetch" 0 "$GUARD_RC"
+
+    guard_run "gh api repos/foo/bar/pulls/77/comments" "$TMPDIR"
+    assert_exit_eq "guard respond: allows gh api" 0 "$GUARD_RC"
+
+    # Inside the respond worktree (built by step 5), mutations are sanctioned.
+    git -C "$TMPDIR" config --local user.email test@example.com
+    git -C "$TMPDIR" config --local user.name test
+    git -C "$TMPDIR" worktree add -q --detach .flowyeah/worktrees/main
+
+    guard_run "git checkout other -- ." "$TMPDIR/.flowyeah/worktrees/main"
+    assert_exit_eq "guard respond: allows mutation inside respond worktree" 0 "$GUARD_RC"
+
+    git -C "$TMPDIR" worktree remove --force .flowyeah/worktrees/main 2>/dev/null || true
+    teardown
+
+    # ── Respond session for a different branch is ignored ──
+
+    setup_repo
+    touch flowyeah.yml
+    mkdir -p .flowyeah
+    cat > .flowyeah/respond-state-77.md <<'EOF'
+Type: respond
+PR/MR: 77
+Branch: feat-other
+Phase: Implementing
+EOF
+    guard_run "git reset --hard" "$TMPDIR"
+    assert_exit_eq "guard respond: allows when branch does not match" 0 "$GUARD_RC"
+    teardown
+
+    # ── Both review and respond active for the same branch: review wins (consistent message) ──
+
+    setup_repo
+    touch flowyeah.yml
+    mkdir -p .flowyeah
+    cat > .flowyeah/review-state-42.md <<'EOF'
+Type: review
+PR/MR: 42
+Branch: main
+Phase: Running Agents
+EOF
+    cat > .flowyeah/respond-state-42.md <<'EOF'
+Type: respond
+PR/MR: 42
+Branch: main
+Phase: Implementing
+EOF
+    guard_run "git checkout other -- ." "$TMPDIR"
+    assert_exit_eq "guard both: blocks (review takes precedence)" 2 "$GUARD_RC"
+    assert_output_contains "guard both: message names review session" "review session" "$GUARD_OUT"
+    assert_output_contains "guard both: message points at review worktree path" ".flowyeah/review-worktrees/42/" "$GUARD_OUT"
     teardown
 fi
 
