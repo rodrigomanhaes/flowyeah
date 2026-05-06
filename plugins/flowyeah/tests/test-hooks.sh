@@ -1127,6 +1127,86 @@ EOF
     assert_output_contains "guard both: message names review session" "review session" "$GUARD_OUT"
     assert_output_contains "guard both: message points at review worktree path" ".flowyeah/review-worktrees/42/" "$GUARD_OUT"
     teardown
+
+    # ── Active build session: blocks primary mutations regardless of branch ──
+
+    setup_repo
+    touch flowyeah.yml
+    mkdir -p .flowyeah/worktrees/feat-5588/.flowyeah
+    cat > .flowyeah/worktrees/feat-5588/.flowyeah/state.md <<'EOF'
+# Current State
+
+Type: build
+Status: Implementing
+Step: 4
+Task: Webhook retry
+Worktree: .flowyeah/worktrees/feat-5588
+EOF
+
+    guard_run "git checkout other -- ." "$TMPDIR"
+    assert_exit_eq "guard build: blocks git checkout in primary" 2 "$GUARD_RC"
+    assert_output_contains "guard build: block message names build session" "build session" "$GUARD_OUT"
+    assert_output_contains "guard build: block message names worktree" "feat-5588" "$GUARD_OUT"
+    assert_output_contains "guard build: block message points at worktree path" ".flowyeah/worktrees/feat-5588/" "$GUARD_OUT"
+    assert_output_contains "guard build: block message has status clean hint" "/flowyeah:status clean" "$GUARD_OUT"
+
+    guard_run "git reset --hard" "$TMPDIR"
+    assert_exit_eq "guard build: blocks git reset" 2 "$GUARD_RC"
+
+    guard_run "git stash" "$TMPDIR"
+    assert_exit_eq "guard build: blocks git stash" 2 "$GUARD_RC"
+
+    # Read-only commands and unrelated commands still allowed.
+    guard_run "git fetch origin" "$TMPDIR"
+    assert_exit_eq "guard build: allows git fetch" 0 "$GUARD_RC"
+
+    guard_run "git log --oneline -10" "$TMPDIR"
+    assert_exit_eq "guard build: allows git log" 0 "$GUARD_RC"
+
+    teardown
+
+    # ── Worktree directory exists but no state.md inside (stale layout) → no active session ──
+
+    setup_repo
+    touch flowyeah.yml
+    mkdir -p .flowyeah/worktrees/feat-old/.flowyeah
+    # No state.md inside .flowyeah/ — session was cleaned up.
+    guard_run "git reset --hard" "$TMPDIR"
+    assert_exit_eq "guard build: allows when worktree exists but no state.md" 0 "$GUARD_RC"
+    teardown
+
+    # ── Multiple build sessions active: blocks, names one of them ──
+
+    setup_repo
+    touch flowyeah.yml
+    mkdir -p .flowyeah/worktrees/feat-A/.flowyeah
+    mkdir -p .flowyeah/worktrees/feat-B/.flowyeah
+    echo "Type: build" > .flowyeah/worktrees/feat-A/.flowyeah/state.md
+    echo "Type: build" > .flowyeah/worktrees/feat-B/.flowyeah/state.md
+
+    guard_run "git checkout other" "$TMPDIR"
+    assert_exit_eq "guard build multi: blocks" 2 "$GUARD_RC"
+    assert_output_contains "guard build multi: message names a build session" "build session" "$GUARD_OUT"
+    teardown
+
+    # ── Review (matched by branch) takes precedence over a concurrent build session ──
+
+    setup_repo
+    touch flowyeah.yml
+    mkdir -p .flowyeah .flowyeah/worktrees/feat-A/.flowyeah
+    cat > .flowyeah/review-state-42.md <<'EOF'
+Type: review
+PR/MR: 42
+Branch: main
+Phase: Running Agents
+EOF
+    echo "Type: build" > .flowyeah/worktrees/feat-A/.flowyeah/state.md
+
+    guard_run "git checkout other -- ." "$TMPDIR"
+    assert_exit_eq "guard build+review: blocks" 2 "$GUARD_RC"
+    assert_output_contains "guard build+review: review wins" "review session" "$GUARD_OUT"
+    assert_output_contains "guard build+review: review PR named" "PR/MR #42" "$GUARD_OUT"
+    teardown
 fi
 
 # ── Results ──────────────────────────────────────────────
