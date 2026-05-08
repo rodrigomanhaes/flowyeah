@@ -362,7 +362,7 @@ assert_output_contains "inject coexist: shows build session" "Active session fou
 assert_output_contains "inject coexist: shows build state" "Webhook retry" "$OUTPUT"
 teardown
 
-# Test: branch match injects correct review (only matching branch)
+# Test: multiple concurrent review sessions both surface (PR-labeled headers)
 setup_repo
 touch flowyeah.yml
 mkdir -p .flowyeah
@@ -383,11 +383,13 @@ PR/MR: 55
 Branch: feat-payment
 EOF
 OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
-assert_output_contains "inject review branch match: shows matching PR" "PR/MR: 42" "$OUTPUT"
-assert_output_not_contains "inject review branch match: hides non-matching PR" "PR/MR: 55" "$OUTPUT"
+assert_output_contains "inject review multi: shows first PR" "PR/MR: 42" "$OUTPUT"
+assert_output_contains "inject review multi: shows second PR" "PR/MR: 55" "$OUTPUT"
+assert_output_contains "inject review multi: header labels first PR" "flowyeah:review session (PR #42, branch main)" "$OUTPUT"
+assert_output_contains "inject review multi: header labels second PR" "flowyeah:review session (PR #55, branch feat-payment)" "$OUTPUT"
 teardown
 
-# Test: no branch match stays silent for reviews
+# Test: review session surfaces even when current branch differs (no branch filter)
 setup_repo
 touch flowyeah.yml
 mkdir -p .flowyeah
@@ -400,10 +402,13 @@ PR/MR: 42
 Branch: feat-payment
 EOF
 OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
-assert_output_not_contains "inject review no match: no review session" "flowyeah:review session" "$OUTPUT"
+assert_output_contains "inject review no branch match: shows session anyway" "flowyeah:review session" "$OUTPUT"
+assert_output_contains "inject review no branch match: header shows PR and branch" "(PR #42, branch feat-payment)" "$OUTPUT"
 teardown
 
-# Test: approved findings follow their state file by PR number
+# Test: approved findings are paired with their state file by PR number
+# Both sessions surface, but each state's APPROVED FINDINGS block must come from
+# the matching review-approved-{N}.md file — not crossed.
 setup_repo
 touch flowyeah.yml
 mkdir -p .flowyeah
@@ -439,11 +444,15 @@ cat > .flowyeah/review-approved-55.md <<'EOF'
 - Label: suggestion (non-blocking)
 EOF
 OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
-assert_output_contains "inject review approved match: shows PR 42 findings" "app/models/payment.rb:42" "$OUTPUT"
-assert_output_not_contains "inject review approved match: hides PR 55 findings" "app/controllers/api.rb:10" "$OUTPUT"
+assert_output_contains "inject review approved pairing: shows PR 42 findings" "app/models/payment.rb:42" "$OUTPUT"
+assert_output_contains "inject review approved pairing: shows PR 55 findings" "app/controllers/api.rb:10" "$OUTPUT"
+# Pairing: PR 42's findings appear between its header and the next session separator
+PR42_BLOCK=$(awk '/flowyeah:review session \(PR #42/,/──────────────────────────────────────────────/' <<< "$OUTPUT")
+assert_output_contains "inject review approved pairing: PR 42 block carries its findings" "app/models/payment.rb:42" "$PR42_BLOCK"
+assert_output_not_contains "inject review approved pairing: PR 42 block does not carry PR 55 findings" "app/controllers/api.rb:10" "$PR42_BLOCK"
 teardown
 
-# Test: detached HEAD skips review injection
+# Test: detached HEAD still injects review session (no branch filter)
 setup_repo
 touch flowyeah.yml
 git add flowyeah.yml && git commit -q -m "add config"
@@ -458,7 +467,8 @@ PR/MR: 42
 Branch: main
 EOF
 OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
-assert_output_not_contains "inject review detached HEAD: no review session" "flowyeah:review session" "$OUTPUT"
+assert_output_contains "inject review detached HEAD: still shows review session" "flowyeah:review session" "$OUTPUT"
+assert_output_contains "inject review detached HEAD: header has PR label" "(PR #42, branch main)" "$OUTPUT"
 teardown
 
 # Test: defaults to build when Type is missing
@@ -864,6 +874,8 @@ assert_output_contains "inject respond multi: shows first PR" "PR/MR: 55" "$OUTP
 assert_output_contains "inject respond multi: shows second PR" "PR/MR: 77" "$OUTPUT"
 assert_output_contains "inject respond multi: shows first branch" "feat-payment" "$OUTPUT"
 assert_output_contains "inject respond multi: shows second branch" "fix-auth" "$OUTPUT"
+assert_output_contains "inject respond multi: header labels first PR" "flowyeah:respond session (PR #55, branch feat-payment)" "$OUTPUT"
+assert_output_contains "inject respond multi: header labels second PR" "flowyeah:respond session (PR #77, branch fix-auth)" "$OUTPUT"
 teardown
 
 # Test: session-remind.sh outputs reminder for respond session

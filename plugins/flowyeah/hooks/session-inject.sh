@@ -9,62 +9,68 @@ TOPLEVEL=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
 # Only run in projects that use flowyeah
 [ -f "$TOPLEVEL/flowyeah.yml" ] || exit 0
 
-# ── Review session (namespaced by PR number, matched by branch) ──
-CURRENT_BRANCH=$(git branch --show-current 2>/dev/null)
-if [ -n "$CURRENT_BRANCH" ]; then
-    shopt -s nullglob
-    REVIEW_STATE_FILES=("$TOPLEVEL"/.flowyeah/review-state-*.md)
-    shopt -u nullglob
+# Build a "(PR #N, branch X)" suffix for a session header.
+# Args: $1 = state file, $2 = filename prefix (e.g., "review-state-")
+session_header_suffix() {
+    local state_file="$1" prefix="$2" number file_branch suffix
+    number="${state_file##*$prefix}"
+    number="${number%.md}"
+    file_branch=$(grep -m1 '^Branch:' "$state_file" 2>/dev/null | cut -d' ' -f2-)
+    suffix="(PR #${number}"
+    [ -n "$file_branch" ] && suffix="${suffix}, branch ${file_branch}"
+    suffix="${suffix})"
+    echo "$suffix"
+}
 
-    for state_file in "${REVIEW_STATE_FILES[@]}"; do
-        FILE_BRANCH=$(grep -m1 '^Branch:' "$state_file" 2>/dev/null | cut -d' ' -f2-)
-        if [ "$FILE_BRANCH" = "$CURRENT_BRANCH" ]; then
-            echo "───── flowyeah:review session ─────"
-            echo ""
-            echo "## STATE"
-            cat "$state_file"
-            echo ""
-
-            # Extract PR number from filename to find matching approved file
-            number="${state_file##*review-state-}"
-            number="${number%.md}"
-
-            if [ -f "$TOPLEVEL/.flowyeah/review-approved-${number}.md" ]; then
-                echo "## APPROVED FINDINGS"
-                grep -E '^## Finding |^- File:|^- Label:' "$TOPLEVEL/.flowyeah/review-approved-${number}.md" 2>/dev/null || echo "(no approved findings yet)"
-                echo ""
-            fi
-
-            if [ -f "$TOPLEVEL/.flowyeah/own-rejections-${number}.md" ]; then
-                REJ_COUNT=$(grep -c '^## Rejection ' "$TOPLEVEL/.flowyeah/own-rejections-${number}.md" 2>/dev/null || echo 0)
-                if [ "$REJ_COUNT" -gt 0 ]; then
-                    echo "Previously rejected: $REJ_COUNT (see .flowyeah/own-rejections-${number}.md for reasoning)"
-                    echo ""
-                fi
-            fi
-
-            echo "──────────────────────────────────────────────"
-            echo ""
-            break  # inject at most one review
-        fi
-    done
-fi
-
-# ── Respond session (namespaced by PR number) ──
+# ── Review sessions (one entry per active PR; PR-labeled headers) ──
 shopt -s nullglob
-RESPOND_STATE_FILES=("$TOPLEVEL"/.flowyeah/respond-state-*.md)
+REVIEW_STATE_FILES=("$TOPLEVEL"/.flowyeah/review-state-*.md)
 shopt -u nullglob
 
-for state_file in "${RESPOND_STATE_FILES[@]}"; do
-    echo "───── flowyeah:respond session ─────"
+for state_file in "${REVIEW_STATE_FILES[@]}"; do
+    number="${state_file##*review-state-}"
+    number="${number%.md}"
+    suffix=$(session_header_suffix "$state_file" "review-state-")
+
+    echo "───── flowyeah:review session ${suffix} ─────"
     echo ""
     echo "## STATE"
     cat "$state_file"
     echo ""
 
-    # Extract PR number from filename to find matching decisions file
+    if [ -f "$TOPLEVEL/.flowyeah/review-approved-${number}.md" ]; then
+        echo "## APPROVED FINDINGS"
+        grep -E '^## Finding |^- File:|^- Label:' "$TOPLEVEL/.flowyeah/review-approved-${number}.md" 2>/dev/null || echo "(no approved findings yet)"
+        echo ""
+    fi
+
+    if [ -f "$TOPLEVEL/.flowyeah/own-rejections-${number}.md" ]; then
+        REJ_COUNT=$(grep -c '^## Rejection ' "$TOPLEVEL/.flowyeah/own-rejections-${number}.md" 2>/dev/null || echo 0)
+        if [ "$REJ_COUNT" -gt 0 ]; then
+            echo "Previously rejected: $REJ_COUNT (see .flowyeah/own-rejections-${number}.md for reasoning)"
+            echo ""
+        fi
+    fi
+
+    echo "──────────────────────────────────────────────"
+    echo ""
+done
+
+# ── Respond sessions (one entry per active PR; PR-labeled headers) ──
+shopt -s nullglob
+RESPOND_STATE_FILES=("$TOPLEVEL"/.flowyeah/respond-state-*.md)
+shopt -u nullglob
+
+for state_file in "${RESPOND_STATE_FILES[@]}"; do
     number="${state_file##*respond-state-}"
     number="${number%.md}"
+    suffix=$(session_header_suffix "$state_file" "respond-state-")
+
+    echo "───── flowyeah:respond session ${suffix} ─────"
+    echo ""
+    echo "## STATE"
+    cat "$state_file"
+    echo ""
 
     if [ -f "$TOPLEVEL/.flowyeah/respond-decisions-${number}.md" ]; then
         echo "## TRIAGE DECISIONS"
