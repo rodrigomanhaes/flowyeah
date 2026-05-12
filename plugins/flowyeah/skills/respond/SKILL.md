@@ -53,6 +53,7 @@ digraph respond {
     validate [label="0. Validate Config\n(keys, adapters, auth)"];
     identify [label="1. Identify PR/MR"];
     fetch [label="2. Fetch Review Comments"];
+    praise_filter [label="2.5 Praise Filter" shape=diamond];
     evaluate [label="3. Evaluate Comments\n(via evaluation_skill)" style=dashed];
     triage [label="4. Interactive Triage"];
     worktree [label="5. Setup Worktree" shape=diamond];
@@ -62,7 +63,8 @@ digraph respond {
     rerequest [label="9. Re-request Review"];
     cleanup [label="10. Cleanup Worktree"];
 
-    validate -> identify -> fetch -> evaluate -> triage;
+    validate -> identify -> fetch -> praise_filter -> evaluate -> triage;
+    praise_filter -> push_reply [label="all praise\n(normal mode)" style=dashed];
     triage -> worktree [label="implement items"];
     triage -> push_reply [label="replies only\nskip 5-7"];
     worktree -> implement -> test -> push_reply;
@@ -295,7 +297,48 @@ Group comments by reviewer.
 
 If no unresolved comments found, report and exit cleanly.
 
+### 2.5 Praise Filter
+
+Conventional Comments items with label `praise` are not actionable feedback — they recognize good work. Routing them through the per-finding `[d]/[i]/[r]` triage adds friction without value, so they are auto-handled before evaluation.
+
+After step 2, partition the comment list into two groups:
+
+- **Praise** — Conventional Comments parse succeeded and `label == "praise"` (decorations such as `(non-blocking)` are ignored for matching).
+- **Actionable** — everything else: other labels, free-form text, or parse failures. Hedged positives without the `praise` label (e.g., "looks good?") stay actionable on purpose — they may be questions in disguise.
+
+For each praise item, upsert a decision into `.flowyeah/respond-decisions-{N}.md` with `Action: praise-ack`. Do not invoke `evaluation_skill` and do not surface these in step 4. Pass only the actionable group forward to step 3.
+
+**Schema — normal mode** (write a short `Reply:` in the language configured in `language`; the agent picks something context-appropriate, a one-line thanks is fine, echoing what the reviewer called out is better when it reads naturally):
+
+```markdown
+## Comment 4
+- Thread: <thread_id>
+- File: app/models/payment.rb:80
+- Action: praise-ack
+- Reply: Valeu! Esse refactor estava encostado há tempos.
+```
+
+**Schema — `--own` mode** (omit `Reply:` entirely — the synthetic thread has no platform-side reply target):
+
+```markdown
+## Finding 4
+- Thread: own-{N}-4
+- File: app/models/payment.rb:80
+- Action: praise-ack
+```
+
+**Downstream handling:**
+
+| Mode | Step 8 | Step 9 | Step 10 |
+|------|--------|--------|---------|
+| Normal | Post `Reply` to the thread, then resolve it. Reply-only action — counts toward the "replies only" path for re-request gating. | Treated like any reply-only thread. | No special handling. |
+| `--own` | Skipped — synthetic thread has no platform counterpart. | Skipped (whole step). | Not persisted to `own-rejections-{N}.md` (praise is not a rejection). |
+
+**Short-circuit:** if the actionable group is empty (every comment was praise), skip steps 3-7 entirely. In normal mode, go directly to step 8 to post the auto-thanks and resolve. In `--own` mode, report "Only praise — nothing to respond to." and skip to step 10.
+
 ### 3. Evaluate Comments
+
+Operates only on the actionable group from step 2.5 — praise has already been routed.
 
 **Skip if `code_review.evaluation_skill` is not configured** — present comments raw without recommendations in step 4.
 
@@ -318,7 +361,7 @@ The `[d]iscuss` option is still available — a discussion round may succeed whe
 
 ### 4. Interactive Triage (per-finding discussion loop)
 
-Present findings one at a time. For each, show the finding plus its round-1 critique (from step 3), then enter a loop until the user decides. No code is modified in this step — all decisions are recorded and implementation happens in batch during step 6.
+Present findings from the step 2.5 actionable group one at a time (praise-ack items are never triaged). For each, show the finding plus its round-1 critique (from step 3), then enter a loop until the user decides. No code is modified in this step — all decisions are recorded and implementation happens in batch during step 6.
 
 **MANDATORY: one finding per prompt.** Do not collapse multiple findings into a single review memo, table, or batch approval form. Each finding gets its own prompt with its own `[d]/[i]/[r]` action. Persist the decision, then advance to the next finding.
 
@@ -529,6 +572,7 @@ Run tests using `testing.command` and `testing.scope` from config. If tests fail
    - **Implemented:** describe what was done (e.g., "Fixed — added guard clause for nil `user.email`")
    - **Rejected:** provide technical reasoning (e.g., "Single implementation — applying YAGNI here. The factory pattern would add indirection without a second consumer.")
    - **Discuss:** post the user's reply text
+   - **Praise-ack (auto):** post the `Reply` recorded at step 2.5 verbatim — do not rewrite it here
 3. **Resolve each thread after replying**
 
 ### 9. Re-request Review
@@ -588,7 +632,7 @@ Do **not** remove the worktree — it's owned by `build`. Specifically:
 2. **Persist cross-round rejections:** read `.flowyeah/respond-decisions-{N}.md` and update `.flowyeah/own-rejections-{N}.md` per the rules below. Create the rejections file (with header `# Previously Rejected Findings (PR #{N})` and a single trailing blank line) if it does not exist. The rules:
    - For each `## Finding K` block in `respond-decisions-{N}.md` with `Action: reject` — upsert a `## Rejection M` block into `own-rejections-{N}.md`. The dedup key is `(File, Subject)`. If a matching entry exists, replace it: overwrite all fields (`File`, `Label`, `Subject`, `Reasoning`) with the new values derived from the matching `respond-decisions-{N}.md` entry, and set `Rejected at:` to the current timestamp. Otherwise append a new entry. `M` is the next available 1-based index after the highest existing `## Rejection` heading. (Indices are never reused after deletion; gaps in the sequence are expected and benign.) See the schema in the "Cross-Round Persistence" section above for field mapping.
    - For each `## Finding K` block with `Action: implement` — if a matching entry exists in `own-rejections-{N}.md` (same `File:` and `Subject:`), remove it. The user has overridden their previous rejection by choosing to fix the issue this round; the rejection no longer applies. If no match exists, do nothing.
-   - `Action: discuss` blocks (only present in normal mode) are ignored. Same for any other action value.
+   - `Action: discuss` blocks (only present in normal mode) and `Action: praise-ack` blocks are ignored — neither represents a rejection. Same for any other action value.
    - If after all updates `own-rejections-{N}.md` contains no `## Rejection ` headings (regardless of whether the `# Previously Rejected Findings` header line is present), delete the file. A header-only file is noise.
 3. **Remove the findings file:** `rm .flowyeah/review-approved-{N}.md` (findings are consumed).
 4. **Remove respond state files:** `rm .flowyeah/respond-state-{N}.md .flowyeah/respond-decisions-{N}.md`. Do **not** touch `own-rejections-{N}.md` here — it persists across rounds.
@@ -648,19 +692,22 @@ Thread replies are written in the language configured in `language` from `flowye
 After all steps complete (or on early exit), display a summary:
 
 ```
-Respond complete — N items (M implemented, K rejected, J discussed)
+Respond complete — N items (M implemented, K rejected, J discussed, P praise auto-acked)
   Code changes: yes/no | Tests: passed/skipped
   In --own mode: review round closed, Phase: Responded
   In normal mode: Re-request review: yes (2 reviewers) / no
 ```
+
+Omit the `P praise auto-acked` field when `P == 0`.
 
 ## Never
 
 - Push without running tests (when code was changed)
 - Reply to comments the user skipped
 - Resolve threads without replying first
-- Skip the triage step
+- Skip the triage step for actionable findings (praise-ack at step 2.5 is the only sanctioned exception)
 - Present findings as a batch summary, table, or triage memo — step 4 is one finding per prompt, single-letter action, persist, advance (see §4 anti-pattern)
+- Route a non-`praise` comment through the auto-ack path (free-form positives without a `praise` label go through normal triage)
 - Implement without user approval
 - Re-request review from `DISMISSED` reviewers (GitHub)
 - Re-request review from `APPROVED` reviewers when no code was changed (GitHub)
