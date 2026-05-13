@@ -460,6 +460,8 @@ When `issues.create_when_missing` is `ask`, you MUST split the question and the 
 
 When creating an issue, use the source adapter pointed to by `issues.adapter` to create it. Save the resulting Issue Linkage values (`Issue-Ref`, `Issue-Close`) to `state.md` — they will be used for the PR title and body in step 7.
 
+**External-resource creation is never a smoke test.** Any adapter call that creates an issue, MR, comment, or other external resource (here, step 7, step 8 hooks, any adapter write) writes to the real project and persists in its history. If the call fails with cryptic output, do NOT retry with a `Test`-like payload, switch endpoints, or fire another mutating request to isolate the problem — that creates garbage resources visible to the whole team. Verify connectivity with a read-only endpoint, then diagnose the failing write in place with verbose flags. See each adapter's `connection.md` → "Write Safety" for the concrete recipe.
+
 ### 7. Create PR/MR
 
 **When `On-Branch: true` is set in state.md**, check if a PR/MR already exists before creating one:
