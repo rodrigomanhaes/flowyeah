@@ -37,3 +37,13 @@ All endpoints in the source adapter are relative to this base.
 ## Detecting Bugsink
 
 Bugsink is detected from the source command prefix (`bugsink:12345`), not from the git remote.
+
+## Write Operations Safety
+
+The current Bugsink adapter is read-only — it fetches issue context for the build skill. If a future role adds write operations (resolving issues, posting comments, muting), follow the curl-based tactics documented in `../gitlab/connection.md` → "Write Safety":
+
+- Save response to per-session file (`$TMPDIR_FY/...`) before parsing.
+- Prefer `jq` over `python3`.
+- Treat parsing failure as state-unknown; verify before retrying.
+
+The transversal principle lives in `../_shared/write-safety.md`.

@@ -72,6 +72,8 @@ git remote get-url origin | grep -qi 'gitlab'
 
 Every write (POST/PUT/DELETE) against GitLab creates or alters a real resource in the project — issues, MRs, notes, labels — visible to the whole team and permanent in the project history. Follow these rules for all write operations in source, hosting, review, and respond adapters.
 
+**See also: `../_shared/write-safety.md`** for the transversal principle (parsing failure ≠ operation failure; verify before retry). The rules below implement that principle for GitLab's curl-based transport.
+
 **Never use a mutating endpoint as a smoke test.** Do not POST/PUT/DELETE to verify auth, token validity, encoding, multipart syntax, or connectivity. Use a read-only endpoint:
 
 ```bash
@@ -107,3 +109,51 @@ curl -s --request POST -H "Authorization: Bearer $TOKEN" \
 ```
 
 `--form-string` disables `@`/`<` interpretation in the value, so arbitrary markdown is safe. Reach for it before any single-line `--form "..."` workaround.
+
+### Response handling for writes
+
+When the server may have changed state, the response is forensic evidence. Treat it as such.
+
+**Save the response to a file before parsing.** Never pipe `curl` output directly to a parser — if parsing fails, the original response is gone and you lose the ability to recover or verify:
+
+```bash
+TMPDIR_FY="${TMPDIR_FY:-$(mktemp -d -t flowyeah.XXXXXX)}"
+curl -s --request POST -H "Authorization: Bearer $TOKEN" \
+  --form-string "title=$TITLE" \
+  --form-string "description=$DESC" \
+  -w "\nHTTP %{http_code}\n" \
+  "<url>/api/v4/projects/<project_id>/issues" \
+  -o "$TMPDIR_FY/issue.json"
+jq -r '"IID: \(.iid)\nURL: \(.web_url)"' "$TMPDIR_FY/issue.json"
+```
+
+`-o <file>` captures the body; `-w "\nHTTP %{http_code}\n"` prints the status code to stderr-ish stream after the file is written so you can confirm 2xx before parsing.
+
+**Prefer `jq` over `python3` for parsing.** `jq` tolerates control characters and minor non-strict JSON that `python3 -c "import json; json.load(...)"` rejects outright. Reserve `python3` for transformations `jq` can't express.
+
+**Use per-session temporary paths.** `$TMPDIR_FY` (or `$(mktemp -d)`) prevents collisions when multiple `flowyeah:build` or `flowyeah:respond` sessions run in parallel. Never hardcode `/tmp/issue.json` and similar.
+
+### Parsing failure does not mean operation failure
+
+If a POST/PUT/DELETE returns a non-2xx status, the operation failed and it is safe to retry after fixing the cause.
+
+If a POST/PUT/DELETE returns 2xx but the response body fails to parse, or the curl call itself timed out / errored after sending the request, **the operation may have succeeded**. You don't know. NEVER retry blindly — that is exactly how duplicate issues and MRs get created.
+
+Verify state before retrying. For GitLab issues:
+
+```bash
+# Verify by exact title match — GitLab's search is fuzzy (substring),
+# so post-filter with jq for equality.
+TITLE="<exact title that was sent>"
+ENCODED=$(jq -rn --arg t "$TITLE" '$t|@uri')
+curl -s -H "Authorization: Bearer $TOKEN" \
+  "<url>/api/v4/projects/<project_id>/issues?search=$ENCODED&in=title&state=opened" \
+  -o "$TMPDIR_FY/check.json"
+jq --arg t "$TITLE" '[.[] | select(.title == $t) | {iid, web_url}]' "$TMPDIR_FY/check.json"
+```
+
+- Empty array → the write didn't land; safe to retry.
+- Exactly one match → record the `iid` and continue as if the original write succeeded.
+- More than one match → STOP and ask the user; you already had a duplicate before this incident.
+
+Apply the same pattern for MRs (`/merge_requests?search=...`), notes (search by body substring + author), and labels (list and filter by exact name).

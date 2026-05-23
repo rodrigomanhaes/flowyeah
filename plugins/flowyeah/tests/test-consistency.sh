@@ -66,6 +66,8 @@ assert_file_exists "setup.md exists" "$SETUP"
 
 for dir in "$PLUGIN_DIR"/adapters/*/; do
     name="$(basename "$dir")"
+    # Directories starting with _ are shared docs, not platform adapters.
+    case "$name" in _*) continue ;; esac
     assert_file_exists "adapter $name has connection.md" "$dir/connection.md"
 done
 
@@ -196,9 +198,9 @@ echo ""
 echo "=== Adapter tree in build SKILL.md ==="
 
 # Extract adapter names from the ASCII tree in build SKILL.md.
-# Lines like: ├── gitlab/  or └── newrelic/
+# Lines like: ├── gitlab/  or └── newrelic/  or └── _shared/
 # Use sed to extract the adapter directory name.
-tree_adapters="$(grep -E '(├── |└── )[a-z]+/' "$BUILD_SKILL" | sed 's/.*[├└]── //; s/\/.*//' | sort -u)"
+tree_adapters="$(grep -E '(├── |└── )[a-z_]+/' "$BUILD_SKILL" | sed 's/.*[├└]── //; s/\/.*//' | sort -u)"
 
 # Actual adapter directories
 real_adapters="$(ls -d "$PLUGIN_DIR"/adapters/*/ 2>/dev/null | xargs -n1 basename | sort -u)"

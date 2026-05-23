@@ -967,9 +967,11 @@ adapters/
 ├── newrelic/
 │   ├── connection.md    # NerdGraph auth
 │   └── source.md        # Fetch error group → canonical format
-└── ghactions/
-    ├── connection.md    # gh CLI auth
-    └── source.md        # Fetch CI job logs → canonical format
+├── ghactions/
+│   ├── connection.md    # gh CLI auth
+│   └── source.md        # Fetch CI job logs → canonical format
+└── _shared/
+    └── write-safety.md  # Transversal principle for all write operations
 ```
 
 Each integration directory contains:
@@ -977,6 +979,8 @@ Each integration directory contains:
 - **`source.md`** — fetch data and convert to canonical format
 - **`hosting.md`** — create PR/MR, poll CI, merge
 - **`review.md`** — fetch PR/MR details, post formal review with inline comments
+
+`_shared/` holds rules that apply across all adapters regardless of transport. Each adapter's `connection.md` cross-references it where relevant.
 
 The core skill reads the adapter and follows its instructions. **Config lookup rule:** all adapter config is always under `adapters.<name>` in `flowyeah.yml`, regardless of whether the adapter is used as a source, git host, or both. Adapter-specific config keys are schema-free — each adapter defines and validates its own keys.
 
