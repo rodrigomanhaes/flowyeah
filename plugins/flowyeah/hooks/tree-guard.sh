@@ -1,20 +1,22 @@
 #!/bin/bash
-# Blocks tree-mutating git commands in the primary checkout while any flowyeah
-# review, respond, or build session is active. Mutations belonging to those
-# pipelines must happen in dedicated worktrees:
+# Blocks tree-mutating git commands in the primary checkout while a flowyeah
+# review or respond session is active for the current branch. Mutations
+# belonging to those pipelines must happen in dedicated worktrees:
 #   review  → .flowyeah/review-worktrees/{N}/   (created by review on demand)
 #   respond → .flowyeah/worktrees/{branch}/      (created by respond step 5)
-#   build   → .flowyeah/worktrees/{name}/        (created by build step 3)
 # Inside any worktree under .flowyeah/worktrees/ or .flowyeah/review-worktrees/,
 # this hook stays out of the way — those are the sanctioned places to mutate.
 #
 # Detection signals:
 #   review/respond → state files at .flowyeah/{review,respond}-state-{N}.md in
 #                    the primary checkout, matched by current branch.
-#   build          → state file inside the worktree at
-#                    .flowyeah/worktrees/{name}/.flowyeah/state.md. No branch
-#                    correlation — the primary checkout is by definition on a
-#                    different branch than any active build worktree.
+#
+# Build sessions are deliberately out of scope. Build pipelines run isolated
+# inside .flowyeah/worktrees/{name}/, on a branch that git itself prevents the
+# primary from sharing. The build agent's own discipline (documented in
+# skills/build/SKILL.md) keeps it inside its worktree; the primary checkout is
+# mechanically isolated and free for unrelated work (deploys, hotfixes,
+# rebases on stable branches).
 #
 # Runs as PreToolUse on Bash. Exit 2 + stderr blocks the call and surfaces the
 # message to the model. Any other failure mode silently allows the command —
@@ -62,12 +64,10 @@ fi
 
 CURRENT_BRANCH=$(git -C "$TOPLEVEL" branch --show-current 2>/dev/null)
 
-# Find an active session. Precedence order: review → respond → build. Review
-# and respond match by current branch; build matches by mere existence of any
-# state file inside a worktree, since the primary is by definition on a
-# different branch.
+# Find an active session matching the current branch. Precedence: review →
+# respond. Build sessions are intentionally not checked (see header).
 SESSION_TYPE=""
-SESSION_ID=""        # PR/MR number for review/respond; worktree name for build
+SESSION_ID=""        # PR/MR number
 SESSION_DESCRIPTOR=""
 
 shopt -s nullglob
@@ -96,18 +96,6 @@ if [ -n "$CURRENT_BRANCH" ]; then
         done
     fi
 fi
-
-if [ -z "$SESSION_TYPE" ]; then
-    for state_file in "$TOPLEVEL"/.flowyeah/worktrees/*/.flowyeah/state.md; do
-        if [ -f "$state_file" ]; then
-            wt_path="${state_file%/.flowyeah/state.md}"
-            SESSION_ID="${wt_path##*/}"
-            SESSION_TYPE="build"
-            SESSION_DESCRIPTOR="build session in worktree ${SESSION_ID}"
-            break
-        fi
-    done
-fi
 shopt -u nullglob
 
 [ -n "$SESSION_TYPE" ] || exit 0
@@ -127,12 +115,6 @@ case "$SESSION_TYPE" in
         EXIT_HINT="Complete the respond pipeline through step 10 (cleanup), or
 remove .flowyeah/respond-state-${SESSION_ID}.md and
 .flowyeah/respond-decisions-${SESSION_ID}.md to abort."
-        ;;
-    build)
-        WORKTREE_PATH=".flowyeah/worktrees/${SESSION_ID}/"
-        WORKTREE_PURPOSE="implement, commit, test, push for the build pipeline"
-        EXIT_HINT="Complete the build pipeline through step 10 (cleanup), or
-run \`/flowyeah:status clean\` to remove stale build sessions."
         ;;
 esac
 

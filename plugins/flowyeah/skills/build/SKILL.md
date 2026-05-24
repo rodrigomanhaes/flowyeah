@@ -17,9 +17,9 @@ The build pipeline must not mutate the working tree, the index, or HEAD of the c
 
 Steps 0-2 (validate config, resolve source, pick task) are explicitly read-only against the primary checkout — see step 1's "read-only, main checkout" annotation in the pipeline diagram. Step 3 creates the worktree; from that point on, all subsequent steps (implement, commit, test, push, PR, hooks, mark-done, cleanup) operate inside the worktree exclusively.
 
-The `tree-guard.sh` PreToolUse hook enforces this for Bash commands once the build worktree's `state.md` exists (after step 3). It cannot guard steps 0-2 because there is no state file yet — the agent must hold the rule deliberately during that window. After step 3, mutating commands in the primary checkout are blocked with a message pointing at the active worktree.
+This invariant is held by the build agent itself. The `tree-guard.sh` PreToolUse hook does not enforce it for build sessions — the build pipeline runs from inside its worktree (where the hook stays out of the way), and the primary checkout is left free for unrelated user work (deploys, hotfixes, rebases on stable branches). Git itself prevents the primary from sharing the worktree's branch, so the build branch's state is mechanically isolated regardless of what happens on the primary.
 
-If the hook blocks a command, do not retry, escalate, or work around it. Either `cd` into the worktree (`.flowyeah/worktrees/<name>/`) or, if the build session is stale, run `/flowyeah:status clean` to remove it.
+The agent's commitment: from step 3 onward, every command — `git`, `bundle`, test runners, anything — runs with the worktree as cwd. If a command must reference the primary's state, do it through read-only access (`git show <sha>:<file>`, `git log`, `git blame`), never by `cd`-ing back to the primary to mutate it.
 
 ## Sources
 
