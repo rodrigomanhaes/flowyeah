@@ -590,6 +590,8 @@ When `pull_requests.merge` is `ask`, you MUST split the question and the action 
 
 ### 8. Run Hooks
 
+**GATE — verify Step 7c before proceeding.** Check `Merge decision (7c)` in `progress.md`. If it is unchecked, STOP — you cannot run after-merge hooks before the merge is complete.
+
 After a successful merge, check `hooks.pr.after_merge` in `flowyeah.yml`. If configured, read the markdown file and follow its instructions.
 
 **Backward compatibility:** If `hooks.after_merge` (flat) is present instead of `hooks.pr.after_merge`, use it and warn: "Deprecated: `hooks.after_merge` — move to `hooks.pr.after_merge`."
@@ -632,6 +634,8 @@ If no hooks are configured, this step is a no-op.
 
 ### 9. Mark Task Done + Close Session
 
+**GATE — verify Step 8 before proceeding.** Check `After-merge hooks (8)` in `progress.md`. If it is unchecked and `hooks.pr.after_merge` is configured, STOP and execute Step 8 now. If no after-merge hook is configured, check it off as "N/A" and proceed.
+
 - Promote qualified findings from `.flowyeah/findings.md` to auto memory
 - Check `[x]` in `tmp/flowyeah/plans/<key>.md` (from main checkout, after merge)
 - If the source was an issue tracker with auto-close support:
@@ -640,6 +644,8 @@ If no hooks are configured, this step is a no-op.
   - **Bugsink/New Relic:** no action — errors auto-resolve when the fix is deployed
 
 ### 10. Cleanup Worktree
+
+**GATE — verify Steps 8 and 9 before proceeding.** Check `After-merge hooks (8)` and `Mark task done (9)` in `progress.md`. If either is unchecked (and not marked N/A), STOP and execute the missing steps first. Do NOT clean up the worktree until post-merge obligations are fulfilled.
 
 Removes the worktree and everything in it, including `.flowyeah/` session files.
 
@@ -1026,3 +1032,4 @@ The core skill reads the adapter and follows its instructions. **Config lookup r
 - **Create an issue when `issues.create_when_missing` is `ask` without the user's explicit answer** — the question and the creation MUST be in separate response turns
 - **Combine a question and its corresponding action in the same response turn when the config says `ask`** — this applies to ALL `ask`-mode settings. The question ends your turn. The action starts the next turn, after the user answers.
 - **Skip a configured process skill because the task looks simple** — `implementation.brainstorm` controls which phases run; `implementation.process_skills` controls how each phase executes. These are independent decisions. A configured skill is mandatory for its phase regardless of task complexity or source type.
+- **Jump from merge (7c) to cleanup (10) skipping after-merge hooks (8) and mark-done (9)** — check `progress.md` Pipeline section. Every unchecked step between your current position and cleanup is a step you MUST execute. The injection hook repeats unchecked items at the end of every prompt for exactly this reason.

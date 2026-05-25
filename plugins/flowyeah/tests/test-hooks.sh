@@ -715,6 +715,155 @@ assert_output_not_contains "inject null: no planning (empty)" "planning" "$OUTPU
 assert_output_not_contains "inject null: no debugging (tilde)" "debugging" "$OUTPUT"
 teardown
 
+# ── pipeline reminder injection tests ────────────────
+
+echo ""
+echo "=== session-inject.sh (pipeline reminder) ==="
+
+# Test: unchecked pipeline items appear in REMAINING PIPELINE STEPS section
+setup_repo
+touch flowyeah.yml
+mkdir -p .flowyeah
+echo -e "Type: build\nStatus: Implementing\nStep: 7b" > .flowyeah/state.md
+cat > .flowyeah/progress.md <<'EOF'
+# Progress
+
+## Items
+- [x] Implement feature
+
+## Pipeline
+- [x] Commit (5)
+- [x] Test (6)
+- [x] Implementation approval (6b)
+- [x] Rebase + push (6c)
+- [ ] Issue linkage (6d)
+- [ ] Create PR/MR (7)
+- [ ] PR hooks (7a)
+- [ ] CI + code review (7b)
+- [ ] Merge decision (7c)
+- [ ] After-merge hooks (8)
+- [ ] Mark task done (9)
+- [ ] Cleanup worktree (10)
+EOF
+OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+assert_output_contains "pipeline reminder: shows section header" "REMAINING PIPELINE STEPS" "$OUTPUT"
+# Extract only the REMAINING section to avoid false positives from progress.md dump
+REMAINING=$(echo "$OUTPUT" | sed -n '/REMAINING PIPELINE STEPS/,$ p')
+assert_output_contains "pipeline reminder: remaining has issue linkage" "Issue linkage (6d)" "$REMAINING"
+assert_output_contains "pipeline reminder: remaining has after-merge hooks" "After-merge hooks (8)" "$REMAINING"
+assert_output_contains "pipeline reminder: remaining has cleanup" "Cleanup worktree (10)" "$REMAINING"
+# Checked items must NOT appear in the REMAINING section
+assert_output_not_contains "pipeline reminder: remaining excludes checked commit" "Commit (5)" "$REMAINING"
+assert_output_not_contains "pipeline reminder: remaining excludes checked test" "Test (6)" "$REMAINING"
+teardown
+
+# Test: all pipeline items checked → no REMAINING section
+setup_repo
+touch flowyeah.yml
+mkdir -p .flowyeah
+echo -e "Type: build\nStatus: Complete\nStep: 10" > .flowyeah/state.md
+cat > .flowyeah/progress.md <<'EOF'
+# Progress
+
+## Items
+- [x] Implement feature
+
+## Pipeline
+- [x] Commit (5)
+- [x] Test (6)
+- [x] Implementation approval (6b)
+- [x] Rebase + push (6c)
+- [x] Issue linkage (6d)
+- [x] Create PR/MR (7)
+- [x] PR hooks (7a)
+- [x] CI + code review (7b)
+- [x] Merge decision (7c)
+- [x] After-merge hooks (8)
+- [x] Mark task done (9)
+- [x] Cleanup worktree (10)
+EOF
+OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+assert_output_not_contains "pipeline all done: no REMAINING section" "REMAINING PIPELINE STEPS" "$OUTPUT"
+teardown
+
+# Test: no Pipeline section in progress.md → no REMAINING section
+setup_repo
+touch flowyeah.yml
+mkdir -p .flowyeah
+echo -e "Type: build\nStatus: Implementing\nStep: 4" > .flowyeah/state.md
+cat > .flowyeah/progress.md <<'EOF'
+# Progress
+
+## Items
+- [x] Design
+- [ ] Implement
+EOF
+OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+assert_output_not_contains "pipeline no section: no REMAINING section" "REMAINING PIPELINE STEPS" "$OUTPUT"
+teardown
+
+# Test: REMAINING section appears AFTER the closing separator (last in output)
+setup_repo
+touch flowyeah.yml
+mkdir -p .flowyeah
+echo -e "Type: build\nStatus: Implementing\nStep: 7" > .flowyeah/state.md
+cat > .flowyeah/progress.md <<'EOF'
+# Progress
+
+## Pipeline
+- [x] Commit (5)
+- [ ] Test (6)
+- [ ] Create PR/MR (7)
+EOF
+OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+# The REMAINING section should come after the last separator line
+AFTER_LAST_SEP=$(echo "$OUTPUT" | tac | sed '/──────────────────────────────────────────────/q' | tac)
+assert_output_contains "pipeline position: REMAINING after separator" "REMAINING PIPELINE STEPS" "$AFTER_LAST_SEP"
+teardown
+
+# Test: no progress.md file → no REMAINING section
+setup_repo
+touch flowyeah.yml
+mkdir -p .flowyeah
+echo -e "Type: build\nStatus: Implementing\nStep: 4" > .flowyeah/state.md
+OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+assert_output_not_contains "pipeline no file: no REMAINING section" "REMAINING PIPELINE STEPS" "$OUTPUT"
+teardown
+
+# Test: pipeline reminder works from main checkout scanning worktree
+setup_repo
+touch flowyeah.yml
+mkdir -p .flowyeah/worktrees/feat-webhook/.flowyeah
+cat > .flowyeah/worktrees/feat-webhook/.flowyeah/state.md <<'EOF'
+Type: build
+Task: Webhook retry
+Step: 8
+EOF
+cat > .flowyeah/worktrees/feat-webhook/.flowyeah/mission.md <<'EOF'
+# Mission
+Implement webhook retry.
+EOF
+cat > .flowyeah/worktrees/feat-webhook/.flowyeah/progress.md <<'EOF'
+# Progress
+
+## Pipeline
+- [x] Commit (5)
+- [x] Test (6)
+- [x] Rebase + push (6c)
+- [x] Create PR/MR (7)
+- [x] CI + code review (7b)
+- [x] Merge decision (7c)
+- [ ] After-merge hooks (8)
+- [ ] Mark task done (9)
+- [ ] Cleanup worktree (10)
+EOF
+OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+assert_output_contains "pipeline worktree: shows REMAINING section" "REMAINING PIPELINE STEPS" "$OUTPUT"
+REMAINING=$(echo "$OUTPUT" | sed -n '/REMAINING PIPELINE STEPS/,$ p')
+assert_output_contains "pipeline worktree: remaining has after-merge hooks" "After-merge hooks (8)" "$REMAINING"
+assert_output_contains "pipeline worktree: remaining has mark task done" "Mark task done (9)" "$REMAINING"
+teardown
+
 # ── respond session tests ─────────────────────────────
 
 echo ""

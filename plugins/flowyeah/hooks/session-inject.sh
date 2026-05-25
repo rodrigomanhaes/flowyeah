@@ -207,3 +207,13 @@ if [ "$SESSION_TYPE" = "build" ]; then
 fi
 
 echo "──────────────────────────────────────────────"
+
+# ── Pipeline reminder: extract unchecked items and repeat at the end ──
+if [ "$SESSION_TYPE" = "build" ] && [ -f "$SESSION_DIR/progress.md" ]; then
+    UNCHECKED=$(awk '/^## Pipeline$/{ in_pipeline=1; next } /^## /{ in_pipeline=0 } in_pipeline && /^- \[ \] / { print }' "$SESSION_DIR/progress.md")
+    if [ -n "$UNCHECKED" ]; then
+        echo ""
+        echo "⚠️ REMAINING PIPELINE STEPS — DO NOT SKIP:"
+        echo "$UNCHECKED"
+    fi
+fi
