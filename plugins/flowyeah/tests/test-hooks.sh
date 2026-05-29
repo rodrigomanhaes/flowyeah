@@ -12,15 +12,15 @@ TOTAL=0
 # ── Helpers ──────────────────────────────────────────────
 
 setup_repo() {
-    TMPDIR=$(mktemp -d)
-    cd "$TMPDIR"
+    WORKDIR=$(mktemp -d)
+    cd "$WORKDIR"
     git init -q -b main
     git commit --allow-empty -m "init" -q
 }
 
 teardown() {
     cd /
-    rm -rf "$TMPDIR"
+    rm -rf "$WORKDIR"
 }
 
 assert_output_contains() {
@@ -95,11 +95,11 @@ assert_empty "remind: silent without session" "$OUTPUT"
 teardown
 
 # Test: silent when no git repo
-TMPDIR=$(mktemp -d)
-cd "$TMPDIR"
+WORKDIR=$(mktemp -d)
+cd "$WORKDIR"
 OUTPUT=$(bash "$SCRIPT_DIR/session-remind.sh" 2>&1 || true)
 assert_empty "remind: silent outside git repo" "$OUTPUT"
-cd /; rm -rf "$TMPDIR"
+cd /; rm -rf "$WORKDIR"
 
 # Test: silent when state.md exists but no flowyeah.yml
 setup_repo
@@ -591,7 +591,7 @@ EOF
 OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
 assert_output_contains "inject worktree: shows build session" "flowyeah:build session" "$OUTPUT"
 assert_output_contains "inject worktree: shows task" "Feature from worktree" "$OUTPUT"
-cd "$TMPDIR"
+cd "$WORKDIR"
 git worktree remove wt-feat 2>/dev/null || true
 teardown
 
@@ -1071,81 +1071,81 @@ Phase: Running Agents
 Worktree: none
 EOF
 
-    guard_run "git checkout pr-branch -- ." "$TMPDIR"
+    guard_run "git checkout pr-branch -- ." "$WORKDIR"
     assert_exit_eq "guard: blocks git checkout in primary" 2 "$GUARD_RC"
     assert_output_contains "guard: block message names PR" "PR/MR #42" "$GUARD_OUT"
     assert_output_contains "guard: block message names branch" "branch: main" "$GUARD_OUT"
     assert_output_contains "guard: block message points at finalize" "/flowyeah:review finalize 42" "$GUARD_OUT"
 
-    guard_run "git reset --hard HEAD~1" "$TMPDIR"
+    guard_run "git reset --hard HEAD~1" "$WORKDIR"
     assert_exit_eq "guard: blocks git reset --hard" 2 "$GUARD_RC"
 
-    guard_run "cd somewhere && git switch other" "$TMPDIR"
+    guard_run "cd somewhere && git switch other" "$WORKDIR"
     assert_exit_eq "guard: blocks chained git switch" 2 "$GUARD_RC"
 
-    guard_run "git stash" "$TMPDIR"
+    guard_run "git stash" "$WORKDIR"
     assert_exit_eq "guard: blocks git stash" 2 "$GUARD_RC"
 
-    guard_run "git restore ." "$TMPDIR"
+    guard_run "git restore ." "$WORKDIR"
     assert_exit_eq "guard: blocks git restore" 2 "$GUARD_RC"
 
-    guard_run "git apply patch.diff" "$TMPDIR"
+    guard_run "git apply patch.diff" "$WORKDIR"
     assert_exit_eq "guard: blocks git apply" 2 "$GUARD_RC"
 
-    guard_run "git rebase main" "$TMPDIR"
+    guard_run "git rebase main" "$WORKDIR"
     assert_exit_eq "guard: blocks git rebase" 2 "$GUARD_RC"
 
-    guard_run "git pull" "$TMPDIR"
+    guard_run "git pull" "$WORKDIR"
     assert_exit_eq "guard: blocks git pull" 2 "$GUARD_RC"
 
-    guard_run "git clean -fd" "$TMPDIR"
+    guard_run "git clean -fd" "$WORKDIR"
     assert_exit_eq "guard: blocks git clean" 2 "$GUARD_RC"
 
     # ── Active review session: read-only and unrelated commands allowed ──
 
-    guard_run "git fetch origin" "$TMPDIR"
+    guard_run "git fetch origin" "$WORKDIR"
     assert_exit_eq "guard: allows git fetch" 0 "$GUARD_RC"
 
-    guard_run "git show abc123:path/file.rb" "$TMPDIR"
+    guard_run "git show abc123:path/file.rb" "$WORKDIR"
     assert_exit_eq "guard: allows git show" 0 "$GUARD_RC"
 
-    guard_run "git blame abc123 -- path/file.rb" "$TMPDIR"
+    guard_run "git blame abc123 -- path/file.rb" "$WORKDIR"
     assert_exit_eq "guard: allows git blame" 0 "$GUARD_RC"
 
-    guard_run "gh pr diff 42" "$TMPDIR"
+    guard_run "gh pr diff 42" "$WORKDIR"
     assert_exit_eq "guard: allows gh pr diff" 0 "$GUARD_RC"
 
-    guard_run "ls -la" "$TMPDIR"
+    guard_run "ls -la" "$WORKDIR"
     assert_exit_eq "guard: allows ls" 0 "$GUARD_RC"
 
-    guard_run "git log --oneline -10 path/file.rb" "$TMPDIR"
+    guard_run "git log --oneline -10 path/file.rb" "$WORKDIR"
     assert_exit_eq "guard: allows git log" 0 "$GUARD_RC"
 
     # False-positive guard: 'gitlab-checkout' is not 'git checkout'.
-    guard_run "echo gitlab-checkout-notify" "$TMPDIR"
+    guard_run "echo gitlab-checkout-notify" "$WORKDIR"
     assert_exit_eq "guard: allows non-git-verb substring" 0 "$GUARD_RC"
 
     # ── Allowed: cwd inside the review worktree (mutation is sanctioned there) ──
 
-    git -C "$TMPDIR" config --local user.email test@example.com
-    git -C "$TMPDIR" config --local user.name test
-    git -C "$TMPDIR" worktree add -q --detach .flowyeah/review-worktrees/42
+    git -C "$WORKDIR" config --local user.email test@example.com
+    git -C "$WORKDIR" config --local user.name test
+    git -C "$WORKDIR" worktree add -q --detach .flowyeah/review-worktrees/42
 
-    guard_run "git checkout other -- ." "$TMPDIR/.flowyeah/review-worktrees/42"
+    guard_run "git checkout other -- ." "$WORKDIR/.flowyeah/review-worktrees/42"
     assert_exit_eq "guard: allows mutation inside review worktree" 0 "$GUARD_RC"
 
-    guard_run "git reset --hard" "$TMPDIR/.flowyeah/review-worktrees/42"
+    guard_run "git reset --hard" "$WORKDIR/.flowyeah/review-worktrees/42"
     assert_exit_eq "guard: allows reset inside review worktree" 0 "$GUARD_RC"
 
     # ── Allowed: cwd inside a build worktree (review hook does not interfere) ──
 
-    git -C "$TMPDIR" worktree add -q --detach .flowyeah/worktrees/build-thing
+    git -C "$WORKDIR" worktree add -q --detach .flowyeah/worktrees/build-thing
 
-    guard_run "git checkout other -- ." "$TMPDIR/.flowyeah/worktrees/build-thing"
+    guard_run "git checkout other -- ." "$WORKDIR/.flowyeah/worktrees/build-thing"
     assert_exit_eq "guard: allows mutation inside build worktree" 0 "$GUARD_RC"
 
-    git -C "$TMPDIR" worktree remove --force .flowyeah/review-worktrees/42 2>/dev/null || true
-    git -C "$TMPDIR" worktree remove --force .flowyeah/worktrees/build-thing 2>/dev/null || true
+    git -C "$WORKDIR" worktree remove --force .flowyeah/review-worktrees/42 2>/dev/null || true
+    git -C "$WORKDIR" worktree remove --force .flowyeah/worktrees/build-thing 2>/dev/null || true
     teardown
 
     # ── Allowed: review session exists but for a different branch ──
@@ -1159,7 +1159,7 @@ PR/MR: 99
 Branch: feat-other
 Phase: Running Agents
 EOF
-    guard_run "git reset --hard" "$TMPDIR"
+    guard_run "git reset --hard" "$WORKDIR"
     assert_exit_eq "guard: allows when branch does not match" 0 "$GUARD_RC"
     teardown
 
@@ -1167,14 +1167,14 @@ EOF
 
     setup_repo
     touch flowyeah.yml
-    guard_run "git reset --hard" "$TMPDIR"
+    guard_run "git reset --hard" "$WORKDIR"
     assert_exit_eq "guard: allows when no review session exists" 0 "$GUARD_RC"
     teardown
 
     # ── Allowed: not a flowyeah project ──
 
     setup_repo
-    guard_run "git reset --hard" "$TMPDIR"
+    guard_run "git reset --hard" "$WORKDIR"
     assert_exit_eq "guard: allows in non-flowyeah project" 0 "$GUARD_RC"
     teardown
 
@@ -1188,7 +1188,7 @@ Type: review
 PR/MR: 42
 Branch: main
 EOF
-    NON_BASH_PAYLOAD=$(jq -n --arg w "$TMPDIR" \
+    NON_BASH_PAYLOAD=$(jq -n --arg w "$WORKDIR" \
         '{tool_name:"Read", tool_input:{file_path:"foo"}, cwd:$w}')
     NON_BASH_RC=0
     NON_BASH_OUT=$(printf '%s' "$NON_BASH_PAYLOAD" | bash "$GUARD" 2>&1) || NON_BASH_RC=$?
@@ -1220,35 +1220,35 @@ Phase: Implementing
 Worktree: none
 EOF
 
-    guard_run "git checkout other -- ." "$TMPDIR"
+    guard_run "git checkout other -- ." "$WORKDIR"
     assert_exit_eq "guard respond: blocks git checkout in primary" 2 "$GUARD_RC"
     assert_output_contains "guard respond: block message names session type" "respond session" "$GUARD_OUT"
     assert_output_contains "guard respond: block message names PR" "PR/MR #77" "$GUARD_OUT"
     assert_output_contains "guard respond: block message points at worktree" ".flowyeah/worktrees/main/" "$GUARD_OUT"
     assert_output_contains "guard respond: block message has abort hint" "respond-state-77.md" "$GUARD_OUT"
 
-    guard_run "git reset --hard" "$TMPDIR"
+    guard_run "git reset --hard" "$WORKDIR"
     assert_exit_eq "guard respond: blocks git reset" 2 "$GUARD_RC"
 
-    guard_run "git stash" "$TMPDIR"
+    guard_run "git stash" "$WORKDIR"
     assert_exit_eq "guard respond: blocks git stash" 2 "$GUARD_RC"
 
     # Read-only commands still pass during respond.
-    guard_run "git fetch origin" "$TMPDIR"
+    guard_run "git fetch origin" "$WORKDIR"
     assert_exit_eq "guard respond: allows git fetch" 0 "$GUARD_RC"
 
-    guard_run "gh api repos/foo/bar/pulls/77/comments" "$TMPDIR"
+    guard_run "gh api repos/foo/bar/pulls/77/comments" "$WORKDIR"
     assert_exit_eq "guard respond: allows gh api" 0 "$GUARD_RC"
 
     # Inside the respond worktree (built by step 5), mutations are sanctioned.
-    git -C "$TMPDIR" config --local user.email test@example.com
-    git -C "$TMPDIR" config --local user.name test
-    git -C "$TMPDIR" worktree add -q --detach .flowyeah/worktrees/main
+    git -C "$WORKDIR" config --local user.email test@example.com
+    git -C "$WORKDIR" config --local user.name test
+    git -C "$WORKDIR" worktree add -q --detach .flowyeah/worktrees/main
 
-    guard_run "git checkout other -- ." "$TMPDIR/.flowyeah/worktrees/main"
+    guard_run "git checkout other -- ." "$WORKDIR/.flowyeah/worktrees/main"
     assert_exit_eq "guard respond: allows mutation inside respond worktree" 0 "$GUARD_RC"
 
-    git -C "$TMPDIR" worktree remove --force .flowyeah/worktrees/main 2>/dev/null || true
+    git -C "$WORKDIR" worktree remove --force .flowyeah/worktrees/main 2>/dev/null || true
     teardown
 
     # ── Respond session for a different branch is ignored ──
@@ -1262,7 +1262,7 @@ PR/MR: 77
 Branch: feat-other
 Phase: Implementing
 EOF
-    guard_run "git reset --hard" "$TMPDIR"
+    guard_run "git reset --hard" "$WORKDIR"
     assert_exit_eq "guard respond: allows when branch does not match" 0 "$GUARD_RC"
     teardown
 
@@ -1283,7 +1283,7 @@ PR/MR: 42
 Branch: main
 Phase: Implementing
 EOF
-    guard_run "git checkout other -- ." "$TMPDIR"
+    guard_run "git checkout other -- ." "$WORKDIR"
     assert_exit_eq "guard both: blocks (review takes precedence)" 2 "$GUARD_RC"
     assert_output_contains "guard both: message names review session" "review session" "$GUARD_OUT"
     assert_output_contains "guard both: message points at review worktree path" ".flowyeah/review-worktrees/42/" "$GUARD_OUT"
@@ -1311,31 +1311,31 @@ Task: Webhook retry
 Worktree: .flowyeah/worktrees/feat-5588
 EOF
 
-    guard_run "git checkout main" "$TMPDIR"
+    guard_run "git checkout main" "$WORKDIR"
     assert_exit_eq "guard build: allows git checkout in primary on unrelated branch" 0 "$GUARD_RC"
 
-    guard_run "git pull origin develop" "$TMPDIR"
+    guard_run "git pull origin develop" "$WORKDIR"
     assert_exit_eq "guard build: allows git pull on unrelated branch" 0 "$GUARD_RC"
 
-    guard_run "git merge develop" "$TMPDIR"
+    guard_run "git merge develop" "$WORKDIR"
     assert_exit_eq "guard build: allows git merge on unrelated branch" 0 "$GUARD_RC"
 
-    guard_run "git reset --hard" "$TMPDIR"
+    guard_run "git reset --hard" "$WORKDIR"
     assert_exit_eq "guard build: allows git reset" 0 "$GUARD_RC"
 
-    guard_run "git stash" "$TMPDIR"
+    guard_run "git stash" "$WORKDIR"
     assert_exit_eq "guard build: allows git stash" 0 "$GUARD_RC"
 
-    guard_run "git rebase develop" "$TMPDIR"
+    guard_run "git rebase develop" "$WORKDIR"
     assert_exit_eq "guard build: allows git rebase" 0 "$GUARD_RC"
 
-    guard_run "git clean -fd" "$TMPDIR"
+    guard_run "git clean -fd" "$WORKDIR"
     assert_exit_eq "guard build: allows git clean" 0 "$GUARD_RC"
 
-    guard_run "git fetch origin" "$TMPDIR"
+    guard_run "git fetch origin" "$WORKDIR"
     assert_exit_eq "guard build: allows git fetch" 0 "$GUARD_RC"
 
-    guard_run "git log --oneline -10" "$TMPDIR"
+    guard_run "git log --oneline -10" "$WORKDIR"
     assert_exit_eq "guard build: allows git log" 0 "$GUARD_RC"
 
     teardown
@@ -1349,10 +1349,10 @@ EOF
     echo "Type: build" > .flowyeah/worktrees/feat-A/.flowyeah/state.md
     echo "Type: build" > .flowyeah/worktrees/feat-B/.flowyeah/state.md
 
-    guard_run "git checkout other" "$TMPDIR"
+    guard_run "git checkout other" "$WORKDIR"
     assert_exit_eq "guard build multi: allows" 0 "$GUARD_RC"
 
-    guard_run "git pull origin develop" "$TMPDIR"
+    guard_run "git pull origin develop" "$WORKDIR"
     assert_exit_eq "guard build multi: allows git pull" 0 "$GUARD_RC"
     teardown
 
@@ -1371,7 +1371,7 @@ Phase: Running Agents
 EOF
     echo "Type: build" > .flowyeah/worktrees/feat-A/.flowyeah/state.md
 
-    guard_run "git checkout other -- ." "$TMPDIR"
+    guard_run "git checkout other -- ." "$WORKDIR"
     assert_exit_eq "guard build+review: blocks via review" 2 "$GUARD_RC"
     assert_output_contains "guard build+review: review session named" "review session" "$GUARD_OUT"
     assert_output_contains "guard build+review: review PR named" "PR/MR #42" "$GUARD_OUT"
