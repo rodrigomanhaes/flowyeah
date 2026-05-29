@@ -351,10 +351,11 @@ If configured, invoke the evaluation skill via the Skill tool. For each comment 
 **Per-finding evaluation errors:** if `evaluation_skill` is configured but fails for a specific comment/finding (timeout, exception, malformed output), do not abort the entire run. Instead, mark that finding's critique as unavailable and proceed. In step 4, the per-finding UX shows:
 
 ```
-─ Critique ─
-Assessment:  unavailable (evaluation skill error)
-Reasoning:   <error message or "evaluation skipped">
-Recommended: —
+┌─ Critique ───────────────────────────────────────────────
+│ Assessment:  unavailable (evaluation skill error)
+│ Reasoning:   <error message or "evaluation skipped">
+│ Recommended: —
+└─────────────────────────────────────────────────────────
 ```
 
 The `[d]iscuss` option is still available — a discussion round may succeed where the initial evaluation didn't. The `[i]` and `[r]` options use pure human judgment.
@@ -385,6 +386,7 @@ Confirmar com ok, ou d 3 / r 2 para alterar.
 ```
 
 This shape is forbidden because it:
+- Drops the **Finding Card** format (no `═══` header, no `┌─│└` comment box), collapsing each finding into a one-line header — the "wall of text" the card exists to prevent.
 - Skips the per-finding discussion loop (no `[d]` round possible on one finding in isolation).
 - Invents a `d 3` / `r 2` syntax that is not in the skill.
 - Defers persistence — decisions only hit `respond-decisions-{N}.md` after bulk confirm, so a compaction mid-memo loses everything.
@@ -392,19 +394,28 @@ This shape is forbidden because it:
 
 #### Per-finding UX
 
-For each item `i` in order (severity → confidence, as delivered by the evaluation in step 3):
+For each item `i` in order (severity → confidence, as delivered by the evaluation in step 3), render the **Finding Card** — the same canonical `═══` header and `┌─│└` comment box used by `flowyeah:review` (keep the two skills in sync) — followed by a boxed critique block and the action menu:
 
 ```
-[Finding i of N]  ·  severity: <label>  ·  confidence: <0-100>
-─────────────────────────────────────────
-File:    <path>:<line>
+═══════════════════════════════════════════════════════════
+Finding i of N
+═══════════════════════════════════════════════════════════
+Label:      <label> (<decoration>)
+Confidence: <0-100>/100
+File:       <path>:<line>
+Source:     <comment author / own review>
 
-<Conventional Comments body: **label (decoration):** subject + body>
+┌─────────────────────────────────────────────────────────
+│ **<label> (<decoration>):** <subject>
+│
+│ <body>
+└─────────────────────────────────────────────────────────
 
-─ Critique (round 1) ─
-Assessment:  <agree | disagree | needs-clarification>
-Reasoning:   <evaluation_skill's reasoning from step 3>
-Recommended: <implement | reject | discuss>
+┌─ Critique (round 1) ─────────────────────────────────────
+│ Assessment:  <agree | disagree | needs-clarification>
+│ Reasoning:   <evaluation_skill's reasoning from step 3>
+│ Recommended: <implement | reject | discuss>
+└─────────────────────────────────────────────────────────
 
 [d]iscuss  [i]mplement  [r]eject
 >
@@ -427,11 +438,12 @@ Your counter or question:
 
 [critique round 2...]
 
-─ Critique (round 2) ─
-Assessment:  agree (revised)
-Reasoning:   config/initializers/database.rb:14 sets
-             :read_committed. The race is real.
-Recommended: implement
+┌─ Critique (round 2) ─────────────────────────────────────
+│ Assessment:  agree (revised)
+│ Reasoning:   config/initializers/database.rb:14 sets
+│              :read_committed. The race is real.
+│ Recommended: implement
+└─────────────────────────────────────────────────────────
 
 [d]iscuss  [i]mplement  [r]eject
 >
