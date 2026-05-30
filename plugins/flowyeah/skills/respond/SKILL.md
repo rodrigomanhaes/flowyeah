@@ -232,11 +232,12 @@ Before starting, validate the loaded `flowyeah.yml`:
 
 1. **Load schema:** read `config-schema.md` from the plugin root.
 2. **Check required keys:** `git_host` must point to an adapter with `respond.md`.
-3. **Check evaluation skill:** if `code_review.evaluation_skill` is present, verify the skill exists. If missing, **warn** (don't block) — proceed without evaluation in step 3.
-4. **Run validation rules:** execute relevant checks from the "Validation Rules" section of the schema.
-5. **Detect legacy state files:** if `.flowyeah/respond-state.md` (without a PR number) exists, STOP with: *"Found legacy `.flowyeah/respond-state.md` — this file format is no longer supported. Remove it manually with `rm .flowyeah/respond-state.md .flowyeah/respond-decisions.md 2>/dev/null` and re-run."* Do not attempt to migrate.
-6. **Auth verification:** verify credentials for the git host adapter.
-7. **Report all issues at once** — collect validation failures and present together.
+3. **Check evaluation skill:** if `code_review.evaluation_skill` is present, verify the skill exists. If missing, **warn** (don't block) — proceed without it in step 3.
+4. **Load review instructions:** if `code_review.instructions` is present, validate the path is relative and the file exists (per validation rules in `config-schema.md`). Read the file contents once and carry them through the pipeline. If missing or invalid, **error** (block) — this matches review's handling.
+5. **Run validation rules:** execute relevant checks from the "Validation Rules" section of the schema.
+6. **Detect legacy state files:** if `.flowyeah/respond-state.md` (without a PR number) exists, STOP with: *"Found legacy `.flowyeah/respond-state.md` — this file format is no longer supported. Remove it manually with `rm .flowyeah/respond-state.md .flowyeah/respond-decisions.md 2>/dev/null` and re-run."* Do not attempt to migrate.
+7. **Auth verification:** verify credentials for the git host adapter.
+8. **Report all issues at once** — collect validation failures and present together.
 
 If validation fails, STOP with actionable error messages.
 
@@ -340,15 +341,23 @@ For each praise item, upsert a decision into `.flowyeah/respond-decisions-{N}.md
 
 Operates only on the actionable group from step 2.5 — praise has already been routed.
 
-**Skip if `code_review.evaluation_skill` is not configured** — present comments raw without recommendations in step 4.
+**Skip only if neither `code_review.evaluation_skill` nor `code_review.instructions` is configured** — present comments raw without recommendations in step 4.
 
-If configured, invoke the evaluation skill via the Skill tool. For each comment produce:
+The plug that runs depends on what is configured (`evaluation_skill` is the *how* — general method; `code_review.instructions` is the *what* — project specifics):
+
+- **Both configured:** invoke `evaluation_skill` via the Skill tool, passing the instructions contents as additional project context.
+- **Instructions only:** evaluate each comment inline against the instructions — no skill needed — mirroring how `review` runs "Project Review Guidelines" as a direct inline check (`review/SKILL.md`, step 3b).
+- **Skill only:** invoke `evaluation_skill` via the Skill tool with no project instructions.
+
+When instructions are present in either branch, **act** on them — do not treat them as passive text. Instructions may reference external resources (a Linear issue and sub-issue, a docs URL); resolve those using available tools (Linear access, WebFetch) to verify compliance. If a referenced resource cannot be fetched, degrade gracefully: mark that finding's assessment `unavailable` with the reason (see per-finding errors below) rather than implying compliance that was not verified.
+
+In every branch, for each comment produce:
 
 - **Assessment**: agree / disagree / needs-clarification
 - **Reasoning**: brief technical justification (verified against codebase)
 - **Recommended action**: implement / reject / discuss
 
-**Per-finding evaluation errors:** if `evaluation_skill` is configured but fails for a specific comment/finding (timeout, exception, malformed output), do not abort the entire run. Instead, mark that finding's critique as unavailable and proceed. In step 4, the per-finding UX shows:
+**Per-finding evaluation errors:** if evaluation fails for a specific comment/finding — an `evaluation_skill` error (timeout, exception, malformed output) **or** a failure resolving an external resource referenced by `code_review.instructions` (unreachable issue, failed fetch) — do not abort the entire run. Instead, mark that finding's critique as unavailable and proceed. In step 4, the per-finding UX shows:
 
 ```
 ┌─ Critique ───────────────────────────────────────────────
