@@ -307,7 +307,7 @@ Launch agents from `code_review.agents` in parallel using the Task tool:
 - Pass each agent the PR diff and changed files
 - Each agent returns findings as: file, line, issue, severity, confidence (0-100)
 
-If `code_review.instructions` is configured, include the file contents as additional context passed to each agent alongside the PR diff and changed files.
+If `code_review.instructions` is configured, include the file contents as additional context passed to each agent alongside the PR diff and changed files. Instructions may reference external resources (a docs URL, a linked issue); agents resolve those using available tools (WebFetch, source adapters) to verify compliance rather than treating the reference as passive text.
 
 If `unresolved_findings[]` from step 2.8 is non-empty, pass them to each agent as additional context: "The following findings were raised in a previous review and remain unresolved. Do not re-flag these — they will be carried forward separately." This prevents agents from producing duplicates.
 
@@ -329,7 +329,7 @@ Run directly (not delegated to agents):
 
 **Naming Consistency:** Flag semantic inconsistencies — names that contradict each other, method names that don't match behavior.
 
-**Project Review Guidelines:** If `code_review.instructions` is configured, evaluate the diff against each guideline in the instructions file. Default scoring: severity `issue`, confidence 75. Adjust based on how clearly the diff violates a guideline.
+**Project Review Guidelines:** If `code_review.instructions` is configured, evaluate the diff against each guideline in the instructions file. Act on guidelines that reference external resources — resolve them via available tools (WebFetch, source adapters); if a resource cannot be fetched, record the guideline as unverified rather than implying compliance. Default scoring: severity `issue`, confidence 75. Adjust based on how clearly the diff violates a guideline.
 
 **Scoring for critical checks:** DB concurrency and API backward compatibility findings default to severity `issue (blocking)` with confidence 90. CLAUDE.md compliance defaults to severity `issue` with confidence 75. Naming consistency defaults to `suggestion (non-blocking)` with confidence 50. Adjust based on evidence.
 
