@@ -54,7 +54,7 @@ digraph respond {
     identify [label="1. Identify PR/MR"];
     fetch [label="2. Fetch Review Comments"];
     praise_filter [label="2.5 Praise Filter" shape=diamond];
-    evaluate [label="3. Evaluate Comments\n(via evaluation_skill)" style=dashed];
+    evaluate [label="3. Evaluate Comments\n(skill and/or instructions)" style=dashed];
     triage [label="4. Interactive Triage"];
     worktree [label="5. Setup Worktree" shape=diamond];
     implement [label="6. Implement Fixes"];
@@ -83,7 +83,8 @@ The respond skill uses:
 | Key | Purpose |
 |-----|---------|
 | `git_host` | Determines respond adapter |
-| `code_review.evaluation_skill` | Skill invoked to evaluate each comment (optional) |
+| `code_review.evaluation_skill` | Skill invoked to evaluate each comment — the *how* (optional) |
+| `code_review.instructions` | Project-specific guidelines fed into comment evaluation — the *what* (optional) |
 | `testing.command` | Shell command to run tests |
 | `testing.scope` | `related` or `full` — scope for test runs |
 | `commits.writer` | Agent or `null` for commit messages |
@@ -346,10 +347,12 @@ Operates only on the actionable group from step 2.5 — praise has already been 
 The plug that runs depends on what is configured (`evaluation_skill` is the *how* — general method; `code_review.instructions` is the *what* — project specifics):
 
 - **Both configured:** invoke `evaluation_skill` via the Skill tool, passing the instructions contents as additional project context.
-- **Instructions only:** evaluate each comment inline against the instructions — no skill needed — mirroring how `review` runs "Project Review Guidelines" as a direct inline check (`review/SKILL.md`, step 3b).
+- **Instructions only (no skill):** evaluate each comment inline against the instructions — mirroring how `review` runs "Project Review Guidelines" as a direct inline check (`review/SKILL.md`, step 3b).
 - **Skill only:** invoke `evaluation_skill` via the Skill tool with no project instructions.
 
 When instructions are present in either branch, **act** on them — do not treat them as passive text. Instructions may reference external resources (a Linear issue and sub-issue, a docs URL); resolve those using available tools (Linear access, WebFetch) to verify compliance. If a referenced resource cannot be fetched, degrade gracefully: mark that finding's assessment `unavailable` with the reason (see per-finding errors below) rather than implying compliance that was not verified.
+
+This step runs identically in `--own` mode: the synthetic comments built during self-audit flow through the same branches.
 
 In every branch, for each comment produce:
 
