@@ -374,6 +374,8 @@ Run directly (not delegated to agents):
 
 **"Touched it, own it":** If the PR touches a file (even for refactoring), the author is responsible for issues in that code. Only truly untouched lines are excluded.
 
+**Include at least one `praise`:** Surface at least one sincere `praise` finding for the user to consider — but never false praise. Look for something genuinely good. The praise is a finding like any other: the user's batch decision in step 5 governs whether it is submitted. An excluded praise is never resurfaced — not as an inline comment, not in the review body.
+
 ### 5. Interactive Approval
 
 Present **all findings at once** as a numbered list. Every finding MUST be rendered using the **Finding Card** format defined below. This is the canonical presentation for every finding the user sees — here and in step 5b — and it is shared with `flowyeah:respond`'s triage screen (keep the two in sync). The card is not decoration; it is the contract. Never substitute a prose paragraph, a compressed bullet list, or a table for it.
@@ -539,8 +541,6 @@ Load the review adapter and follow its instructions to:
 **Labels:** `praise`, `issue`, `suggestion`, `todo`, `question`, `thought`, `nitpick`, `chore`, `note`
 
 **Decorations:** `(blocking)`, `(non-blocking)`, `(if-minor)`
-
-**Include at least one `praise` comment per review** — but never false praise. Look for something to sincerely praise.
 
 Ask for final confirmation before posting.
 
