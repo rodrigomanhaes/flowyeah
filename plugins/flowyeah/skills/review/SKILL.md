@@ -48,6 +48,7 @@ digraph review {
     requirements [label="2b. Requirements Validation" shape=diamond];
     agents [label="3. Run Review Agents"];
     checks [label="3b. Critical Checks"];
+    impact [label="3c. Impact Analysis"];
     score [label="4. Score & Consolidate"];
     approve [label="5. Interactive Approval"];
     own_check [label="--own?" shape=diamond];
@@ -60,7 +61,7 @@ digraph review {
     context -> previous -> requirements;
     requirements -> agents [label="issue found"];
     requirements -> agents [label="no issue\nskip"];
-    agents -> checks -> score -> approve -> own_check;
+    agents -> checks -> impact -> score -> approve -> own_check;
     own_check -> type [label="normal"];
     type -> submit;
     own_check -> deliver [label="--own"];
@@ -72,7 +73,7 @@ digraph review {
 
 Uses `flowyeah.yml` from the project root (see `config-schema.md` at the plugin root for full schema and defaults). **If missing, load `setup.md` from the plugin root and follow its interactive setup instructions before proceeding.**
 
-The review skill uses: `code_review.agents`, `code_review.optional_agents`, `code_review.instructions`, `git_host`, `language`, and adapter configs for issue detection.
+The review skill uses: `code_review.agents`, `code_review.optional_agents`, `code_review.instructions`, `code_review.impact_analysis`, `git_host`, `language`, and adapter configs for issue detection.
 
 **If `code_review.agents` is empty or missing: STOP and complain.**
 
@@ -323,15 +324,34 @@ Run directly (not delegated to agents):
 
 **Database Concurrency:** For any migration adding an index, verify if it should be unique. Application-level validations are NOT sufficient for concurrency — DB constraints are required. If a unique index exists, check for `RecordNotUnique` rescue.
 
-**API Backward Compatibility:** For any migration removing columns, search serializers, API responses, and webhooks. Exposed columns CANNOT be removed — must be deprecated.
-
 **CLAUDE.md Compliance:** Check global and project CLAUDE.md rules against the diff (e.g., ABOUTME comments, naming conventions, error handling).
 
 **Naming Consistency:** Flag semantic inconsistencies — names that contradict each other, method names that don't match behavior.
 
 **Project Review Guidelines:** If `code_review.instructions` is configured, evaluate the diff against each guideline in the instructions file. Act on guidelines that reference external resources — resolve them via available tools (WebFetch, source adapters); if a resource cannot be fetched, record the guideline as unverified rather than implying compliance. Default scoring: severity `issue`, confidence 75. Adjust based on how clearly the diff violates a guideline.
 
-**Scoring for critical checks:** DB concurrency and API backward compatibility findings default to severity `issue (blocking)` with confidence 90. CLAUDE.md compliance defaults to severity `issue` with confidence 75. Naming consistency defaults to `suggestion (non-blocking)` with confidence 50. Adjust based on evidence.
+**Scoring for critical checks:** DB concurrency findings default to severity `issue (blocking)` with confidence 90. CLAUDE.md compliance defaults to severity `issue` with confidence 75. Naming consistency defaults to `suggestion (non-blocking)` with confidence 50. Adjust based on evidence. (API backward compatibility moved to step `3c Impact Analysis` as a contract-break special case.)
+
+### 3c. Impact Analysis
+
+Run directly (like `3b`). Runs on **every** review — not gated on an issue being found.
+
+**Executor.** If `code_review.impact_analysis` is configured, delegate this entire step to the named agent, passing it the PR diff, the identified changed public surface (below), and the trigger-line anchoring contract. That agent may create the review worktree at `.flowyeah/review-worktrees/{N}/` for LSP/codegraph-grade tracing (see "Invariant: Primary Checkout Is Untouched"). Otherwise, run the built-in logic below. The step **always runs — it cannot be disabled**; only its executor is swappable.
+
+From the diff, identify the **changed public surface**: modified or removed method signatures, return shapes, serializers, event/webhook payloads, job arguments, and changed defaults. For each element, trace outward across three dimensions using **read-only commands only** (no checkout, no worktree in the built-in path):
+
+**Caller ripple:** For a changed signature, return shape, or default, run `git grep -n '<symbol>' <head_sha>` against the PR HEAD SHA reported by the adapter to find callers. Flag callers whose behavior shifts under the change. Default severity `issue`, confidence 75.
+
+**Contract/interface breaks:** For a changed API response, event/webhook payload, serializer, job argument, or shared schema, locate consumers (serializers, API responses, webhooks, jobs, other services) and flag those that break. Default severity `issue (blocking)`, confidence 85.
+- **Special case — migration removing a column:** exposed columns CANNOT be removed; they must be deprecated. Search serializers, API responses, and webhooks for the removed column. Default severity `issue (blocking)`, confidence 90 (concrete, enumerable consumer set).
+
+**Feature interaction / coupling:** Flag changes to shared services or state that adjacent features rely on, where the change creates unintended cross-feature effects. Default severity `suggestion (non-blocking)`, confidence 60.
+
+**Out of scope:** runtime/scale & operational concerns — N+1s introduced app-wide, deploy/migration ordering, rollback safety, feature-flag interactions. These are covered by `code_review.optional_agents` (e.g. a performance analyst), not by this step.
+
+**Anchoring.** Every impact finding anchors to the **trigger line** — the changed line in the diff that causes the ripple (the modified signature, the removed column, the changed default). The comment body names the affected untouched code as a `file:line` reference in prose and describes the effect. Never place an impact finding in the review body; never anchor to an untouched line. This keeps step 7's "every finding is an inline comment" and step 4's "Touched it, own it" invariants intact.
+
+Adjust all default scores based on evidence, the same as `3b`.
 
 ### 4. Score & Consolidate
 
