@@ -27,6 +27,7 @@ Single source of truth for `flowyeah.yml` configuration. Referenced by setup, bu
 | `code_review.optional_agents` | list of strings | agent names | `[]` | AI decides based on what changed |
 | `code_review.instructions` | string | file path (relative to project root) | none | Project-specific guidelines (the *what* a project cares about). Read once during config validation. Consumed by **both** `flowyeah:review` and `flowyeah:respond`: in review, injected into review agents and evaluated as an inline critical check; in respond, used to evaluate each comment during triage. Guidelines may reference external resources (e.g. a Linear issue, a docs URL) that the skill resolves via available tools. |
 | `code_review.evaluation_skill` | string | skill name | none | General feedback-evaluation methodology (the *how*, e.g. `superpowers:receiving-code-review`). Skill invoked during `flowyeah:respond` triage to evaluate each review comment. Orthogonal to `code_review.instructions`: the skill supplies method, instructions supply project specifics. If neither is configured, comments are presented raw without assessment. |
+| `code_review.impact_analysis` | string | agent name | none | Overrides the built-in deterministic Impact Analysis step (`3c` in `flowyeah:review`) with the named agent. Absent = built-in deterministic tracing runs. The step always runs; only its executor is swappable — it cannot be disabled. Review-only; not consumed by `flowyeah:build`. |
 | `issues.create_when_missing` | string | `ask` \| `always` \| `never` | `ask` | Controls issue creation when source is not an issue tracker |
 | `issues.adapter` | string | adapter key | conditional | Required when `create_when_missing` is `ask` or `always`. Must support issue creation (gitlab, github, or linear) |
 | `worktree.symlinks` | list of strings | relative paths | `[]` | Paths relative to project root. Each is symlinked from the worktree to the main checkout. Created before env/setup. |
@@ -48,6 +49,7 @@ Single source of truth for `flowyeah.yml` configuration. Referenced by setup, bu
 | `code_review.agents` must be non-empty | error | "code_review.agents is required and must not be empty" |
 | `code_review.instructions` must be a relative path (if present) | error | "code_review.instructions must be a relative path: '<path>'" |
 | `code_review.instructions` file must exist (if present) | error | "code_review.instructions file not found: '<path>'" |
+| `code_review.impact_analysis` must be a non-empty string (if present) | error | "code_review.impact_analysis must be a non-empty agent name" |
 | `issues.adapter` required when `create_when_missing` is `ask` or `always` | error | "issues.adapter is required when create_when_missing is '\<value>'" |
 | `issues.adapter` must support issue creation (gitlab, github, or linear) | error | "issues.adapter '\<name>' does not support issue creation (only gitlab, github, linear)" |
 | `issues.adapter` must be a key in `adapters` | error | "issues.adapter '\<name>' is not configured in adapters" |
