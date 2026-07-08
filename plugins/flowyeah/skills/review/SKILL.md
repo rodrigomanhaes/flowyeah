@@ -117,7 +117,7 @@ Worktree: <relative path under .flowyeah/review-worktrees/{N}/ or "none">
 | `Validating Config` | 0 | Re-run from start |
 | `Identifying PR` | 1-1b | Re-run from start |
 | `Gathering Context` | 2-2b | Re-run context gathering |
-| `Running Agents` | 3-3b | Re-run agents (results lost) |
+| `Running Agents` | 3-3c | Re-run agents (results lost) |
 | `Scoring` | 4 | Re-run scoring (agent results lost) |
 | `Interactive Approval` | 5 | Read `review-approved-{N}.md`, re-present unapproved findings |
 | `Choosing Review Type` | 6 | Re-ask review type question |
