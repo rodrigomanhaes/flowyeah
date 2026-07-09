@@ -246,6 +246,18 @@ If **Yes**: ask for the skill name. Add `code_review.evaluation_skill: <skill>` 
 
 If **No**: skip, don't add the key. Comments will be presented raw without automated assessment.
 
+### 14c. Impact analysis executor
+
+> Override the built-in Impact Analysis step (`3c` in `flowyeah:review`) with a custom agent?
+
+By default, `flowyeah:review` runs a built-in, read-only tracer for the impact step (caller ripple, contract/interface breaks, feature coupling). Configuring an agent here swaps that executor for one that can do deeper tracing (e.g. LSP/codegraph in a review worktree). The step always runs either way — this only changes who runs it. Review-only; not used by `flowyeah:build`.
+
+Options: **No** (default, built-in tracer), **Yes**
+
+If **Yes**: ask for the agent name. Add `code_review.impact_analysis: <agent>` to the generated YAML.
+
+If **No**: skip, don't add the key.
+
 ### 15. Issues
 
 > Create issues automatically when the source wasn't an issue tracker?
@@ -320,6 +332,7 @@ code_review:
     - <answer>
   instructions: <answer>                  # omit if not configured
   evaluation_skill: <answer>              # omit if not configured
+  impact_analysis: <answer>               # omit if not configured
 
 issues:
   adapter: <answer>

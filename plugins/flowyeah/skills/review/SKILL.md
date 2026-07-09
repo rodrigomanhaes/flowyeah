@@ -24,6 +24,7 @@ Default to read-only commands when gathering context — they cover the great ma
 | File content at any SHA | `git show <sha>:<file>` |
 | Per-line authorship at a SHA | `git blame <sha> -- <file>` |
 | File history | `git log --oneline -10 <file>` |
+| Recursive symbol search at a SHA | `git grep -n '<symbol>' <sha>` (requires that SHA's objects fetched locally) |
 
 When deeper inspection is genuinely justified — running code at PR HEAD, applying a candidate patch to verify behavior, full-tree LSP/recursive-grep navigation against materialized files — create a dedicated review worktree at `.flowyeah/review-worktrees/{N}/`, perform the work there, and remove it before the session terminates. The worktree path is recorded in `Worktree:` inside `review-state-{N}.md` so `finalize` and crash recovery can clean it up unconditionally. The review worktree is **separate** from build worktrees at `.flowyeah/worktrees/` — never reuse a build worktree, and `finalize` for review must never touch build worktrees.
 
@@ -336,7 +337,7 @@ Run directly (not delegated to agents):
 
 Run directly (like `3b`). Runs on **every** review — not gated on an issue being found.
 
-**Executor.** If `code_review.impact_analysis` is configured, delegate this entire step to the named agent, passing it the PR diff, the identified changed public surface (below), and the trigger-line anchoring contract. That agent may create the review worktree at `.flowyeah/review-worktrees/{N}/` for LSP/codegraph-grade tracing (see "Invariant: Primary Checkout Is Untouched"). Otherwise, run the built-in logic below. The step **always runs — it cannot be disabled**; only its executor is swappable.
+**Executor.** If `code_review.impact_analysis` is configured, delegate this entire step to the named agent, passing it the PR diff, the identified changed public surface (below), and the trigger-line anchoring contract. That agent may create the review worktree at `.flowyeah/review-worktrees/{N}/` for LSP/codegraph-grade tracing (see "Invariant: Primary Checkout Is Untouched"). Because the delegated agent runs in its own context and cannot be relied on to record or tear down that worktree, set `Worktree:` in `review-state-{N}.md` to `.flowyeah/review-worktrees/{N}/` **before** invoking the agent — so `finalize` and crash recovery can reclaim it even if the agent exits without cleaning up. After the agent returns, if no worktree remains, clear `Worktree:` back to `none` (the recovery reconciliation rules handle a recorded-but-absent path). Otherwise, run the built-in logic below. The step **always runs — it cannot be disabled**; only its executor is swappable.
 
 From the diff, identify the **changed public surface**: modified or removed method signatures, return shapes, serializers, event/webhook payloads, job arguments, and changed defaults. For each element, trace outward across three dimensions using **read-only commands only** (no checkout, no worktree in the built-in path):
 
