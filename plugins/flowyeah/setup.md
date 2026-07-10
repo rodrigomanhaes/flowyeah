@@ -48,7 +48,7 @@ For each selected adapter, ask for required config:
 | `gitlab` | URL, token env var name, token source file, project ID |
 | `github` | (none — uses `gh` CLI) |
 | `linear` | Status transition on start (`on_start`), team for issue creation |
-| `bugsink` | URL, token env var name, token source file |
+| `bugsink` | URL, token env var name, token source file, resolve/comment on merge (`on_merge`) |
 | `newrelic` | Token env var name, token source file, account ID |
 | `ghactions` | (none — uses `gh` CLI, same as GitHub) |
 
@@ -78,6 +78,27 @@ adapters:
 ```
 
 If **No**: skip, don't add the `on_start` key.
+
+**If the user selected `bugsink`:**
+
+> When flowyeah merges a fix for a Bugsink error, should it resolve the issue?
+
+Options: `always` (default), `ask`, `never`
+
+> Should flowyeah post a traceability comment (MR/PR link, issue, solution, branch) on merge?
+
+Options: **Yes** (default), **No**
+
+If resolve is not `never` or the comment is **Yes**, add to `flowyeah.yml`:
+```yaml
+adapters:
+  bugsink:
+    on_merge:
+      resolve: <answer>   # always | ask | never
+      comment: <always if Yes, never if No>
+```
+
+If resolve is `never` and the comment is **No**: skip, don't add the `on_merge` key.
 
 ### 4. Default branch
 
