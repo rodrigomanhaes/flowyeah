@@ -107,4 +107,75 @@ Store these values in `state.md` for use throughout the pipeline:
 - **Source:** `bugsink:<issue_id>` — for state.md tracking
 - **Branch type override:** always `fix`
 
-Note: Bugsink does not support auto-close via merge keywords. No `Issue-Ref` or `Issue-Close` fields. The error resolves when the fix is deployed and no new events arrive.
+Note: Bugsink has no PR-merge auto-close keyword (no `Issue-Ref`/`Issue-Close`
+fields). Instead, when `adapters.bugsink.on_merge` is configured, flowyeah
+resolves the issue and posts a traceability comment via the API after merging
+the fix — see "On Merge" below.
+
+## On Merge
+
+Runs in the build pipeline's Step 9, **only when all hold**:
+
+- the build source was `bugsink:<id>` (`Source: bugsink:<id>` in `state.md`), and
+- flowyeah performed the merge in Step 7c (`pull_requests.merge: auto`, or
+  `ask` answered yes) — on `manual` or `ask`→no, skip entirely, the fix is not
+  merged, and
+- `adapters.bugsink.on_merge` is configured.
+
+Read `adapters.bugsink.on_merge` from `flowyeah.yml`. Do the comment first,
+then the resolve. Both are best-effort: on failure, report and continue — never
+roll back the merge. Follow `connection.md` → "Write Safety" for both calls.
+
+### Comment (`on_merge.comment`)
+
+- `always` → build the comment body and post it.
+- `never` / absent → skip.
+
+Assemble the body from pipeline context, in the project's `language`. Omit any
+line whose data is absent (e.g., no issue reference):
+
+```
+Fixed via merge.
+- MR/PR: <pr_or_mr_url>
+- Issue: <Issue-Ref from state.md, if present>
+- Solution: <PR/MR title or short summary of the fix>
+- Branch: <branch> @ <merge commit SHA>
+```
+
+Post it:
+
+```bash
+TOKEN=$(grep "^<token_env>=" <token_source> | cut -d= -f2- | tr -d '"')
+TMPDIR_FY="${TMPDIR_FY:-$(mktemp -d -t flowyeah.XXXXXX)}"
+jq -n --arg issue "<issue_id>" --arg comment "$COMMENT_BODY" \
+  '{issue: $issue, comment: $comment}' > "$TMPDIR_FY/bugsink-comment.json"
+curl -s --request POST -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  --data @"$TMPDIR_FY/bugsink-comment.json" \
+  -w "\nHTTP %{http_code}\n" \
+  "<url>/api/canonical/0/issue-comments/" \
+  -o "$TMPDIR_FY/bugsink-comment-resp.json"
+```
+
+Confirm HTTP 201 and a numeric `.id` in the response. On an ambiguous failure,
+do not retry (no dedup path) — report and point the user at the Bugsink UI.
+
+### Resolve (`on_merge.resolve`)
+
+- `always` → resolve.
+- `ask` → prompt "Resolver bugsink:`<id>` (`<friendly_id>`)? (S/N)"; resolve on
+  yes, skip on no. `<friendly_id>` comes from the issue metadata fetched in
+  "Fetch Error Details".
+- `never` / absent → skip.
+
+Resolve:
+
+```bash
+curl -s --request POST -H "Authorization: Bearer $TOKEN" \
+  -w "\nHTTP %{http_code}\n" \
+  "<url>/api/canonical/0/issues/<issue_id>/resolve/" \
+  -o "$TMPDIR_FY/bugsink-resolve-resp.json"
+```
+
+Confirm HTTP 200 and `.is_resolved == true` in the response. The call is
+idempotent — safe to retry on an ambiguous failure.
