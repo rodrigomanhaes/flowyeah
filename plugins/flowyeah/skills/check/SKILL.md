@@ -76,6 +76,7 @@ code_review:
   optional_agents: []                    # ⬚ default: []
   instructions: .flowyeah/review.md     # ✅   (or: # ⬚ not configured)
   evaluation_skill:                      # ⬚ not configured
+  impact_analysis:                       # ⬚ not configured (built-in tracing runs)
 
 issues:
   create_when_missing: ask               # ✅
