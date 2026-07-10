@@ -641,7 +641,8 @@ If no hooks are configured, this step is a no-op.
 - If the source was an issue tracker with auto-close support:
   - **GitLab:** auto-closed via `Closes #<iid>` in MR description (no action needed)
   - **GitHub:** auto-closed via `Closes #<number>` in PR body (no action needed)
-  - **Bugsink/New Relic:** no action — errors auto-resolve when the fix is deployed
+  - **Bugsink:** if the source was `bugsink:` AND flowyeah performed the merge, and `adapters.bugsink.on_merge` is configured, follow the "On Merge" section in `adapters/bugsink/source.md`. Otherwise no action.
+  - **New Relic:** no action — errors auto-resolve when the fix is deployed
 
 ### 10. Cleanup Worktree
 

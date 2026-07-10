@@ -10,7 +10,15 @@ adapters:
     url: https://bugsink.example.com
     token_env: BUGSINK_TOKEN
     token_source: .env
+    on_merge:              # optional — resolve/comment when flowyeah merges the fix
+      resolve: always      # always | ask | never
+      comment: always      # always | never
 ```
+
+- **`on_merge.resolve`** — `always` resolves the issue via the API when flowyeah merges the fix; `ask` prompts first; `never` skips. Default when `on_merge` is absent: no resolve.
+- **`on_merge.comment`** — `always` posts a traceability comment on merge; `never` skips. Default when `on_merge` is absent: no comment.
+
+`on_merge` only fires when the build source was `bugsink:<id>` and flowyeah performed the merge (see `source.md` → "On Merge"). If `on_merge` is absent, no write happens (backward compatible).
 
 ## Authentication
 
@@ -38,12 +46,28 @@ All endpoints in the source adapter are relative to this base.
 
 Bugsink is detected from the source command prefix (`bugsink:12345`), not from the git remote.
 
-## Write Operations Safety
+## Write Safety
 
-The current Bugsink adapter is read-only — it fetches issue context for the build skill. If a future role adds write operations (resolving issues, posting comments, muting), follow the curl-based tactics documented in `../gitlab/connection.md` → "Write Safety":
+The adapter performs two writes on merge (see `source.md` → "On Merge"):
+resolving an issue and posting a comment. Both alter real state on a live
+Bugsink instance. Follow the curl tactics from `../gitlab/connection.md` →
+"Write Safety" and the transversal principle in `../_shared/write-safety.md`:
 
-- Save response to per-session file (`$TMPDIR_FY/...`) before parsing.
-- Prefer `jq` over `python3`.
-- Treat parsing failure as state-unknown; verify before retrying.
+- Save each response to a per-session file (`$TMPDIR_FY/...`) before parsing;
+  parse with `jq`, not `python3`; print `-w "\nHTTP %{http_code}\n"` and
+  confirm a 2xx before trusting the body.
+- Never use a mutating endpoint as a smoke test. Verify auth with a read-only
+  call (`GET /api/canonical/0/issues/<id>/`) instead.
 
-The transversal principle lives in `../_shared/write-safety.md`.
+Operation-specific reality (verified against Bugsink 2.3.1):
+
+- **`POST /issues/{id}/resolve/`** is idempotent — re-resolving an
+  already-resolved issue returns 200 with `is_resolved: true`. It is also
+  one-way via the API: there is no unresolve/reopen endpoint (reopening is
+  UI-only, or automatic when a new event arrives). Safe to retry on an
+  ambiguous failure.
+- **`POST /issue-comments/`** has no list/GET and no DELETE endpoint. A posted
+  comment cannot be read back to verify, and cannot be deleted. On a
+  2xx-but-unparseable response or a timeout, do **not** blind-retry — that
+  duplicates the comment with no cleanup path. Report the ambiguous result and
+  tell the user to check the issue in the Bugsink UI.
