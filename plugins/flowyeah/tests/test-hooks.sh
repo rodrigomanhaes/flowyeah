@@ -1378,6 +1378,23 @@ EOF
     teardown
 fi
 
+# ── adapter config-schema tests ─────────────────────────
+echo ""
+echo "=== adapter config-schema.md ==="
+
+ADAPTERS_DIR="$(cd "$(dirname "$SCRIPT_DIR")/adapters" && pwd)"
+for adapter in bugsink gitlab linear newrelic; do
+    schema="$ADAPTERS_DIR/$adapter/config-schema.md"
+    TOTAL=$((TOTAL + 1))
+    if [ -f "$schema" ] && grep -qF "## Keys" "$schema"; then
+        PASS=$((PASS + 1))
+    else
+        FAIL=$((FAIL + 1))
+        echo "FAIL: $adapter has config-schema.md with ## Keys section"
+        echo "  expected file with '## Keys': $schema"
+    fi
+done
+
 # ── Results ──────────────────────────────────────────────
 
 echo ""

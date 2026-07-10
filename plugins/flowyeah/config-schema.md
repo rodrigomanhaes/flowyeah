@@ -36,7 +36,7 @@ Single source of truth for `flowyeah.yml` configuration. Referenced by setup, bu
 | `worktree.teardown` | list of strings | commands | `[]` | Run before worktree removal with env exported |
 | `hooks.pr.after_create` | string | file path relative to project root | none | Markdown file with instructions executed after PR/MR creation |
 | `hooks.pr.after_merge` | string | file path relative to project root | none | Markdown file with instructions executed after successful merge |
-| `adapters.<name>` | map | schema-free | — | Each adapter defines and validates its own keys. Must have `adapters/<name>/connection.md` |
+| `adapters.<name>` | map | keys declared in `adapters/<name>/config-schema.md` | — | Must have `adapters/<name>/connection.md`. If `adapters/<name>/config-schema.md` exists, its keys are validated (required present, enums valid, unknown flagged) |
 
 ## Validation Rules
 
@@ -63,6 +63,9 @@ Single source of truth for `flowyeah.yml` configuration. Referenced by setup, bu
 | `worktree.env` map values must be strings | error | "worktree.env value for '\<key>' must be a string" |
 | `worktree.setup` entries must be strings | error | "worktree.setup entry must be a string, got: '\<value>'" |
 | `worktree.teardown` entries must be strings | error | "worktree.teardown entry must be a string, got: '\<value>'" |
+| Required adapter key (per `adapters/<name>/config-schema.md`) present | error | "adapters.\<name>.\<key> is required" |
+| Enum-valued adapter key within its allowed set | error | "adapters.\<name>.\<key> must be one of \<values>: '\<value>'" |
+| Adapter key present but not declared in its config-schema.md | warning | "adapters.\<name>.\<key> is not a known key for adapter '\<name>'" |
 | `git_host: gitlab` + `merge_strategy: rebase` | warning | "GitLab rebase is a project-level setting, not controllable per MR via API. Recommend squash or merge." |
 
 ## Deprecated Keys

@@ -55,8 +55,9 @@ Tests run in isolated temp git repos. No external dependencies beyond bash and g
 
 1. Create `adapters/<name>/connection.md` (required — auth and API conventions)
 2. Add whichever roles apply: `source.md`, `hosting.md`, `review.md`, `respond.md`
-3. Update `config-schema.md` if adding a new adapter type
-4. Update `setup.md` if the adapter needs interactive config questions
+3. If the adapter has config keys, create `adapters/<name>/config-schema.md` declaring them (see an existing one, e.g. `adapters/bugsink/config-schema.md`). Adding or renaming any adapter key later means updating this file too, or `flowyeah:check` will flag it as an unknown key.
+4. Update `config-schema.md` (root) if adding a new adapter type
+5. Update `setup.md` if the adapter needs interactive config questions
 
 ## Commits
 

@@ -140,7 +140,7 @@ schema_keys="$(echo "$schema_keys" | sed '/^$/d')"
 
 while IFS= read -r key; do
     [ -z "$key" ] && continue
-    # Skip schema-free adapter keys (contain '<')
+    # Skip adapter placeholder rows (contain '<')
     case "$key" in
         *\<*) continue ;;
     esac
@@ -234,7 +234,7 @@ SETUP_TEMPLATE=$(sed -n '/^## Generate/,/^## /p' "$SETUP" | sed -n '/^```yaml/,/
 # Every non-adapter, non-wildcard schema key's leaf should appear in the template
 while IFS= read -r key; do
     [ -z "$key" ] && continue
-    # Skip schema-free adapter keys (contain '<')
+    # Skip adapter placeholder rows (contain '<')
     case "$key" in
         *\<*) continue ;;
     esac

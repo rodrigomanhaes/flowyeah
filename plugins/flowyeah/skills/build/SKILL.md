@@ -991,7 +991,7 @@ Each integration directory contains:
 
 `_shared/` holds rules that apply across all adapters regardless of transport. Each adapter's `connection.md` cross-references it where relevant.
 
-The core skill reads the adapter and follows its instructions. **Config lookup rule:** all adapter config is always under `adapters.<name>` in `flowyeah.yml`, regardless of whether the adapter is used as a source, git host, or both. Adapter-specific config keys are schema-free — each adapter defines and validates its own keys.
+The core skill reads the adapter and follows its instructions. **Config lookup rule:** all adapter config is always under `adapters.<name>` in `flowyeah.yml`, regardless of whether the adapter is used as a source, git host, or both. Each adapter's config keys are declared in `adapters/<name>/config-schema.md`.
 
 **Adding a new integration:** create an adapter directory with `connection.md` + the adapter types you need, add config to `flowyeah.yml`. No changes to core skills.
 

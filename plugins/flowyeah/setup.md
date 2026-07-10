@@ -388,3 +388,29 @@ git_host: <answer>
 ```
 
 Tell the user to review the file. Then proceed with the original command — the pipeline will carry `flowyeah.yml` into the worktree and include it in the first feature-branch commit.
+
+## Reconcile Mode
+
+Entered only from `flowyeah:check` when an existing `flowyeah.yml` is missing
+optional adapter keys. This is NOT the full setup — it never runs from the build
+pipeline and never re-creates the file.
+
+Input from `check`: one or more adapter names, each with its list of absent
+optional keys (from that adapter's `config-schema.md`).
+
+Process:
+
+1. For each absent key, ask the question already defined above for that adapter
+   (e.g. the `bugsink` `on_merge` questions, the `linear` `on_start` questions).
+   The adapter's `config-schema.md` says *which* keys are missing; the question
+   wording lives here.
+2. Never ask about keys already set in the file. Only the keys `check` reported
+   absent.
+3. Write only the answered keys into the existing `flowyeah.yml`, under their
+   `adapters.<name>` block, leaving every other line untouched. When a
+   question's write template shows sibling sub-keys together (e.g. `bugsink`
+   `on_merge.resolve` and `on_merge.comment`), write only the sub-key(s) just
+   answered — never re-emit an already-set sibling.
+4. If the user declines a given key, leave it absent (its default applies).
+
+Then tell the user what changed and stop — do not proceed to any pipeline.
