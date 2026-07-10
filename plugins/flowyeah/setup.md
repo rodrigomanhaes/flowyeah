@@ -85,6 +85,12 @@ If **No**: skip, don't add the `on_start` key.
 
 Options: `always` (default), `ask`, `never`
 
+Resolution uses Bugsink's "resolved by the next release" (`resolve-next/`), since
+at merge time the fix is not yet deployed. This needs releases configured — the
+SDK must attach a `release` identifier to events. Without releases the resolution
+degrades toward a plain resolve (reopens on the next event from the old code). If
+the project doesn't use releases, prefer `never` or `ask`.
+
 > Should flowyeah post a traceability comment (MR/PR link, issue, solution, branch) on merge?
 
 Options: **Yes** (default), **No**

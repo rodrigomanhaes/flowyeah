@@ -15,7 +15,7 @@ adapters:
       comment: always      # always | never
 ```
 
-- **`on_merge.resolve`** — `always` resolves the issue via the API when flowyeah merges the fix; `ask` prompts first; `never` skips. Default when `on_merge` is absent: no resolve.
+- **`on_merge.resolve`** — `always` resolves the issue via the API (`resolve-next/` — "resolved by the next release") when flowyeah merges the fix; `ask` prompts first; `never` skips. Default when `on_merge` is absent: no resolve. Requires releases configured in the SDK — see `source.md` → "On Merge".
 - **`on_merge.comment`** — `always` posts a traceability comment on merge; `never` skips. Default when `on_merge` is absent: no comment.
 
 `on_merge` only fires when the build source was `bugsink:<id>` and flowyeah performed the merge (see `source.md` → "On Merge"). If `on_merge` is absent, no write happens (backward compatible).
@@ -59,13 +59,15 @@ Bugsink instance. Follow the curl tactics from `../gitlab/connection.md` →
 - Never use a mutating endpoint as a smoke test. Verify auth with a read-only
   call (`GET /api/canonical/0/issues/<id>/`) instead.
 
-Operation-specific reality (verified against Bugsink 2.3.1):
+Operation-specific reality (per the Bugsink API reference):
 
-- **`POST /issues/{id}/resolve/`** is idempotent — re-resolving an
-  already-resolved issue returns 200 with `is_resolved: true`. It is also
-  one-way via the API: there is no unresolve/reopen endpoint (reopening is
-  UI-only, or automatic when a new event arrives). Safe to retry on an
-  ambiguous failure.
+- **`POST /issues/{id}/resolve-next/`** ("resolved by the next release") is
+  idempotent — re-resolving returns 200 with `is_resolved_by_next_release:
+  true`. It is also one-way via the API: there is no unresolve/reopen endpoint
+  (reopening is UI-only, or automatic when the error recurs in a later release).
+  It requires the project to send a `release` identifier with events; without
+  releases Bugsink cannot anchor a "next release" and the resolution degrades
+  toward a plain resolve. Safe to retry on an ambiguous failure.
 - **`POST /issue-comments/`** has no list/GET and no DELETE endpoint. A posted
   comment cannot be read back to verify, and cannot be deleted. On a
   2xx-but-unparseable response or a timeout, do **not** blind-retry — that

@@ -162,6 +162,17 @@ do not retry (no dedup path) — report and point the user at the Bugsink UI.
 
 ### Resolve (`on_merge.resolve`)
 
+Uses `POST /issues/<id>/resolve-next/` — "resolved by the next release" — not
+plain `resolve/`. On merge the fix is merged but **not yet deployed**: the old
+release is still in production emitting the same error, so a plain resolve would
+reopen on the next event. `resolve-next` keeps the issue resolved and only
+regresses if the error recurs in a release *after* the fix.
+
+**Requires releases configured.** Bugsink infers releases only from events that
+carry a `release` identifier, so the project's SDK must attach one. Without
+releases there is no "next release" to anchor to and the resolution degrades
+toward a plain resolve.
+
 - `always` → resolve.
 - `ask` → prompt "Resolver bugsink:`<id>` (`<friendly_id>`)? (S/N)"; resolve on
   yes, skip on no. `<friendly_id>` comes from the issue metadata fetched in
@@ -173,9 +184,9 @@ Resolve:
 ```bash
 curl -s --request POST -H "Authorization: Bearer $TOKEN" \
   -w "\nHTTP %{http_code}\n" \
-  "<url>/api/canonical/0/issues/<issue_id>/resolve/" \
+  "<url>/api/canonical/0/issues/<issue_id>/resolve-next/" \
   -o "$TMPDIR_FY/bugsink-resolve-resp.json"
 ```
 
-Confirm HTTP 200 and `.is_resolved == true` in the response. The call is
-idempotent — safe to retry on an ambiguous failure.
+Confirm HTTP 200 and `.is_resolved_by_next_release == true` in the response. The
+call is idempotent — safe to retry on an ambiguous failure.
