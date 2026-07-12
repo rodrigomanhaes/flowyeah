@@ -130,8 +130,8 @@ Optional (N):
   <key1>, <key2>, <key3>, ...
 ```
 
-- **Errors:** validation failures from the "Validation Rules" section — core keys and adapter keys (required adapter key absent, invalid adapter enum value)
-- **Warnings:** deprecated keys from the "Deprecated Keys" section, and unknown adapter keys (present but not declared in the adapter's config-schema.md)
+- **Errors:** validation rules with severity **error** — core keys and adapter keys (required adapter key absent, invalid adapter enum value)
+- **Warnings:** validation rules with severity **warning** (e.g., the `git_host: gitlab` + `merge_strategy: rebase` combination), deprecated keys from the "Deprecated Keys" section, and unknown adapter keys (present but not declared in the adapter's config-schema.md)
 - **Optional:** absent keys that have defaults (the `⬚` lines) — core keys and absent optional adapter keys
 
 ## Behavior

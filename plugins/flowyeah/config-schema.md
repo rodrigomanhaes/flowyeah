@@ -53,6 +53,7 @@ Single source of truth for `flowyeah.yml` configuration. Referenced by setup, bu
 | `issues.adapter` required when `create_when_missing` is `ask` or `always` | error | "issues.adapter is required when create_when_missing is '\<value>'" |
 | `issues.adapter` must support issue creation (gitlab, github, or linear) | error | "issues.adapter '\<name>' does not support issue creation (only gitlab, github, linear)" |
 | `issues.adapter` must be a key in `adapters` | error | "issues.adapter '\<name>' is not configured in adapters" |
+| `git_host` must be a key in `adapters` | error | "git_host '\<name>' is not configured in adapters — add an adapters.\<name> block with its required keys" |
 | `hooks.pr.after_create` must be a relative path (if present) | error | "hooks.pr.after_create must be a relative path: '<path>'" |
 | `hooks.pr.after_create` file must exist (if present) | error | "hooks.pr.after_create file not found: '<path>'" |
 | `hooks.pr.after_merge` must be a relative path (if present) | error | "hooks.pr.after_merge must be a relative path: '<path>'" |
