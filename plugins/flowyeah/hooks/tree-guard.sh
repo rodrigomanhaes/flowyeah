@@ -9,7 +9,10 @@
 #
 # Detection signals:
 #   review/respond → state files at .flowyeah/{review,respond}-state-{N}.md in
-#                    the primary checkout, matched by current branch.
+#                    the primary checkout, matched by current branch. Review
+#                    sessions in phases where the pipeline is inactive
+#                    (Fixing, Delegated, Responded) do not block — the user is
+#                    sanctioned to work on the branch there.
 #
 # Build sessions are deliberately out of scope. Build pipelines run isolated
 # inside .flowyeah/worktrees/{name}/, on a branch that git itself prevents the
@@ -73,8 +76,15 @@ SESSION_DESCRIPTOR=""
 shopt -s nullglob
 if [ -n "$CURRENT_BRANCH" ]; then
     for state_file in "$TOPLEVEL"/.flowyeah/review-state-*.md; do
-        FILE_BRANCH=$(grep -m1 '^Branch:' "$state_file" 2>/dev/null | cut -d' ' -f2-)
+        FILE_BRANCH=$(grep -m1 '^Branch:' "$state_file" 2>/dev/null | sed -e 's/^Branch:[[:space:]]*//' -e 's/[[:space:]]*$//')
         if [ "$FILE_BRANCH" = "$CURRENT_BRANCH" ]; then
+            # Phases where the review pipeline is inactive and the user is
+            # sanctioned to work on the branch (Fix now / delegated round /
+            # round closed) must not block.
+            FILE_PHASE=$(grep -m1 '^Phase:' "$state_file" 2>/dev/null | sed -e 's/^Phase:[[:space:]]*//' -e 's/[[:space:]]*$//')
+            case "$FILE_PHASE" in
+                Fixing|Delegated|Responded) continue ;;
+            esac
             number="${state_file##*review-state-}"
             SESSION_ID="${number%.md}"
             SESSION_TYPE="review"
@@ -85,7 +95,7 @@ if [ -n "$CURRENT_BRANCH" ]; then
 
     if [ -z "$SESSION_TYPE" ]; then
         for state_file in "$TOPLEVEL"/.flowyeah/respond-state-*.md; do
-            FILE_BRANCH=$(grep -m1 '^Branch:' "$state_file" 2>/dev/null | cut -d' ' -f2-)
+            FILE_BRANCH=$(grep -m1 '^Branch:' "$state_file" 2>/dev/null | sed -e 's/^Branch:[[:space:]]*//' -e 's/[[:space:]]*$//')
             if [ "$FILE_BRANCH" = "$CURRENT_BRANCH" ]; then
                 number="${state_file##*respond-state-}"
                 SESSION_ID="${number%.md}"

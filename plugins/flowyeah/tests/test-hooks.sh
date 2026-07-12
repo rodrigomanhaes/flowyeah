@@ -1272,6 +1272,46 @@ EOF
     assert_output_contains "guard respond: worktree path flattens slash branch" ".flowyeah/worktrees/feat-5588/" "$GUARD_OUT"
     teardown
 
+    # ── Branch field parsing: whitespace variants still match ──
+
+    setup_repo
+    touch flowyeah.yml
+    mkdir -p .flowyeah
+    printf 'Type: review\nPR/MR: 43\nBranch: main \nPhase: Interactive Approval\n' > .flowyeah/review-state-43.md
+    guard_run "git reset --hard" "$WORKDIR"
+    assert_exit_eq "guard: blocks despite trailing space in Branch field" 2 "$GUARD_RC"
+
+    printf 'Type: review\nPR/MR: 43\nBranch:main\nPhase: Interactive Approval\n' > .flowyeah/review-state-43.md
+    guard_run "git reset --hard" "$WORKDIR"
+    assert_exit_eq "guard: blocks despite missing space after Branch:" 2 "$GUARD_RC"
+    teardown
+
+    # ── Phase-aware: review phases where the pipeline is inactive do not block ──
+
+    setup_repo
+    touch flowyeah.yml
+    mkdir -p .flowyeah
+    for phase in Fixing Delegated Responded; do
+        cat > .flowyeah/review-state-44.md <<EOF
+Type: review
+PR/MR: 44
+Branch: main
+Phase: $phase
+EOF
+        guard_run "git pull origin main" "$WORKDIR"
+        assert_exit_eq "guard: review phase $phase does not block" 0 "$GUARD_RC"
+    done
+
+    cat > .flowyeah/review-state-44.md <<EOF
+Type: review
+PR/MR: 44
+Branch: main
+Phase: Interactive Approval
+EOF
+    guard_run "git pull origin main" "$WORKDIR"
+    assert_exit_eq "guard: active review phase still blocks" 2 "$GUARD_RC"
+    teardown
+
     # ── Respond session for a different branch is ignored ──
 
     setup_repo

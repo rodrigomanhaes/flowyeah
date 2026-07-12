@@ -348,6 +348,15 @@ assert_not_contains "respond does not address worktree dirs by raw branch name" 
 assert_not_contains "tree-guard does not point at raw-branch worktree path" 'worktrees/${CURRENT_BRANCH}' "$PLUGIN_DIR/hooks/tree-guard.sh"
 assert_not_contains "worktree-lifecycle uses numbered respond state filename" "respond-state.md" "$LIFECYCLE"
 
+# ── Section: State-file lifecycle ────────────────────────
+# Every state file must have an owner that removes it — leftovers keep
+# tree-guard armed against the branch indefinitely.
+
+echo ""
+echo "=== State-file lifecycle ==="
+
+assert_contains "review finalize cleans up leftover respond state" "respond-state-{N}.md" "$PLUGIN_DIR/skills/review/SKILL.md"
+
 # ── Section: GitHub adapter template validity ────────────
 # Known-bad command patterns that fail at runtime against real gh/jq.
 

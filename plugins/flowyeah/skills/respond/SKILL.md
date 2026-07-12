@@ -280,7 +280,7 @@ On success, echo: *"Responding to <count> findings from PR #{N}."*
 
 Group by reviewer is trivial (all `self`). If no findings are parseable, STOP: *"review-approved-{N}.md exists but contains no parseable findings — cannot proceed."*
 
-If zero synthetic comments result, the subsequent steps have nothing to do — report "No findings to respond to" and exit cleanly (do not mark Phase: Responded).
+If zero synthetic comments result, the subsequent steps have nothing to do — report "No findings to respond to", remove `.flowyeah/respond-state-{N}.md` and `.flowyeah/respond-decisions-{N}.md` (if created), and exit. Do not mark `Phase: Responded` — the round didn't happen. A leftover state file would keep `tree-guard` blocking the branch indefinitely.
 
 **Normal mode** (no `--own`): continue with the existing adapter fetch below.
 
@@ -297,7 +297,7 @@ Group comments by reviewer.
 
 **Conventional Comments parsing:** when a comment's body matches the `**<label> [decorations]:** <subject>` format, parse the label, decorations, and subject. Treat non-matching comments as free-form — they are equally valid.
 
-If no unresolved comments found, report and exit cleanly.
+If no unresolved comments found, report, remove `.flowyeah/respond-state-{N}.md` (and `respond-decisions-{N}.md` if created), and exit. A leftover state file would keep `tree-guard` blocking the branch indefinitely.
 
 ### 2.5 Praise Filter
 
@@ -651,16 +651,16 @@ Cleanup has two paths depending on mode.
 
 #### `--own` mode
 
-Do **not** remove the worktree — it's owned by `build`. Specifically:
+Do **not** remove the worktree — it's owned by `build`. Run the items in this order — `Phase: Responded` is the completion marker crash recovery keys on, so it is written **last**; every earlier item is idempotent, so a crash mid-cleanup re-applies step 10 safely. Specifically:
 
-1. **Update the review session state:** rewrite `.flowyeah/review-state-{N}.md` (at the main checkout path) so that `Phase:` is `Responded`. Leave all other fields intact. Touch the file's mtime.
-2. **Persist cross-round rejections:** read `.flowyeah/respond-decisions-{N}.md` and update `.flowyeah/own-rejections-{N}.md` per the rules below. Create the rejections file (with header `# Previously Rejected Findings (PR #{N})` and a single trailing blank line) if it does not exist. The rules:
+1. **Persist cross-round rejections:** read `.flowyeah/respond-decisions-{N}.md` and update `.flowyeah/own-rejections-{N}.md` per the rules below. Create the rejections file (with header `# Previously Rejected Findings (PR #{N})` and a single trailing blank line) if it does not exist. The rules:
    - For each `## Finding K` block in `respond-decisions-{N}.md` with `Action: reject` — upsert a `## Rejection M` block into `own-rejections-{N}.md`. The dedup key is `(File, Subject)`. If a matching entry exists, replace it: overwrite all fields (`File`, `Label`, `Subject`, `Reasoning`) with the new values derived from the matching `respond-decisions-{N}.md` entry, and set `Rejected at:` to the current timestamp. Otherwise append a new entry. `M` is the next available 1-based index after the highest existing `## Rejection` heading. (Indices are never reused after deletion; gaps in the sequence are expected and benign.) See the schema in the "Cross-Round Persistence" section above for field mapping.
    - For each `## Finding K` block with `Action: implement` — if a matching entry exists in `own-rejections-{N}.md` (same `File:` and `Subject:`), remove it. The user has overridden their previous rejection by choosing to fix the issue this round; the rejection no longer applies. If no match exists, do nothing.
    - `Action: discuss` blocks (only present in normal mode) and `Action: praise-ack` blocks are ignored — neither represents a rejection. Same for any other action value.
    - If after all updates `own-rejections-{N}.md` contains no `## Rejection ` headings (regardless of whether the `# Previously Rejected Findings` header line is present), delete the file. A header-only file is noise.
-3. **Remove the findings file:** `rm .flowyeah/review-approved-{N}.md` (findings are consumed).
-4. **Remove respond state files:** `rm .flowyeah/respond-state-{N}.md .flowyeah/respond-decisions-{N}.md`. Do **not** touch `own-rejections-{N}.md` here — it persists across rounds.
+2. **Remove the findings file:** `rm -f .flowyeah/review-approved-{N}.md` (findings are consumed).
+3. **Remove respond state files:** `rm -f .flowyeah/respond-state-{N}.md .flowyeah/respond-decisions-{N}.md`. Do **not** touch `own-rejections-{N}.md` here — it persists across rounds.
+4. **Update the review session state:** rewrite `.flowyeah/review-state-{N}.md` (at the main checkout path) so that `Phase:` is `Responded`. Leave all other fields intact. Touch the file's mtime.
 5. **Do not touch** `.flowyeah/worktrees/...` or any files inside the worktree.
 
 Display the end-of-round guidance:

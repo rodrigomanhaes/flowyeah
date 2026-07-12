@@ -594,8 +594,9 @@ After resolving the target:
 1. Read the state file. Display: PR number, findings count, mode, worktree path (if any).
 2. If `Worktree:` is set and not `none`: run `git worktree remove --force <path>`, then `rm -rf <path>` if the directory still exists. Report any failure but proceed with the remaining cleanup — the state file deletion must not be blocked by a stuck worktree.
 3. Delete `review-state-{N}.md`, `review-approved-{N}.md` (if present), and `own-rejections-{N}.md` (if present).
-4. Never touch anything under `.flowyeah/worktrees/` — those belong to build sessions, not to review.
-5. Report: "Review session finalized."
+4. Delete `respond-state-{N}.md` and `respond-decisions-{N}.md` if present — respond has no finalize of its own, so a respond round that crashed mid-pipeline leaves them behind, and they keep `tree-guard` blocking the branch after "finalized" was reported.
+5. Never touch anything under `.flowyeah/worktrees/` — those belong to build sessions, not to review.
+6. Report: "Review session finalized."
 
 No confirmation prompt — the explicit `finalize` command is sufficient intent.
 
