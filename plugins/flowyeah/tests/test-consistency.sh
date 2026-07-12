@@ -320,6 +320,18 @@ fi
 # Setup questions should mention after_create hook point
 assert_contains "setup.md questions mention after_create hook" "after_create" "$SETUP"
 
+# ── Section: Build invariant integrity ───────────────────
+# Build must never checkout/pull in the primary checkout; worktrees are
+# based on origin/$DEFAULT_BRANCH after a refs-only fetch, and artifact
+# ignoring goes through info/exclude instead of the primary's .gitignore.
+
+echo ""
+echo "=== Build invariant integrity ==="
+
+assert_not_contains "build never checkouts/pulls the primary" 'git checkout $DEFAULT_BRANCH && git pull' "$BUILD_SKILL"
+assert_contains "build ignores artifacts via info/exclude" "info/exclude" "$BUILD_SKILL"
+assert_not_contains "build --on-branch avoids broken porcelain grep" 'grep -B1 "branch refs/heads' "$BUILD_SKILL"
+
 # ── Section: Worktree naming contract ────────────────────
 # Worktree dirs are the branch name with '/' flattened to '-' (declared in
 # worktree-lifecycle.md). Raw branch names nest directories and break every

@@ -15,7 +15,7 @@ flowyeah:build [from <source>] [--continuous] [--intermittent] [--on-branch <bra
 
 The build pipeline must not mutate the working tree, the index, or HEAD of the checkout it was invoked from (the "primary checkout"). All mutation belongs inside the worktree created at step 3 — `.flowyeah/worktrees/<name>/`. Forbidden in the primary checkout: `git checkout`, `git checkout-index`, `git restore`, `git switch`, `git reset`, `git apply`, `git am`, `git merge`, `git rebase`, `git pull`, `git stash`, `git clean`. `git fetch` (refs only) is allowed.
 
-Steps 0-2 (validate config, resolve source, pick task) are explicitly read-only against the primary checkout — see step 1's "read-only, main checkout" annotation in the pipeline diagram. Step 3 creates the worktree; from that point on, all subsequent steps (implement, commit, test, push, PR, hooks, mark-done, cleanup) operate inside the worktree exclusively.
+Steps 0-2 (validate config, resolve source, pick task) are explicitly read-only against the primary checkout — see step 1's "read-only, main checkout" annotation in the pipeline diagram. Step 3 creates the worktree without touching the primary's tree, index, or HEAD: refs are updated via `git fetch`, the branch is based on `origin/$DEFAULT_BRANCH`, and artifact ignoring goes through `info/exclude`. From that point on, all subsequent steps (implement, commit, test, push, PR, hooks, mark-done, cleanup) operate inside the worktree exclusively.
 
 This invariant is held by the build agent itself. The `tree-guard.sh` PreToolUse hook does not enforce it for build sessions — the build pipeline runs from inside its worktree (where the hook stays out of the way), and the primary checkout is left free for unrelated user work (deploys, hotfixes, rebases on stable branches). Git itself prevents the primary from sharing the worktree's branch, so the build branch's state is mechanically isolated regardless of what happens on the primary.
 
@@ -172,7 +172,7 @@ Intermittent failure investigations are **always independent** from the origin P
 - **Do NOT checkout or reproduce on the origin PR's branch** during investigation. Step 4 handles the case where the failure turns out to be PR-specific (see "PR-caused failure escape hatch" in the intermittent escalation).
 - **The `CI-PR` field in state.md is informational only** — it records where the failure was observed, but the investigation and any resulting fix are separate from that PR.
 
-After this, follow the standard worktree creation flow below (starting from `git checkout $DEFAULT_BRANCH && git pull`).
+After this, follow the standard worktree creation flow below (starting from `git fetch origin $DEFAULT_BRANCH`).
 
 **When `--on-branch <branch>` is passed:**
 
@@ -181,22 +181,43 @@ Skip the normal branch creation flow. Instead, attach to the existing branch:
 ```bash
 git fetch origin <branch>
 
-# Check if a worktree already exists for this branch
-EXISTING=$(git worktree list --porcelain | grep -B1 "branch refs/heads/<branch>" | head -1 | sed 's/worktree //')
+SLUG=$(printf '%s' "<branch>" | tr '/' '-')
+
+# Locate a worktree that already has this branch checked out (exact ref match)
+EXISTING=$(git worktree list --porcelain | awk -v ref="refs/heads/<branch>" \
+  '/^worktree /{wt=substr($0,10)} $0=="branch "ref{print wt; exit}')
 
 if [ -n "$EXISTING" ]; then
-  # Reuse existing worktree, cd into it
-  cd "$EXISTING"
+  case "$EXISTING" in
+    */.flowyeah/worktrees/*)
+      # Reuse the worktree from a previous session
+      cd "$EXISTING"
+      ;;
+    *)
+      # Checked out in the primary or a user-managed worktree — STOP (see below)
+      ;;
+  esac
+elif git show-ref --verify --quiet "refs/heads/<branch>"; then
+  # Local branch exists but is checked out nowhere. Refuse stale state:
+  # fast-forward if strictly behind origin, STOP if diverged (see below).
+  BEHIND=$(git rev-list --count "<branch>..origin/<branch>" 2>/dev/null || echo 0)
+  AHEAD=$(git rev-list --count "origin/<branch>..<branch>" 2>/dev/null || echo 0)
+  if [ "$BEHIND" -gt 0 ] && [ "$AHEAD" -eq 0 ]; then
+    git branch -f <branch> origin/<branch>
+  fi
+  git worktree add ".flowyeah/worktrees/$SLUG" <branch>
+  cd ".flowyeah/worktrees/$SLUG"
 else
-  # Create worktree from the existing remote branch
-  SLUG=$(echo "<branch>" | tr '/' '-')
-  git worktree add .flowyeah/worktrees/$SLUG <branch>
-  cd .flowyeah/worktrees/$SLUG
+  # No local branch — create one tracking the remote
+  git worktree add ".flowyeah/worktrees/$SLUG" -b <branch> --track origin/<branch>
+  cd ".flowyeah/worktrees/$SLUG"
 fi
 ```
 
-- **No branch creation** — the branch already exists.
-- **Worktree reuse** — if a worktree for this branch exists (from a previous session), reuse it.
+- **No new remote branch is ever created** — `--on-branch` only attaches to a branch that already exists (a local tracking branch may be created for a remote-only branch).
+- **Worktree reuse** — only worktrees under `.flowyeah/worktrees/` are reused. If the branch is checked out in the primary checkout or a user-managed worktree, **STOP** and report: git refuses a second checkout of the same branch, and mutating a checkout the pipeline doesn't own would violate the invariant. Ask whether to free the branch or work there manually.
+- **Diverged local branch** (`BEHIND > 0` and `AHEAD > 0`): **STOP** and ask — fast-forwarding would discard local commits, and rebasing them is the user's decision.
+- **Local-only branch** — if `git fetch origin <branch>` reports the remote has no such branch, skip the staleness checks and attach to the local branch directly.
 - **Session files** — if `.flowyeah/state.md` exists in the worktree, resume from it (same as crash recovery). If not, create fresh session files with `On-Branch: true` in `state.md`.
 - **Skip** branch naming, type inference, and issue claiming — the branch and any associated issue are already set up.
 
@@ -204,12 +225,21 @@ After attaching, the rest of Step 3 runs normally: worktree verification (3b), s
 
 ```bash
 # Read git.default_branch from flowyeah.yml (default: main)
-git checkout $DEFAULT_BRANCH && git pull origin $DEFAULT_BRANCH
+# Refs only — never checkout or pull in the primary (see invariant)
+git fetch origin $DEFAULT_BRANCH
 mkdir -p .flowyeah/worktrees tmp/flowyeah/plans
-git check-ignore -q .flowyeah/worktrees 2>/dev/null || echo ".flowyeah/" >> .gitignore
-git check-ignore -q tmp/flowyeah 2>/dev/null || echo "tmp/" >> .gitignore
-git worktree add .flowyeah/worktrees/<type>-<slug> -b <type>/<slug>
+
+# Ignore flowyeah artifacts without mutating the primary's tracked files:
+# info/exclude is shared by every worktree and never versioned
+EXCLUDE="$(git rev-parse --git-common-dir)/info/exclude"
+git check-ignore -q .flowyeah/worktrees 2>/dev/null || echo ".flowyeah/" >> "$EXCLUDE"
+git check-ignore -q tmp/flowyeah 2>/dev/null || echo "tmp/" >> "$EXCLUDE"
+
+# Base the branch on the fetched remote ref, not the primary's HEAD
+git worktree add .flowyeah/worktrees/<type>-<slug> -b <type>/<slug> origin/$DEFAULT_BRANCH
 ```
+
+If the repo has no `origin` remote, skip the fetch and base the worktree on the local `$DEFAULT_BRANCH` instead.
 
 **After creating the worktree**, check if `flowyeah.yml` exists there. On first run, the file was just created by setup and isn't committed yet — worktrees are created from HEAD, so uncommitted files don't appear. Copy it from the main checkout:
 
@@ -222,13 +252,14 @@ if [ ! -f flowyeah.yml ] && [ -f "$MAIN_WORKTREE/flowyeah.yml" ]; then
   /bin/cp "$MAIN_WORKTREE/flowyeah.yml" ./flowyeah.yml
 fi
 
-# Copy .gitignore if it was modified (for .flowyeah/ and tmp/ entries)
-if [ -f "$MAIN_WORKTREE/.gitignore" ]; then
-  /bin/cp "$MAIN_WORKTREE/.gitignore" ./.gitignore
-fi
+# Version the ignore rules via this branch's .gitignore (info/exclude covers
+# the local repo, but teammates need the entries too). Exact-line check —
+# check-ignore would false-positive on the info/exclude rules just added.
+grep -qxF '.flowyeah/' .gitignore 2>/dev/null || echo '.flowyeah/' >> .gitignore
+grep -qxF 'tmp/' .gitignore 2>/dev/null || echo 'tmp/' >> .gitignore
 ```
 
-The first commit in the worktree will include `flowyeah.yml`, so it reaches the default branch via the PR — never committed directly to it.
+The first commit in the worktree will include `flowyeah.yml` and the `.gitignore` entries, so they reach the default branch via the PR — never committed directly to it. The primary checkout's own `.gitignore` is never touched.
 
 **Branch naming:**
 
@@ -656,11 +687,11 @@ Follow the **Teardown** procedure from `worktree-lifecycle.md` (at the plugin ro
 2. **Run teardown commands** — read env from `state.md ## Worktree Env`, export, run `worktree.teardown`
 3. **Remove worktree** — `cd` to main checkout, `git worktree remove`
 
-Before removal, also update the default branch:
+Before removal, refresh the default branch ref — the next worktree is created from `origin/$DEFAULT_BRANCH`, so a refs-only fetch is all the update needed (the primary's HEAD stays wherever the user left it):
 
 ```bash
 cd "$MAIN_WORKTREE"
-git checkout $DEFAULT_BRANCH && git pull origin $DEFAULT_BRANCH
+git fetch origin $DEFAULT_BRANCH
 git worktree remove <worktree-path>
 ```
 
