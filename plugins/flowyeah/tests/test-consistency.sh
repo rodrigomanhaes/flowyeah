@@ -357,6 +357,14 @@ echo "=== State-file lifecycle ==="
 
 assert_contains "review finalize cleans up leftover respond state" "respond-state-{N}.md" "$PLUGIN_DIR/skills/review/SKILL.md"
 
+STATUS_SKILL="$PLUGIN_DIR/skills/status/SKILL.md"
+
+# status must know every artifact class the pipelines create.
+assert_contains "status scans review worktrees" "review-worktrees" "$STATUS_SKILL"
+assert_contains "status checks Worktree: references before calling a worktree orphaned" "Worktree:" "$STATUS_SKILL"
+assert_contains "status clean handles respond-decisions files" "respond-decisions" "$STATUS_SKILL"
+assert_not_contains "status counts nested subtasks in plans" "grep -c '^\- \[" "$STATUS_SKILL"
+
 # ── Section: GitHub adapter template validity ────────────
 # Known-bad command patterns that fail at runtime against real gh/jq.
 

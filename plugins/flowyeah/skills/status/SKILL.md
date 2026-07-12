@@ -16,7 +16,7 @@ flowyeah:status clean
 
 `flowyeah.yml` must exist in the project root. If missing, report and exit — there's nothing to show.
 
-Must run from the main checkout (not inside a worktree). If `git rev-parse --show-toplevel` contains `.flowyeah/worktrees/`, STOP: "Run from the main checkout, not from inside a worktree."
+Must run from the main checkout (not inside a worktree). If `git rev-parse --show-toplevel` contains `.flowyeah/worktrees/` or `.flowyeah/review-worktrees/`, STOP: "Run from the main checkout, not from inside a worktree."
 
 ## `flowyeah:status` (read-only)
 
@@ -86,8 +86,10 @@ Scan `tmp/flowyeah/plans/` and classify each plan.
 ```bash
 shopt -s nullglob
 for plan in tmp/flowyeah/plans/*.md; do
-  TOTAL=$(grep -c '^\- \[' "$plan" 2>/dev/null || echo 0)
-  DONE=$(grep -c '^\- \[x\]' "$plan" 2>/dev/null || echo 0)
+  # Indentation-tolerant: nested subtasks count too (canonical plan format
+  # nests leaves with 2-space indentation)
+  TOTAL=$(grep -c '^[[:space:]]*- \[' "$plan" 2>/dev/null || echo 0)
+  DONE=$(grep -c '^[[:space:]]*- \[x\]' "$plan" 2>/dev/null || echo 0)
   REMAINING=$((TOTAL - DONE))
   MODIFIED=$(stat -c %Y "$plan" 2>/dev/null || stat -f %m "$plan" 2>/dev/null)
 done
@@ -98,9 +100,10 @@ shopt -u nullglob
 
 | Status | Condition |
 |--------|-----------|
-| Completed | All tasks `[x]` |
+| Completed | All tasks `[x]`, at any nesting depth |
 | Active | Unchecked tasks remain, matching branch exists |
 | Stale | Unchecked tasks remain, no matching branch, last modified >30 days ago |
+| Pending | Unchecked tasks remain, no matching branch, last modified ≤30 days ago — displayed, never offered for cleanup |
 
 **Output format:**
 
@@ -145,14 +148,36 @@ If none: omit section.
 
 ### 4. Worktrees
 
-List flowyeah-managed worktrees and their disk usage.
+List flowyeah-managed worktrees and their disk usage. Two locations: `.flowyeah/worktrees/` (build and respond) and `.flowyeah/review-worktrees/` (review).
+
+A worktree is **active** when any session owns it — ownership has three signals, and all three must be checked before calling a worktree orphaned:
+
+1. **Build:** `state.md` inside the worktree (`<wt>/.flowyeah/state.md`)
+2. **Respond:** the worktree path appears in the `Worktree:` field of any `.flowyeah/respond-state-*.md` at the main checkout (respond sessions keep their state at the main checkout, not inside the worktree)
+3. **Review:** for `.flowyeah/review-worktrees/{N}/`, a `.flowyeah/review-state-{N}.md` exists (the directory is named after the PR number)
 
 ```bash
 shopt -s nullglob
 for wt in .flowyeah/worktrees/*/; do
   NAME=$(basename "$wt")
   SIZE=$(du -sh "$wt" 2>/dev/null | cut -f1)
-  HAS_SESSION=$([ -f "$wt/.flowyeah/state.md" ] && echo "active" || echo "orphaned")
+  STATUS="orphaned"
+  if [ -f "$wt/.flowyeah/state.md" ]; then
+    STATUS="active (build)"
+  else
+    for sf in .flowyeah/review-state-*.md .flowyeah/respond-state-*.md; do
+      WT_REF=$(grep -m1 '^Worktree:' "$sf" 2>/dev/null | sed -e 's/^Worktree:[[:space:]]*//' -e 's/[[:space:]]*$//')
+      case "$WT_REF" in
+        *"worktrees/$NAME"*) STATUS="active (session ${sf##*/})"; break ;;
+      esac
+    done
+  fi
+done
+
+for wt in .flowyeah/review-worktrees/*/; do
+  N=$(basename "$wt")
+  SIZE=$(du -sh "$wt" 2>/dev/null | cut -f1)
+  STATUS=$([ -f ".flowyeah/review-state-${N}.md" ] && echo "active (review PR #$N)" || echo "orphaned")
 done
 shopt -u nullglob
 ```
@@ -163,11 +188,12 @@ shopt -u nullglob
 Worktrees
 ───────────────────────────────────────────────────────────
 
-  feat-5588/       128M    (active session)
-  fix-5590/        96M     (active session)
-  chore-deps/      84M     (orphaned — no session file)
+  worktrees/feat-5588/          128M    (active — build session)
+  worktrees/fix-5590/           96M     (active — respond-state-38.md)
+  worktrees/chore-deps/         84M     (orphaned — no owning session)
+  review-worktrees/42/          64M     (active — review PR #42)
 
-  Total: 3 worktrees, 308M disk usage
+  Total: 4 worktrees, 372M disk usage
 ```
 
 If none: "No flowyeah worktrees."
@@ -223,13 +249,14 @@ Aborted sessions to remove:
 Remove 1 aborted session? (yes/no)
 ```
 
-**4. Orphaned worktrees** (no session file inside):
+**4. Orphaned worktrees** (no owning session per the three ownership signals in section 4 — in-worktree `state.md`, `Worktree:` reference in any review/respond state file, or `review-state-{N}.md` for a review worktree):
 
 ```
 Orphaned worktrees to remove:
-  - .flowyeah/worktrees/chore-deps/ (84M, no session file)
+  - .flowyeah/worktrees/chore-deps/ (84M, no owning session)
+  - .flowyeah/review-worktrees/17/ (52M, no review-state-17.md)
 
-Remove 1 orphaned worktree? (yes/no)
+Remove 2 orphaned worktrees? (yes/no)
 ```
 
 For worktrees, follow the **Teardown** procedure from `worktree-lifecycle.md` before removal (close IDE windows, run teardown commands if env vars are recoverable from config, then `git worktree remove`).
@@ -248,35 +275,43 @@ done
 shopt -u nullglob
 ```
 
+Removing a stale state file removes its companions in the same action — a state file is the only handle the other files have, so leaving them behind makes them permanently unreachable:
+
+- `review-state-{N}.md` → also `review-approved-{N}.md` and `own-rejections-{N}.md` (if present) — same set as `/flowyeah:review finalize`
+- `respond-state-{N}.md` → also `respond-decisions-{N}.md` (if present)
+
 ```
 Stale state files to remove:
   - .flowyeah/review-state-42.md (branch feat/login-redesign gone)
+    + review-approved-42.md, own-rejections-42.md
 
-Remove 1 stale state file? (yes/no)
+Remove 1 stale state file (and 2 companions)? (yes/no)
 ```
 
-**5b. Orphaned `own-rejections-{N}.md` files** (no matching `review-state-{N}.md`):
+**5b. Orphaned companion files** (no matching state file):
 
 ```bash
 shopt -s nullglob
-for rej_file in .flowyeah/own-rejections-*.md; do
-  number="${rej_file##*own-rejections-}"
-  number="${number%.md}"
-  if [ ! -f ".flowyeah/review-state-${number}.md" ]; then
-    echo "orphaned: $rej_file"
-  fi
+for f in .flowyeah/own-rejections-*.md .flowyeah/review-approved-*.md; do
+  number="${f##*-}"; number="${number%.md}"
+  [ -f ".flowyeah/review-state-${number}.md" ] || echo "orphaned: $f"
+done
+for f in .flowyeah/respond-decisions-*.md; do
+  number="${f##*respond-decisions-}"; number="${number%.md}"
+  [ -f ".flowyeah/respond-state-${number}.md" ] || echo "orphaned: $f"
 done
 shopt -u nullglob
 ```
 
 ```
-Orphaned --own rejection ledgers to remove:
+Orphaned companion files to remove:
   - .flowyeah/own-rejections-42.md (no review session)
+  - .flowyeah/respond-decisions-38.md (no respond session)
 
-Remove 1 orphaned ledger? (yes/no)
+Remove 2 orphaned files? (yes/no)
 ```
 
-This catches the case where the user finalized a review without going through `/flowyeah:review finalize` (e.g., manually deleted the state file). It does **not** fire while a review session for that PR is still on disk — the ledger is intentionally long-lived during the active review relationship.
+This catches sessions torn down outside their own cleanup path (e.g., a manually deleted state file). It does **not** fire while the owning state file for that PR is still on disk — `own-rejections-{N}.md` in particular is intentionally long-lived during an active review relationship.
 
 **6. Closed review rounds** (`Phase: Responded`, no pending respond state):
 
@@ -303,7 +338,7 @@ Closed review rounds to finalize:
 Finalize 1 closed review round? (yes/no)
 ```
 
-"Finalize" here means running the equivalent of `/flowyeah:review finalize {N}` — remove `review-state-{N}.md`, `review-approved-{N}.md` (if present), and `own-rejections-{N}.md` (if present). Not a destructive operation on the PR itself.
+"Finalize" here means running the same teardown as `/flowyeah:review finalize {N}` (see the finalize subcommand in `skills/review/SKILL.md`): if the state file's `Worktree:` field is set and not `none`, remove that review worktree first (`git worktree remove --force`, then `rm -rf` if the directory survives), then delete `review-state-{N}.md`, `review-approved-{N}.md`, `own-rejections-{N}.md`, and any leftover `respond-state-{N}.md`/`respond-decisions-{N}.md`. Not a destructive operation on the PR itself.
 
 ### Cleanup Rules
 
@@ -312,7 +347,7 @@ Finalize 1 closed review round? (yes/no)
 - **Completed plans have no age threshold in clean mode.** The build skill's 7-day auto-cleanup only applies to background lifecycle checks. When the user explicitly runs `clean`, all completed plans are offered for removal.
 - **Stale plans keep the 30-day threshold.** Plans with unchecked tasks that are younger than 30 days might still be relevant.
 - **Aborted sessions keep the 30-day threshold.** Recent aborted sessions may still be useful for post-mortem.
-- **Active sessions are never offered for cleanup.** If a worktree has a session file, it's active — skip it.
+- **Active sessions are never offered for cleanup.** A worktree is active if any of the three ownership signals from section 4 matches (in-worktree `state.md`, `Worktree:` reference in a review/respond state file, or `review-state-{N}.md` for a review worktree) — skip it. When in doubt about ownership, skip: deleting a live worktree destroys uncommitted work.
 - **Never force-remove worktrees.** If `git worktree remove` fails (uncommitted changes), report the error and skip.
 - **`Phase: Responded` is safe-to-finalize when no active respond session exists.** The round is complete; the review relationship may still have future rounds, so finalization is the user's call, not automatic.
 
