@@ -332,6 +332,12 @@ assert_not_contains "build never checkouts/pulls the primary" 'git checkout $DEF
 assert_contains "build ignores artifacts via info/exclude" "info/exclude" "$BUILD_SKILL"
 assert_not_contains "build --on-branch avoids broken porcelain grep" 'grep -B1 "branch refs/heads' "$BUILD_SKILL"
 
+# Rollback must delete the local branch too, or the claim rule permanently
+# skips the retried task; bare invocations must resume active sessions
+# before falling back to plan resume.
+assert_contains "rollback deletes the local branch" "git branch -D" "$BUILD_SKILL"
+assert_contains "bare invocation resumes active sessions before plans" "Active sessions take precedence" "$BUILD_SKILL"
+
 # On merge: manual / ask-no the session pauses (Awaiting Merge) — the task is
 # never marked done and the worktree never destroyed while the PR is open.
 assert_contains "build pauses unmerged sessions as Awaiting Merge" "Awaiting Merge" "$BUILD_SKILL"

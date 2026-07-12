@@ -149,10 +149,10 @@ Parse command arguments, read content, convert to canonical plan format. Save to
 - **Prefix source (e.g., `gitlab:#5588`):** verify prefix matches an adapter in `flowyeah.yml` `adapters` that has a `source.md`. Load `adapters/<prefix>/connection.md` + `adapters/<prefix>/source.md`, read its config from `flowyeah.yml` `adapters.<prefix>`, follow the adapter's instructions to fetch and convert to canonical format. Key: `<prefix>-<id>` (e.g., `gitlab-5588`). **Save the adapter's Issue Linkage values** (`Issue-Ref`, `Issue-Close`) — these will be written to `state.md` in Step 3 and used for PR/MR title and body in Step 7.
 - **File source:** read file, convert to canonical format. Key: slugified filename without extension. The source file is never mutated — the plan is a copy in `tmp/`.
 - **Prose/idea:** brainstorm with user, generate tasks. Key: slugified description of the work (ask or infer from conversation).
-- **No source + plans exist in `tmp/flowyeah/plans/`:**
+- **No source:** check for active sessions first — scan `.flowyeah/worktrees/*/.flowyeah/state.md` (the Crash Recovery flow). Active sessions take precedence over plan resume: a half-done task must continue in its existing worktree — going straight to the plan would make the claim rule (step 2) skip the crashed task's branch and silently abandon the session while a fresh worktree starts the next task. `Status: Awaiting Merge` sessions follow their own resume flow (step 7c). Only when no active session exists, fall back to plans in `tmp/flowyeah/plans/`:
   - One plan with unchecked tasks → resume it.
   - Multiple plans with unchecked tasks → show list, ask which to resume.
-- **No source + no plans:** ask what the user wants to work on.
+- **No source + no sessions + no plans:** ask what the user wants to work on.
 
 ### 2. Pick Task(s)
 
@@ -934,12 +934,12 @@ After a crash, the user returns to the main checkout. Run `flowyeah:build`:
 
 ### Pipeline Rollback
 
-When a pipeline step fails irrecoverably (e.g., 3 CI failures, merge conflict that can't be resolved):
+When a pipeline step fails irrecoverably (e.g., 3 CI failures, a merge conflict that can't be resolved) **and the user has said to abandon the session**. Rollback is never self-initiated: hitting a stop condition means STOP and ask — it deletes branches and a worktree, so it runs only on the user's explicit go-ahead.
 
 1. **Before worktree cleanup:** save `state.md` and `findings.md` to `tmp/flowyeah/aborted/<key>/` for post-mortem
 2. **Reset the plan task:** uncheck `[x]` → `[ ]` in `tmp/flowyeah/plans/<key>.md` if it was prematurely marked
-3. **Clean up remote:** delete the remote branch if the PR was already created but not merged. **Skip when `On-Branch: true`** — the branch existed before flowyeah and should not be deleted on rollback.
-4. **Clean up worktree:** remove with `git worktree remove`
+3. **Clean up worktree:** remove with `git worktree remove` (before branch deletion — git refuses to delete a branch checked out in a worktree)
+4. **Clean up branches:** delete the remote branch if the PR was already created but not merged, then the local branch: `git branch -D <branch>`. Without the local deletion, the claim rule in step 2 sees the leftover branch as a claim and skips the retried task on every future run. **Skip both deletions when `On-Branch: true`** — the branch existed before flowyeah and should not be deleted on rollback.
 5. **Report:** summarize what happened, what was saved, and what the user should do next
 
 The aborted session artifacts in `tmp/flowyeah/aborted/` persist for review. **Cleanup:** delete aborted entries older than 30 days during the plan lifecycle check (same timing as orphaned plan cleanup). Warn the user before deleting.
