@@ -161,7 +161,7 @@ Parse command arguments, read content, convert to canonical plan format. Save to
 
 ### 3. Worktree + Branch
 
-Create worktree and branch. **Always worktree, always branch.**
+Create worktree and branch. **Always worktree, always branch.** Worktree directory names derive from the branch with `/` flattened to `-` (`worktree-lifecycle.md`, Directory Naming) — `<type>/<slug>` branches live at `.flowyeah/worktrees/<type>-<slug>/`.
 
 **When `--intermittent` is passed:**
 

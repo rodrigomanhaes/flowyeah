@@ -17,7 +17,7 @@ flowyeah:respond [--own] [<number>]
 
 ## Invariant: Primary Checkout Is Untouched
 
-The respond pipeline must not mutate the working tree, the index, or HEAD of the checkout it was invoked from (the "primary checkout"). All code mutation belongs inside the worktree created (or reused) at step 5 — `.flowyeah/worktrees/<branch>/`. Forbidden in the primary checkout, at every phase: `git checkout`, `git checkout-index`, `git restore`, `git switch`, `git reset`, `git apply`, `git am`, `git merge`, `git rebase`, `git pull`, `git stash`, `git clean`. `git fetch` (refs only, no working-tree side effects) is allowed.
+The respond pipeline must not mutate the working tree, the index, or HEAD of the checkout it was invoked from (the "primary checkout"). All code mutation belongs inside the worktree created (or reused) at step 5 — `.flowyeah/worktrees/<slug>/`. Forbidden in the primary checkout, at every phase: `git checkout`, `git checkout-index`, `git restore`, `git switch`, `git reset`, `git apply`, `git am`, `git merge`, `git rebase`, `git pull`, `git stash`, `git clean`. `git fetch` (refs only, no working-tree side effects) is allowed.
 
 This applies through the full lifecycle: steps 0-4 (config, identify, fetch, evaluate, triage) need only read-only operations against the primary checkout; steps 5-7 (worktree setup, implement, test) operate exclusively inside the worktree (`cd` into it before any code edit); steps 8-10 (push, re-request, cleanup) push from the worktree and remove it without touching the primary.
 
@@ -30,7 +30,7 @@ Default to read-only commands when gathering context — they cover everything t
 | Per-line authorship at a SHA | `git blame <sha> -- <file>` |
 | File history | `git log --oneline -10 <file>` |
 
-The `tree-guard.sh` PreToolUse hook enforces this rule on Bash. If it blocks a command, do not retry, escalate, or work around it — either move into `.flowyeah/worktrees/<branch>/` (after step 5) or stop and ask Rodrigo. Edit/Write tool calls are not currently hook-gated, so the agent must hold the rule deliberately for those: never edit project files outside the worktree.
+The `tree-guard.sh` PreToolUse hook enforces this rule on Bash. If it blocks a command, do not retry, escalate, or work around it — either move into `.flowyeah/worktrees/<slug>/` (after step 5) or stop and ask Rodrigo. Edit/Write tool calls are not currently hook-gated, so the agent must hold the rule deliberately for those: never edit project files outside the worktree.
 
 `finalize`-style cleanup is not a separate command for respond; the pipeline self-cleans at step 10. To abort mid-pipeline, remove `.flowyeah/respond-state-{N}.md` and `.flowyeah/respond-decisions-{N}.md` manually (or use `/flowyeah:status clean`).
 
@@ -117,11 +117,11 @@ Branch: <source_branch>
 Platform: <adapter>
 Comments: <count> total
 Phase: <current_phase>
-Worktree: <relative path under .flowyeah/worktrees/<branch>/ or "none">
+Worktree: <relative path under .flowyeah/worktrees/<slug>/ or "none">
 WorktreeOwned: <true if respond created it, false if reused from a build session>
 ```
 
-`Worktree` defaults to `none` and is set by step 5 when the worktree is resolved (created or reused). `WorktreeOwned` records whether respond created the worktree itself — only owned worktrees are torn down in step 10 (normal mode); reused build worktrees are left alone. Both fields are cleared back to `none`/`false` once cleanup completes. The hook injects them as-is on every prompt so context recovery can verify worktree state.
+`<slug>` is the branch name with `/` flattened to `-` (see `worktree-lifecycle.md`, Directory Naming) — build worktrees follow the same rule, so branch `feat/5588` maps to `feat-5588` regardless of which skill created it. `Worktree` defaults to `none` and is set by step 5 when the worktree is resolved (created or reused). `WorktreeOwned` records whether respond created the worktree itself — only owned worktrees are torn down in step 10 (normal mode); reused build worktrees are left alone. Both fields are cleared back to `none`/`false` once cleanup completes. The hook injects them as-is on every prompt so context recovery can verify worktree state.
 
 **Valid `Phase` values** (map to steps, used for crash recovery):
 
@@ -261,7 +261,7 @@ Before proceeding, verify all of the following. Report every failure as STOP wit
    - If `Phase: Findings Delivered`, STOP: *"Review pipeline is still at the Next Action menu — return to that session and pick `Delegate`."*
    - If any other phase, STOP: *"Review for PR #{N} is mid-pipeline (Phase: X). Finalize or resume the review session first."*
 4. **Findings file present:** require `.flowyeah/review-approved-{N}.md` to exist and contain at least one `## Finding ` heading. If missing or empty, STOP: *"No approved findings for PR #{N}. Run `/flowyeah:review finalize {N}` and start over."*
-5. **Worktree exists for branch:** parse `Branch:` from `review-state-{N}.md`. Verify a directory exists under `.flowyeah/worktrees/` for that branch. If not, STOP: *"No worktree for branch `X`. Run `/flowyeah:build` first to create one."*
+5. **Worktree exists for branch:** parse `Branch:` from `review-state-{N}.md`. Verify a directory exists at `.flowyeah/worktrees/<slug>/`, where `<slug>` is the branch with `/` flattened to `-` (`worktree-lifecycle.md`, Directory Naming). If not, STOP: *"No worktree for branch `X`. Run `/flowyeah:build` first to create one."*
 
 On success, echo: *"Responding to <count> findings from PR #{N}."*
 
@@ -523,13 +523,14 @@ Proceed to step 5 (setup worktree) if any decisions are `implement`. Otherwise, 
 
 Check if a worktree for the PR branch already exists:
 
-1. Scan `.flowyeah/worktrees/` for a directory matching the branch name
+1. Scan `.flowyeah/worktrees/` for a directory matching the branch's slug (branch with `/` flattened to `-` — `worktree-lifecycle.md`, Directory Naming; build worktrees use the same rule)
 2. Scan `.worktrees/` for the same
 
 If found, reuse the existing worktree. Otherwise, create one:
 
 ```bash
-git worktree add .flowyeah/worktrees/<branch> <branch>
+SLUG=$(printf '%s' "<branch>" | tr '/' '-')
+git worktree add ".flowyeah/worktrees/$SLUG" <branch>
 ```
 
 Then follow the **Setup** procedure from `worktree-lifecycle.md` (at the plugin root):
@@ -735,4 +736,4 @@ Omit the `P praise auto-acked` field when `P == 0`.
 - Implement without user approval
 - Re-request review from `DISMISSED` reviewers (GitHub)
 - Re-request review from `APPROVED` reviewers when no code was changed (GitHub)
-- Modify code outside the worktree (see "Invariant: Primary Checkout Is Untouched"). The pre-tool-use hook `tree-guard.sh` blocks tree-mutating git commands in the primary checkout while a respond session is active for the current branch. If it blocks a command, do not retry, escalate, or work around it; either move into `.flowyeah/worktrees/<branch>/` or abort the session.
+- Modify code outside the worktree (see "Invariant: Primary Checkout Is Untouched"). The pre-tool-use hook `tree-guard.sh` blocks tree-mutating git commands in the primary checkout while a respond session is active for the current branch. If it blocks a command, do not retry, escalate, or work around it; either move into `.flowyeah/worktrees/<slug>/` or abort the session.

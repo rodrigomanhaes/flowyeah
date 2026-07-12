@@ -2,7 +2,18 @@
 
 Shared worktree setup and teardown procedures. Referenced by skills that create worktrees (build, respond).
 
-Each skill handles its own worktree creation (`git worktree add`) and branch logic. This document covers the lifecycle steps that run **after** creation and **before/during** removal.
+Each skill handles its own worktree creation (`git worktree add`) and branch logic. This document covers the directory naming rule plus the lifecycle steps that run **after** creation and **before/during** removal.
+
+## Directory Naming
+
+Worktree directories live directly under `.flowyeah/worktrees/` and are named after the branch with `/` flattened to `-`:
+
+```bash
+SLUG=$(printf '%s' "<branch>" | tr '/' '-')
+# branch feat/5588 → .flowyeah/worktrees/feat-5588/
+```
+
+Every component that creates or locates a worktree derives the directory from the branch this way — build and respond when adding worktrees, tree-guard when pointing at one in its block message, status when scanning. Raw branch names would nest directories (`feat/5588` → `worktrees/feat/5588/`), breaking every single-level scan.
 
 ## Setup (after worktree creation)
 
@@ -35,7 +46,7 @@ If `worktree.symlinks` is empty or absent, skip.
 Resolve `worktree.env` from `flowyeah.yml`:
 
 1. For each entry: if value is `auto`, generate a random 8-char URL-safe base64 string (no padding); otherwise use the literal value.
-2. **Persist the resolved values** — the calling skill decides where (e.g., `state.md ## Worktree Env` for build, `respond-state.md ## Worktree Env` for respond). Teardown reads from the same location.
+2. **Persist the resolved values** — the calling skill decides where (e.g., `state.md ## Worktree Env` for build, `respond-state-{N}.md ## Worktree Env` for respond). Teardown reads from the same location.
 3. Export the resolved env vars into the current shell environment.
 4. **Append to `.envrc`** in the worktree root — one `export KEY=VALUE` line per resolved env var, inside a delimited block. Mark `.envrc` as `assume-unchanged` so git ignores the modification in this worktree (the file may already be tracked with the project's own direnv config). If `direnv` is on `PATH`, run `direnv allow .` so it activates automatically when the user enters the directory.
 5. Run each command in `worktree.setup` sequentially, with the env vars exported. If any setup command fails, **STOP** and report — do not proceed with broken dependencies.

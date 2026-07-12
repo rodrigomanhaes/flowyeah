@@ -1253,6 +1253,25 @@ EOF
     git -C "$WORKDIR" worktree remove --force .flowyeah/worktrees/main 2>/dev/null || true
     teardown
 
+    # ── Respond session on a slash branch: message points at flattened dir ──
+
+    setup_repo
+    git checkout -q -b feat/5588
+    touch flowyeah.yml
+    mkdir -p .flowyeah
+    cat > .flowyeah/respond-state-88.md <<'EOF'
+Type: respond
+PR/MR: 88
+Branch: feat/5588
+Phase: Implementing
+Worktree: none
+EOF
+
+    guard_run "git reset --hard" "$WORKDIR"
+    assert_exit_eq "guard respond: blocks on slash branch" 2 "$GUARD_RC"
+    assert_output_contains "guard respond: worktree path flattens slash branch" ".flowyeah/worktrees/feat-5588/" "$GUARD_OUT"
+    teardown
+
     # ── Respond session for a different branch is ignored ──
 
     setup_repo

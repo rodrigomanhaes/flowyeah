@@ -110,7 +110,8 @@ case "$SESSION_TYPE" in
     /flowyeah:review finalize ${SESSION_ID}"
         ;;
     respond)
-        WORKTREE_PATH=".flowyeah/worktrees/${CURRENT_BRANCH}/"
+        # Worktree dirs flatten '/' to '-' (worktree-lifecycle.md, Directory Naming).
+        WORKTREE_PATH=".flowyeah/worktrees/$(printf '%s' "$CURRENT_BRANCH" | tr '/' '-')/"
         WORKTREE_PURPOSE="implement fixes for triaged findings (respond step 6)"
         EXIT_HINT="Complete the respond pipeline through step 10 (cleanup), or
 remove .flowyeah/respond-state-${SESSION_ID}.md and

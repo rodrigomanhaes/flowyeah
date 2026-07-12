@@ -320,6 +320,22 @@ fi
 # Setup questions should mention after_create hook point
 assert_contains "setup.md questions mention after_create hook" "after_create" "$SETUP"
 
+# ── Section: Worktree naming contract ────────────────────
+# Worktree dirs are the branch name with '/' flattened to '-' (declared in
+# worktree-lifecycle.md). Raw branch names nest directories and break every
+# single-level glob (status scans, crash recovery, tree-guard guidance).
+
+echo ""
+echo "=== Worktree naming contract ==="
+
+LIFECYCLE="$PLUGIN_DIR/worktree-lifecycle.md"
+RESPOND_SKILL="$PLUGIN_DIR/skills/respond/SKILL.md"
+
+assert_contains "worktree-lifecycle declares the slug rule" "tr '/' '-'" "$LIFECYCLE"
+assert_not_contains "respond does not address worktree dirs by raw branch name" "worktrees/<branch>" "$RESPOND_SKILL"
+assert_not_contains "tree-guard does not point at raw-branch worktree path" 'worktrees/${CURRENT_BRANCH}' "$PLUGIN_DIR/hooks/tree-guard.sh"
+assert_not_contains "worktree-lifecycle uses numbered respond state filename" "respond-state.md" "$LIFECYCLE"
+
 # ── Section: GitHub adapter template validity ────────────
 # Known-bad command patterns that fail at runtime against real gh/jq.
 
