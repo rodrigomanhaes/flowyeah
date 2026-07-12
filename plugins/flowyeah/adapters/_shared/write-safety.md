@@ -49,7 +49,7 @@ If it doesn't exist → safe to retry.
 
 If the verification query returns multiple candidates and you can't
 distinguish them, or no predicate is tight enough to be safe, **STOP and ask
-Rodrigo**. Do not guess. A duplicate is worse than a paused pipeline.
+the user**. Do not guess. A duplicate is worse than a paused pipeline.
 
 ## A note on idempotency
 

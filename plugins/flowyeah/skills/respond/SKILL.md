@@ -30,7 +30,7 @@ Default to read-only commands when gathering context — they cover everything t
 | Per-line authorship at a SHA | `git blame <sha> -- <file>` |
 | File history | `git log --oneline -10 <file>` |
 
-The `tree-guard.sh` PreToolUse hook enforces this rule on Bash. If it blocks a command, do not retry, escalate, or work around it — either move into `.flowyeah/worktrees/<slug>/` (after step 5) or stop and ask Rodrigo. Edit/Write tool calls are not currently hook-gated, so the agent must hold the rule deliberately for those: never edit project files outside the worktree.
+The `tree-guard.sh` PreToolUse hook enforces this rule on Bash. If it blocks a command, do not retry, escalate, or work around it — either move into `.flowyeah/worktrees/<slug>/` (after step 5) or stop and ask the user. Edit/Write tool calls are not currently hook-gated, so the agent must hold the rule deliberately for those: never edit project files outside the worktree.
 
 `finalize`-style cleanup is not a separate command for respond; the pipeline self-cleans at step 10. To abort mid-pipeline, remove `.flowyeah/respond-state-{N}.md` and `.flowyeah/respond-decisions-{N}.md` manually (or use `/flowyeah:status clean`).
 

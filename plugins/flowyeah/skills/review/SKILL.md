@@ -28,7 +28,7 @@ Default to read-only commands when gathering context — they cover the great ma
 
 When deeper inspection is genuinely justified — running code at PR HEAD, applying a candidate patch to verify behavior, full-tree LSP/recursive-grep navigation against materialized files — create a dedicated review worktree at `.flowyeah/review-worktrees/{N}/`, perform the work there, and remove it before the session terminates. The worktree path is recorded in `Worktree:` inside `review-state-{N}.md` so `finalize` and crash recovery can clean it up unconditionally. The review worktree is **separate** from build worktrees at `.flowyeah/worktrees/` — never reuse a build worktree, and `finalize` for review must never touch build worktrees.
 
-If a step appears to require a primary-checkout mutation, STOP and ask Rodrigo — the skill is wrong, not your judgment.
+If a step appears to require a primary-checkout mutation, STOP and ask the user — the skill is wrong, not your judgment.
 
 ## Argument Parsing
 
@@ -669,4 +669,4 @@ Review comments are written in the language configured in `language`. Default: `
 - Skip the review type question
 - Submit a review without inline comments (when there are approved findings with file:line)
 - Put findings in the review body instead of as inline comments. Every finding is a stop-point for the reviewed developer — it must create an open thread they need to resolve. The review body is a summary layer only.
-- Mutate the working tree, index, or HEAD of the primary checkout at any phase, including context gathering. Use `.flowyeah/review-worktrees/{N}/` for any necessary mutation (see "Invariant: Primary Checkout Is Untouched"). The pre-tool-use hook `tree-guard.sh` enforces this — if it blocks a command, do not retry, escalate, or work around it; either move the work into the review worktree or stop and ask Rodrigo.
+- Mutate the working tree, index, or HEAD of the primary checkout at any phase, including context gathering. Use `.flowyeah/review-worktrees/{N}/` for any necessary mutation (see "Invariant: Primary Checkout Is Untouched"). The pre-tool-use hook `tree-guard.sh` enforces this — if it blocks a command, do not retry, escalate, or work around it; either move the work into the review worktree or stop and ask the user.

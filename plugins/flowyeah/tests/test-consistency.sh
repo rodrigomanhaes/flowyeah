@@ -377,6 +377,19 @@ assert_contains "status checks Worktree: references before calling a worktree or
 assert_contains "status clean handles respond-decisions files" "respond-decisions" "$STATUS_SKILL"
 assert_not_contains "status counts nested subtasks in plans" "grep -c '^\- \[" "$STATUS_SKILL"
 
+# ── Section: No personalization in distributed instructions ──
+# The plugin ships to arbitrary users — skill/adapter prose must not
+# hardcode a person's name (LICENSE and manifest author are fine).
+
+echo ""
+echo "=== No personalization in distributed instructions ==="
+
+for f in "$PLUGIN_DIR"/skills/*/SKILL.md "$PLUGIN_DIR"/adapters/*/*.md "$PLUGIN_DIR"/adapters/_shared/*.md; do
+    assert_not_contains "$(basename "$(dirname "$f")")/$(basename "$f") has no hardcoded user name" "Rodrigo" "$f"
+done
+
+assert_contains "plugin manifest points at the GitHub repo" "github.com" "$PLUGIN_DIR/.claude-plugin/plugin.json"
+
 # ── Section: GitHub adapter template validity ────────────
 # Known-bad command patterns that fail at runtime against real gh/jq.
 
