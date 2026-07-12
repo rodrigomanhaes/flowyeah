@@ -725,14 +725,20 @@ git worktree remove <worktree-path>
 **Before entering the loop**, check for another active continuous session on the same plan:
 
 ```bash
-# Scan active worktrees for sessions targeting the same plan file
+# Scan active worktrees for sessions targeting the same plan file.
+# The sed strips the field name, any inline "# ..." comment the state.md
+# template carries on these lines, and surrounding whitespace — a plain
+# cut would keep the comment and the comparison would never match.
 for state_file in "$MAIN_WORKTREE"/.flowyeah/worktrees/*/.flowyeah/state.md; do
-  PLAN=$(grep -m1 '^Plan:' "$state_file" 2>/dev/null | cut -d' ' -f2-)
-  MODE=$(grep -m1 '^Mode:' "$state_file" 2>/dev/null | cut -d' ' -f2-)
+  PLAN=$(grep -m1 '^Plan:' "$state_file" 2>/dev/null | sed -e 's/^Plan:[[:space:]]*//' -e 's/[[:space:]]*#.*$//' -e 's/[[:space:]]*$//')
+  MODE=$(grep -m1 '^Mode:' "$state_file" 2>/dev/null | sed -e 's/^Mode:[[:space:]]*//' -e 's/[[:space:]]*#.*$//' -e 's/[[:space:]]*$//')
+  if [ "$PLAN" = "<this run's plan path>" ] && [ "$MODE" = "continuous" ]; then
+    echo "conflict: $state_file"
+  fi
 done
 ```
 
-If any active session has the same `Plan:` path AND `Mode: continuous`, **STOP**: "Another continuous session is already working on this plan (<worktree name>). Running two continuous sessions on the same plan risks concurrent file writes when marking tasks done. Use a single continuous session per plan, or run without `--continuous`."
+If any active session has the same `Plan:` path AND `Mode: continuous` (the comparison happens inside the loop — each session is checked, not just the last one scanned), **STOP**: "Another continuous session is already working on this plan (<worktree name>). Running two continuous sessions on the same plan risks concurrent file writes when marking tasks done. Use a single continuous session per plan, or run without `--continuous`."
 
 ```
 loop:
