@@ -76,6 +76,49 @@ for dir in "$PLUGIN_DIR"/skills/*/; do
     assert_file_exists "skill $name has SKILL.md" "$dir/SKILL.md"
 done
 
+# ── Section: Manifest version sync ───────────────────────
+# The pre-commit hook bumps plugin.json and marketplace.json together, but
+# git merges and --no-verify commits bypass it — drift must fail CI.
+
+echo ""
+echo "=== Manifest version sync ==="
+
+PLUGIN_JSON="$PLUGIN_DIR/.claude-plugin/plugin.json"
+MARKETPLACE_JSON="$PLUGIN_DIR/../../.claude-plugin/marketplace.json"
+
+PLUGIN_VERSION=$(grep -o '"version": *"[^"]*"' "$PLUGIN_JSON" | sed 's/.*"\(.*\)"/\1/')
+
+TOTAL=$((TOTAL + 1))
+if [ -n "$PLUGIN_VERSION" ] && [ "$(printf '%s\n' "$PLUGIN_VERSION" | wc -l)" -eq 1 ]; then
+    PASS=$((PASS + 1))
+else
+    FAIL=$((FAIL + 1))
+    echo "FAIL: plugin.json declares exactly one version"
+    echo "  got: $PLUGIN_VERSION"
+fi
+
+MARKETPLACE_VERSIONS=$(grep -o '"version": *"[^"]*"' "$MARKETPLACE_JSON" | sed 's/.*"\(.*\)"/\1/')
+
+TOTAL=$((TOTAL + 1))
+if [ "$(printf '%s\n' "$MARKETPLACE_VERSIONS" | wc -l)" -eq 2 ]; then
+    PASS=$((PASS + 1))
+else
+    FAIL=$((FAIL + 1))
+    echo "FAIL: marketplace.json declares exactly two version fields (metadata + plugin entry)"
+    echo "  got: $MARKETPLACE_VERSIONS"
+fi
+
+for v in $MARKETPLACE_VERSIONS; do
+    TOTAL=$((TOTAL + 1))
+    if [ "$v" = "$PLUGIN_VERSION" ]; then
+        PASS=$((PASS + 1))
+    else
+        FAIL=$((FAIL + 1))
+        echo "FAIL: marketplace.json version matches plugin.json"
+        echo "  marketplace: $v, plugin: $PLUGIN_VERSION"
+    fi
+done
+
 # ── Section: README cross-references ─────────────────────
 
 echo ""

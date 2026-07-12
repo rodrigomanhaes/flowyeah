@@ -1,0 +1,23 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  hooks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure git identity for test repos
+        run: git config --global user.email "ci@test" && git config --global user.name "CI"
+      - name: Run hook tests
+        run: bash plugins/flowyeah/tests/test-hooks.sh
+
+  consistency:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run consistency tests
+        run: bash plugins/flowyeah/tests/test-consistency.sh

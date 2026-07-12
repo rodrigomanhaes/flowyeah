@@ -1042,7 +1042,9 @@ echo ""
 echo "=== tree-guard.sh ==="
 
 if ! command -v jq >/dev/null 2>&1; then
-    echo "skipped (jq not installed)"
+    TOTAL=$((TOTAL + 1))
+    FAIL=$((FAIL + 1))
+    echo "FAIL: jq is required for the tree-guard tests — install jq and re-run"
 else
     GUARD="$SCRIPT_DIR/tree-guard.sh"
     GUARD_RC=0
