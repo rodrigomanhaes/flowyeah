@@ -45,6 +45,19 @@ assert_contains() {
     fi
 }
 
+assert_not_contains() {
+    local label="$1" pattern="$2" file="$3"
+    TOTAL=$((TOTAL + 1))
+    if grep -qF -- "$pattern" "$file"; then
+        FAIL=$((FAIL + 1))
+        echo "FAIL: $label"
+        echo "  expected NOT to find: $pattern"
+        echo "  in: $file"
+    else
+        PASS=$((PASS + 1))
+    fi
+}
+
 assert_dir_in_list() {
     local label="$1" dirname="$2" list="$3"
     TOTAL=$((TOTAL + 1))
@@ -306,6 +319,31 @@ fi
 
 # Setup questions should mention after_create hook point
 assert_contains "setup.md questions mention after_create hook" "after_create" "$SETUP"
+
+# ── Section: GitHub adapter template validity ────────────
+# Known-bad command patterns that fail at runtime against real gh/jq.
+
+echo ""
+echo "=== GitHub adapter template validity ==="
+
+GH_ADAPTER="$PLUGIN_DIR/adapters/github"
+
+# jq string interpolation is \(...) — a double backslash reaches jq as a
+# literal backslash and the expression outputs itself instead of the value.
+for f in "$GH_ADAPTER"/*.md; do
+    assert_not_contains "$(basename "$f") has no double-backslash jq interpolation" '\\(' "$f"
+done
+
+# gh api --field never parses JSON literals — arrays arrive as strings and
+# the reviews endpoint rejects them with 422. Arrays must go via --input.
+assert_not_contains "review.md does not pass comments array via --field" "--field 'comments=" "$GH_ADAPTER/review.md"
+
+# gh pr checks --json has no conclusion/detailsUrl fields (bucket/link exist).
+assert_not_contains "hosting.md does not use invalid gh pr checks field conclusion" "conclusion" "$GH_ADAPTER/hosting.md"
+assert_not_contains "hosting.md does not use invalid gh pr checks field detailsUrl" "detailsUrl" "$GH_ADAPTER/hosting.md"
+
+# gh's --jq flag takes a single expression string; it has no --arg option.
+assert_not_contains "connection.md does not pass --arg to gh --jq" "--jq --arg" "$GH_ADAPTER/connection.md"
 
 # ── Results ──────────────────────────────────────────────
 

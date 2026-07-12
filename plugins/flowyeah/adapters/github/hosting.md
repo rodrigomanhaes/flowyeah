@@ -43,23 +43,23 @@ This blocks until all checks complete. If any check fails, the command exits wit
 **Alternative (non-blocking poll):**
 
 ```bash
-gh pr checks <source_branch> --json name,state,conclusion | \
-  jq '.[] | select(.state != "COMPLETED")'
+gh pr checks <source_branch> --json name,bucket | \
+  jq '.[] | select(.bucket == "pending")'
 ```
 
 - Empty output → all checks completed
-- Check `conclusion`: `SUCCESS`, `FAILURE`, `NEUTRAL`, `SKIPPED`
+- Check `bucket`: `pass`, `fail`, `skipping`, `cancel`
 
 **Poll interval (if not using `--watch`):** 30 seconds. **Timeout:** after 10 minutes, ask the user.
 
 ### Reading CI Failure Details
 
 ```bash
-gh pr checks <source_branch> --json name,state,conclusion,detailsUrl | \
-  jq '.[] | select(.conclusion == "FAILURE")'
+gh pr checks <source_branch> --json name,bucket,link | \
+  jq '.[] | select(.bucket == "fail")'
 ```
 
-Use the `detailsUrl` to understand what failed. For GitHub Actions:
+Use the `link` to understand what failed. For GitHub Actions:
 
 ```bash
 gh run view <run_id> --log-failed

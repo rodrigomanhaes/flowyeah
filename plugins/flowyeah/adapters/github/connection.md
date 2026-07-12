@@ -33,7 +33,7 @@ gh api repos/{owner}/{repo}/endpoint
 Detect owner/repo automatically:
 
 ```bash
-gh repo view --json owner,name --jq '"\\(.owner.login)/\\(.name)"'
+gh repo view --json owner,name --jq '"\(.owner.login)/\(.name)"'
 ```
 
 ## Detecting GitHub
@@ -104,13 +104,13 @@ Verify state before retrying:
 # PRs — exact title match within the current repo
 TITLE="<exact title that was sent>"
 gh pr list --search "\"$TITLE\" in:title" --state open \
-  --json number,title,url \
-  --jq --arg t "$TITLE" '[.[] | select(.title == $t)]'
+  --json number,title,url | \
+  jq --arg t "$TITLE" '[.[] | select(.title == $t)]'
 
 # Issues
 gh issue list --search "\"$TITLE\" in:title" --state open \
-  --json number,title,url \
-  --jq --arg t "$TITLE" '[.[] | select(.title == $t)]'
+  --json number,title,url | \
+  jq --arg t "$TITLE" '[.[] | select(.title == $t)]'
 ```
 
 - Empty array → safe to retry.
