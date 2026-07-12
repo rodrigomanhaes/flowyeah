@@ -35,7 +35,7 @@ assert_file_exists() {
 assert_contains() {
     local label="$1" pattern="$2" file="$3"
     TOTAL=$((TOTAL + 1))
-    if grep -qF "$pattern" "$file"; then
+    if grep -qF -- "$pattern" "$file"; then
         PASS=$((PASS + 1))
     else
         FAIL=$((FAIL + 1))
@@ -414,6 +414,30 @@ assert_not_contains "hosting.md does not use invalid gh pr checks field detailsU
 
 # gh's --jq flag takes a single expression string; it has no --arg option.
 assert_not_contains "connection.md does not pass --arg to gh --jq" "--jq --arg" "$GH_ADAPTER/connection.md"
+
+# Multi-line bodies go via --body-file (connection.md contract); gh pr view
+# for a branch returns non-open PRs, so reuse must check state.
+assert_not_contains "hosting.md does not pass bodies inline" '--body "' "$GH_ADAPTER/hosting.md"
+assert_not_contains "source.md does not pass bodies inline" '--body "' "$GH_ADAPTER/source.md"
+assert_contains "hosting.md existing-PR check reads state" "number,url,title,state" "$GH_ADAPTER/hosting.md"
+assert_contains "respond.md paginates the reviews endpoint" "--paginate" "$GH_ADAPTER/respond.md"
+
+# ── Section: GitLab adapter template validity ────────────
+# Free-text values must use --form-string (curl --form interprets leading
+# @/< as file references); re-request must remove-then-re-add reviewers.
+
+echo ""
+echo "=== GitLab adapter template validity ==="
+
+GL_ADAPTER="$PLUGIN_DIR/adapters/gitlab"
+
+assert_not_contains "hosting.md description uses form-string" '--form "description=' "$GL_ADAPTER/hosting.md"
+assert_not_contains "hosting.md title uses form-string" '--form "title=' "$GL_ADAPTER/hosting.md"
+assert_not_contains "hosting.md squash message uses form-string" '--form "squash_commit_message=' "$GL_ADAPTER/hosting.md"
+assert_not_contains "review.md note body uses form-string" '--form "body=' "$GL_ADAPTER/review.md"
+assert_not_contains "respond.md reply body uses form-string" '--form "body=' "$GL_ADAPTER/respond.md"
+assert_not_contains "review.md builds discussion payload with jq, not a literal" '"body": "<finding_body>"' "$GL_ADAPTER/review.md"
+assert_contains "respond.md re-request removes reviewers before re-adding" '{"reviewer_ids": []}' "$GL_ADAPTER/respond.md"
 
 # ── Results ──────────────────────────────────────────────
 

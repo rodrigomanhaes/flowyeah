@@ -143,22 +143,26 @@ Extract `base_sha`, `start_sha`, and `head_sha` from the response.
 
 For each finding with a specific file and line:
 
+Finding bodies are multi-line markdown — raw newlines and quotes inside a hand-written JSON literal are invalid, so build the payload with `jq -n` from a file, and save the response (this write can half-succeed across N findings; see "Response handling for writes" in connection.md):
+
 ```bash
+TMPDIR_FY="${TMPDIR_FY:-$(mktemp -d)}"
+# write <finding_body> to "$TMPDIR_FY/finding-body.md" first (raw markdown)
+jq -n --rawfile body "$TMPDIR_FY/finding-body.md" \
+  --arg base "<base_sha>" --arg start "<start_sha>" --arg head "<head_sha>" \
+  --arg path "<file_path>" --argjson line <line_number> '
+  {body: $body, position: {base_sha: $base, start_sha: $start, head_sha: $head,
+   position_type: "text", new_path: $path, new_line: $line}}' \
+  > "$TMPDIR_FY/discussion-payload.json"
+
 curl -s --request POST -H "Authorization: Bearer $TOKEN" \
   --header "Content-Type: application/json" \
-  --data '{
-    "body": "<finding_body>",
-    "position": {
-      "base_sha": "<base_sha>",
-      "start_sha": "<start_sha>",
-      "head_sha": "<head_sha>",
-      "position_type": "text",
-      "new_path": "<file_path>",
-      "new_line": <line_number>
-    }
-  }' \
+  --data @"$TMPDIR_FY/discussion-payload.json" \
+  -o "$TMPDIR_FY/discussion-response.json" -w "%{http_code}" \
   "<url>/api/v4/projects/<project_id>/merge_requests/<iid>/discussions"
 ```
+
+Expect `201`. On any other status, keep the response file and check whether the discussion was created before retrying — when a batch fails partway, list the MR's discussions and skip findings already posted.
 
 **Note:** Unlike most GitLab endpoints, discussions with `position` require JSON encoding, not `--form`.
 
@@ -167,15 +171,18 @@ curl -s --request POST -H "Authorization: Bearer $TOKEN" \
 - `new_line` — line number on the **new side** of the diff (added/modified lines)
 - `old_path` / `old_line` — use for commenting on removed lines
 
-The `new_line` MUST be a line that appears in the diff. If the finding is about a line not in the diff, use the nearest diff line in the same file, or post as a general note instead.
+The `new_line` MUST be a line that appears in the diff. If the finding is about a line not in the diff, anchor it to the nearest diff line in the same file and say in the body which line it actually concerns — never fall back to a general note; the review skill requires every finding to land as an inline discussion.
 
 ### Step 3 — Post summary note
 
-For the overall review summary (and findings without specific file:line):
+For the overall review summary (findings always go inline — see Step 2):
 
 ```bash
+TMPDIR_FY="${TMPDIR_FY:-$(mktemp -d)}"
+# write <review_summary> to "$TMPDIR_FY/review-summary.md" first
+SUMMARY=$(cat "$TMPDIR_FY/review-summary.md")
 curl -s --request POST -H "Authorization: Bearer $TOKEN" \
-  --form "body=<review_summary>" \
+  --form-string "body=$SUMMARY" \
   "<url>/api/v4/projects/<project_id>/merge_requests/<iid>/notes"
 ```
 

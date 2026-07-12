@@ -40,8 +40,12 @@ gh issue view <issue_number> --json title,body,labels,milestone,state
 
 ## Create Issue
 
+The description is multi-line markdown — pass it via `--body-file`, never inline (see the "Multi-line strings" rule in `connection.md`):
+
 ```bash
-gh issue create --title "<title>" --body "<description>" --assignee "@me"
+TMPDIR_FY="${TMPDIR_FY:-$(mktemp -d)}"
+# write <description> to "$TMPDIR_FY/issue-body.md" first
+gh issue create --title "<title>" --body-file "$TMPDIR_FY/issue-body.md" --assignee "@me"
 ```
 
 **Response:** prints the issue URL and number.

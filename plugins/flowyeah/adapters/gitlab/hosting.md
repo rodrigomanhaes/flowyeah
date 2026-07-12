@@ -34,14 +34,17 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 
 **Endpoint:** `POST /projects/<project_id>/merge_requests`
 
-**Use `--form` encoding** (see connection.md for why):
+**Use `--form` encoding for fixed values and `--form-string` for free text** — the title and description are user-authored markdown, and `--form` would interpret a leading `@`/`<` as a file reference (see "Multi-line or special-character values" in connection.md):
 
 ```bash
+TMPDIR_FY="${TMPDIR_FY:-$(mktemp -d)}"
+# write <body> to "$TMPDIR_FY/mr-body.md" first
+DESC=$(cat "$TMPDIR_FY/mr-body.md")
 curl -s --request POST -H "Authorization: Bearer $TOKEN" \
   --form "source_branch=<source_branch>" \
   --form "target_branch=<target_branch>" \
-  --form "title=<title>" \
-  --form "description=<body>" \
+  --form-string "title=<title>" \
+  --form-string "description=$DESC" \
   --form "remove_source_branch=<delete_source_branch>" \
   --form "assignee_id=<user_id>" \
   "<url>/api/v4/projects/<project_id>/merge_requests"
@@ -95,9 +98,10 @@ Use the trace output to diagnose the failure.
 **Endpoint:** `PUT /projects/<project_id>/merge_requests/<iid>/merge`
 
 ```bash
+SQUASH_MSG=$(printf '%s\n\n%s' "<MR title>" "<MR description>")
 curl -s --request PUT -H "Authorization: Bearer $TOKEN" \
   --form "squash=<true if merge_strategy is squash, false otherwise>" \
-  --form "squash_commit_message=<squash_message>" \
+  --form-string "squash_commit_message=$SQUASH_MSG" \
   --form "should_remove_source_branch=<delete_source_branch>" \
   "<url>/api/v4/projects/<project_id>/merge_requests/<iid>/merge"
 ```
@@ -116,7 +120,7 @@ If you need to update the MR after pushing fixes:
 
 ```bash
 curl -s --request PUT -H "Authorization: Bearer $TOKEN" \
-  --form "title=<new_title>" \
+  --form-string "title=<new_title>" \
   "<url>/api/v4/projects/<project_id>/merge_requests/<iid>"
 ```
 

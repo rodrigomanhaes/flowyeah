@@ -79,10 +79,12 @@ If the body does not match Conventional Comments format, treat it as a free-form
 
 Get each reviewer's most recent review state. Used to determine re-request eligibility.
 
+The endpoint returns 30 reviews per page and `.[-1]` must see the whole history — paginate, then group across all pages (with `--paginate`, gh applies `--jq` per page, so the grouping runs in a second jq over the merged stream):
+
 ```bash
 REPO=$(gh repo view --json owner,name --jq '"\(.owner.login)/\(.name)"')
 
-gh api "repos/${REPO}/pulls/<number>/reviews" --jq '
+gh api --paginate "repos/${REPO}/pulls/<number>/reviews" --jq '.[]' | jq -s '
   [group_by(.user.login)[] | {
     user: .[0].user.login,
     state: .[-1].state

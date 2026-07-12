@@ -74,9 +74,14 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 
 Post a note to an existing discussion thread. The reply appears nested under the original comment, keeping the conversation in context.
 
+Reply bodies are free-form markdown — use `--form-string` so a leading `@`/`<` is not interpreted as a file reference (see "Multi-line or special-character values" in connection.md):
+
 ```bash
+TMPDIR_FY="${TMPDIR_FY:-$(mktemp -d)}"
+# write <reply_text> to "$TMPDIR_FY/reply.md" first
+REPLY=$(cat "$TMPDIR_FY/reply.md")
 curl -s --request POST -H "Authorization: Bearer $TOKEN" \
-  --form "body=<reply_text>" \
+  --form-string "body=$REPLY" \
   "<url>/api/v4/projects/<project_id>/merge_requests/<iid>/discussions/<discussion_id>/notes"
 ```
 
@@ -104,7 +109,20 @@ REVIEWER_IDS=$(curl -s -H "Authorization: Bearer $TOKEN" \
   jq '[.reviewers[].id]')
 ```
 
-**Step 2 — Update reviewers (PUT replaces the full list):**
+**Step 2 — Remove the reviewers (PUT replaces the full list):**
+
+GitLab treats a PUT with an unchanged reviewer list as a no-op — no system note, no notification. The remove/re-add pair is what actually re-triggers the review request:
+
+```bash
+curl -s --request PUT -H "Authorization: Bearer $TOKEN" \
+  --header "Content-Type: application/json" \
+  --data '{"reviewer_ids": []}' \
+  "<url>/api/v4/projects/<project_id>/merge_requests/<iid>"
+```
+
+(To re-request from only some reviewers, send the list minus those reviewers instead of `[]`.)
+
+**Step 3 — Re-add them:**
 
 ```bash
 curl -s --request PUT -H "Authorization: Bearer $TOKEN" \
@@ -113,6 +131,6 @@ curl -s --request PUT -H "Authorization: Bearer $TOKEN" \
   "<url>/api/v4/projects/<project_id>/merge_requests/<iid>"
 ```
 
-**Note:** The PUT with `reviewer_ids` requires JSON encoding (not `--form`) because the value is an array. This is an exception to the general GitLab `--form` convention — see `connection.md`.
+**Note:** The PUT with `reviewer_ids` requires JSON encoding (not `--form`) because the value is an array. This is an exception to the general GitLab `--form` convention — see `connection.md`. Reviewers who left the reviewer list entirely cannot be re-derived from the MR — when the respond skill says to "re-add all previous reviewers", the Step 1 snapshot taken at session start is the source.
 
 **When to re-request:** Only re-request review from reviewers whose unresolved threads were all resolved during the respond process. Re-requesting from reviewers who still have unresolved threads is counterproductive.

@@ -177,13 +177,13 @@ Finding bodies are multi-line — inside JSON strings, escape newlines as `\n` a
 | `start_line` | (optional) For multi-line comments, the starting line |
 | `side` | (optional) `RIGHT` (default, added lines) or `LEFT` (removed lines) |
 
-The `line` MUST be a line that appears in the diff. If the finding is about a line not in the diff, include it only in the review body.
+The `line` MUST be a line that appears in the diff. If the finding is about a line not in the diff, anchor it to the best available diff line — the most relevant changed line in the same file, or the file's first changed line; for a cross-cutting finding, the most relevant file's first changed hunk — and say in the body which line it actually concerns. Every finding MUST become an inline comment; never move findings to the review body (see the review skill's error-handling table).
 
 ### Important
 
 - **ALWAYS use `gh api .../reviews`** — never use `gh pr review --comment --body` (that creates a generic timeline comment, not inline review comments)
 - All inline comments are submitted atomically with the review body
-- Findings without specific file:line go in the review body only
+- Findings without a diff-anchorable line still go inline, on the nearest anchor (see "Inline Comment Fields" above) — the review body carries only the summary
 
 ## Review Types Mapping
 

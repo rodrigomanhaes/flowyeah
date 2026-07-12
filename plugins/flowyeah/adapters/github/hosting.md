@@ -11,18 +11,23 @@ Creates pull requests, polls CI, and merges via the `gh` CLI.
 Before creating, check if a PR already exists for this branch:
 
 ```bash
-gh pr view <source_branch> --json number,url,title 2>/dev/null
+gh pr view <source_branch> --json number,url,title,state 2>/dev/null
 ```
 
-- **Command succeeds** → PR already exists. Reuse it — save `number` and `url`, skip creation.
+- **Command succeeds and `state` is `OPEN`** → PR already exists. Reuse it — save `number` and `url`, skip creation.
+- **Command succeeds with `MERGED` or `CLOSED`** → that PR is dead; proceed with creation. (`gh pr view <branch>` returns the most recent PR for the branch even when it is not open.)
 - **Command fails** → no PR exists, proceed with creation.
 
 ### Create PR
 
+The body is multi-line markdown — pass it via `--body-file`, never inline (see the "Multi-line strings" rule in `connection.md`):
+
 ```bash
+TMPDIR_FY="${TMPDIR_FY:-$(mktemp -d)}"
+# write <body> to "$TMPDIR_FY/pr-body.md" first
 gh pr create \
   --title "<title>" \
-  --body "<body>" \
+  --body-file "$TMPDIR_FY/pr-body.md" \
   --base "<target_branch>" \
   --head "<source_branch>" \
   --assignee "@me"
@@ -67,15 +72,25 @@ gh run view <run_id> --log-failed
 
 ## Merge
 
+For `squash` and `merge` strategies (a merge/squash commit exists to message — its body is multi-line, so use `--body-file`):
+
 ```bash
+TMPDIR_FY="${TMPDIR_FY:-$(mktemp -d)}"
+# write <PR description> to "$TMPDIR_FY/merge-body.md" first
 gh pr merge <source_branch> --<merge_strategy> \
-  --subject "<PR title>" --body "<PR description>" \
+  --subject "<PR title>" --body-file "$TMPDIR_FY/merge-body.md" \
   --delete-branch
+```
+
+For `rebase` there is no merge commit to message — gh rejects `--subject`/`--body` with `--rebase`, so omit them:
+
+```bash
+gh pr merge <source_branch> --rebase --delete-branch
 ```
 
 Flags:
 - `--<merge_strategy>` — read from `pull_requests.merge_strategy`: `--squash`, `--merge`, or `--rebase`
-- `--subject` / `--body` — set the merge commit message to the PR title + description (instead of GitHub's default)
+- `--subject` / `--body-file` — set the merge commit message to the PR title + description (squash/merge only)
 - `--delete-branch` — remove source branch after merge (if `delete_source_branch` is true)
 - Without `--delete-branch` if `delete_source_branch` is false
 
