@@ -1558,6 +1558,82 @@ for adapter in bugsink gitlab linear newrelic; do
     fi
 done
 
+# ── bump-version.sh tests ────────────────────────────────
+echo ""
+echo "=== bump-version.sh ==="
+
+BUMP="$(cd "$SCRIPT_DIR/../../.." && pwd)/scripts/bump-version.sh"
+
+# Build a scratch repo with the manifest layout bump-version expects.
+setup_manifest_repo() {
+    setup_repo
+    mkdir -p plugins/flowyeah/.claude-plugin .claude-plugin
+    printf '{\n  "name": "flowyeah",\n  "version": "%s"\n}\n' "$1" \
+        > plugins/flowyeah/.claude-plugin/plugin.json
+    printf '{\n  "metadata": {"version": "%s"},\n  "plugins": [{"version": "%s"}]\n}\n' "$2" "$2" \
+        > .claude-plugin/marketplace.json
+    git add -A && git commit -qm manifests
+}
+
+manifest_version() {
+    sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' "$1" | head -1
+}
+
+# Normal bump: both files move to the next patch, staged.
+setup_manifest_repo 1.0.10 1.0.10
+RC=0; OUTPUT=$(bash "$BUMP" 2>&1) || RC=$?
+assert_exit_eq "bump: exits zero on normal bump" 0 "$RC"
+assert_output_contains "bump: reports old and new version" "1.0.10 -> 1.0.11" "$OUTPUT"
+TOTAL=$((TOTAL + 1))
+if [ "$(manifest_version plugins/flowyeah/.claude-plugin/plugin.json)" = "1.0.11" ] && \
+   [ "$(grep -c '"version": "1.0.11"' .claude-plugin/marketplace.json)" -eq 2 ]; then
+    PASS=$((PASS + 1))
+else
+    FAIL=$((FAIL + 1))
+    echo "FAIL: bump: rewrites plugin.json once and marketplace.json twice"
+fi
+teardown
+
+# Retry after a failed commit: second run without a commit must not re-bump.
+setup_manifest_repo 1.0.10 1.0.10
+bash "$BUMP" >/dev/null 2>&1
+RC=0; OUTPUT=$(bash "$BUMP" 2>&1) || RC=$?
+assert_exit_eq "bump: retry exits zero" 0 "$RC"
+TOTAL=$((TOTAL + 1))
+if [ "$(manifest_version plugins/flowyeah/.claude-plugin/plugin.json)" = "1.0.11" ]; then
+    PASS=$((PASS + 1))
+else
+    FAIL=$((FAIL + 1))
+    echo "FAIL: bump: second run without commit does not double-bump"
+    echo "  got: $(manifest_version plugins/flowyeah/.claude-plugin/plugin.json)"
+fi
+teardown
+
+# Drift: marketplace version differs from plugin version — refuse loudly.
+setup_manifest_repo 1.0.10 9.9.9
+RC=0; OUTPUT=$(bash "$BUMP" 2>&1) || RC=$?
+TOTAL=$((TOTAL + 1))
+if [ "$RC" -ne 0 ]; then
+    PASS=$((PASS + 1))
+else
+    FAIL=$((FAIL + 1))
+    echo "FAIL: bump: exits non-zero on manifest drift"
+fi
+assert_output_contains "bump: drift message names both versions" "9.9.9" "$OUTPUT"
+teardown
+
+# Non-numeric patch segment: refuse instead of aborting mid-write.
+setup_manifest_repo 1.0.3-beta 1.0.3-beta
+RC=0; OUTPUT=$(bash "$BUMP" 2>&1) || RC=$?
+TOTAL=$((TOTAL + 1))
+if [ "$RC" -ne 0 ]; then
+    PASS=$((PASS + 1))
+else
+    FAIL=$((FAIL + 1))
+    echo "FAIL: bump: exits non-zero on non-numeric patch"
+fi
+teardown
+
 # ── Results ──────────────────────────────────────────────
 
 echo ""
