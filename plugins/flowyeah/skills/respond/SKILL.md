@@ -17,7 +17,7 @@ flowyeah:respond [--own] [<number>]
 
 ## Invariant: Primary Checkout Is Untouched
 
-The respond pipeline must not mutate the working tree, the index, or HEAD of the checkout it was invoked from (the "primary checkout"). All code mutation belongs inside the worktree created (or reused) at step 5 — `.flowyeah/worktrees/<slug>/`. Forbidden in the primary checkout, at every phase: `git checkout`, `git checkout-index`, `git restore`, `git switch`, `git reset`, `git apply`, `git am`, `git merge`, `git rebase`, `git pull`, `git stash`, `git clean`. `git fetch` (refs only, no working-tree side effects) is allowed.
+The respond pipeline must not mutate the working tree, the index, or HEAD of the checkout it was invoked from (the "primary checkout"). All code mutation belongs inside the worktree created (or reused) at step 5 — `.flowyeah/worktrees/<slug>/`. Forbidden in the primary checkout, at every phase: `git checkout`, `git checkout-index`, `git restore`, `git switch`, `git reset`, `git apply`, `git am`, `git merge`, `git rebase`, `git pull`, `git stash`, `git clean`, `git cherry-pick`, `git revert`, `git rm`, `git mv`, `git bisect`. `git fetch` (refs only, no working-tree side effects) is allowed.
 
 This applies through the full lifecycle: steps 0-4 (config, identify, fetch, evaluate, triage) need only read-only operations against the primary checkout; steps 5-7 (worktree setup, implement, test) operate exclusively inside the worktree (`cd` into it before any code edit); steps 8-10 (push, re-request, cleanup) push from the worktree and remove it without touching the primary.
 

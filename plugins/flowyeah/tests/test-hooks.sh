@@ -1036,6 +1036,41 @@ OUTPUT=$(bash "$SCRIPT_DIR/session-remind.sh" 2>&1)
 assert_output_contains "remind: outputs reminder with respond session" "Update respond-state-55.md" "$OUTPUT"
 teardown
 
+# Test: session-remind.sh reaches model context via additionalContext JSON
+# (PostToolUse stdout with exit 0 is transcript-only)
+setup_repo
+touch flowyeah.yml
+mkdir -p .flowyeah
+echo -e "# Current State\nPR/MR: 55" > .flowyeah/respond-state-55.md
+OUTPUT=$(bash "$SCRIPT_DIR/session-remind.sh" 2>&1)
+assert_output_contains "remind: emits hookSpecificOutput envelope" '"hookSpecificOutput"' "$OUTPUT"
+assert_output_contains "remind: emits additionalContext field" '"additionalContext"' "$OUTPUT"
+teardown
+
+# Test: session-remind.sh names review AND respond sessions together
+setup_repo
+touch flowyeah.yml
+mkdir -p .flowyeah
+echo -e "# Current State\nPR/MR: 42" > .flowyeah/review-state-42.md
+echo -e "# Current State\nPR/MR: 55" > .flowyeah/respond-state-55.md
+echo -e "# Current State\nPR/MR: 43" > .flowyeah/review-state-43.md
+OUTPUT=$(bash "$SCRIPT_DIR/session-remind.sh" 2>&1)
+assert_output_contains "remind coexist: names first review file" "review-state-42.md" "$OUTPUT"
+assert_output_contains "remind coexist: names second review file" "review-state-43.md" "$OUTPUT"
+assert_output_contains "remind coexist: names respond file" "respond-state-55.md" "$OUTPUT"
+teardown
+
+# Test: session-inject.sh stays quiet on a rejections file with zero rejections
+setup_repo
+touch flowyeah.yml
+mkdir -p .flowyeah
+echo -e "# Current State\nPR/MR: 42\nBranch: main" > .flowyeah/review-state-42.md
+echo "# Previously Rejected Findings (PR #42)" > .flowyeah/own-rejections-42.md
+OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+assert_output_not_contains "inject: no shell error on zero-rejection file" "integer expected" "$OUTPUT"
+assert_output_not_contains "inject: no rejected-count line for empty ledger" "Previously rejected" "$OUTPUT"
+teardown
+
 # ── tree-guard.sh tests ────────────────────────────────
 
 echo ""
@@ -1310,6 +1345,73 @@ Phase: Interactive Approval
 EOF
     guard_run "git pull origin main" "$WORKDIR"
     assert_exit_eq "guard: active review phase still blocks" 2 "$GUARD_RC"
+    teardown
+
+    # ── Bypass hardening: global options, glued separators, missing verbs ──
+
+    setup_repo
+    touch flowyeah.yml
+    mkdir -p .flowyeah
+    cat > .flowyeah/review-state-50.md <<'EOF'
+Type: review
+PR/MR: 50
+Branch: main
+Phase: Interactive Approval
+EOF
+
+    guard_run "git -C /tmp checkout main" "$WORKDIR"
+    assert_exit_eq "guard: blocks git -C form" 2 "$GUARD_RC"
+
+    guard_run "git --git-dir=.git --work-tree=. checkout main" "$WORKDIR"
+    assert_exit_eq "guard: blocks --git-dir= form" 2 "$GUARD_RC"
+
+    guard_run "git -c core.pager=cat pull" "$WORKDIR"
+    assert_exit_eq "guard: blocks -c key=val form" 2 "$GUARD_RC"
+
+    guard_run "git pull;true" "$WORKDIR"
+    assert_exit_eq "guard: blocks verb glued to semicolon" 2 "$GUARD_RC"
+
+    guard_run "git pull|cat" "$WORKDIR"
+    assert_exit_eq "guard: blocks verb glued to pipe" 2 "$GUARD_RC"
+
+    guard_run "git stash&&echo done" "$WORKDIR"
+    assert_exit_eq "guard: blocks verb glued to ampersand" 2 "$GUARD_RC"
+
+    guard_run "git cherry-pick abc123" "$WORKDIR"
+    assert_exit_eq "guard: blocks cherry-pick" 2 "$GUARD_RC"
+
+    guard_run "git revert HEAD" "$WORKDIR"
+    assert_exit_eq "guard: blocks revert" 2 "$GUARD_RC"
+
+    guard_run "git rm -r app/" "$WORKDIR"
+    assert_exit_eq "guard: blocks git rm" 2 "$GUARD_RC"
+
+    guard_run "git mv a b" "$WORKDIR"
+    assert_exit_eq "guard: blocks git mv" 2 "$GUARD_RC"
+
+    # ── False positives: read-only subforms must pass ──
+
+    guard_run "git stash list" "$WORKDIR"
+    assert_exit_eq "guard: allows git stash list" 0 "$GUARD_RC"
+
+    guard_run "git stash show -p stash@{0}" "$WORKDIR"
+    assert_exit_eq "guard: allows git stash show" 0 "$GUARD_RC"
+
+    guard_run "git clean -n" "$WORKDIR"
+    assert_exit_eq "guard: allows git clean dry-run" 0 "$GUARD_RC"
+
+    guard_run "git clean -fdn" "$WORKDIR"
+    assert_exit_eq "guard: allows git clean combined dry-run flags" 0 "$GUARD_RC"
+
+    guard_run "git clean -fd" "$WORKDIR"
+    assert_exit_eq "guard: still blocks real git clean" 2 "$GUARD_RC"
+
+    guard_run "git diff main...feature" "$WORKDIR"
+    assert_exit_eq "guard: allows git diff" 0 "$GUARD_RC"
+
+    guard_run "git log --oneline -5" "$WORKDIR"
+    assert_exit_eq "guard: allows git log with long option" 0 "$GUARD_RC"
+
     teardown
 
     # ── Respond session for a different branch is ignored ──

@@ -45,7 +45,10 @@ for state_file in "${REVIEW_STATE_FILES[@]}"; do
     fi
 
     if [ -f "$TOPLEVEL/.flowyeah/own-rejections-${number}.md" ]; then
-        REJ_COUNT=$(grep -c '^## Rejection ' "$TOPLEVEL/.flowyeah/own-rejections-${number}.md" 2>/dev/null || echo 0)
+        # grep -c prints the count even when it exits 1 (zero matches); || true
+        # keeps set -e happy without appending a second "0" to the capture.
+        REJ_COUNT=$(grep -c '^## Rejection ' "$TOPLEVEL/.flowyeah/own-rejections-${number}.md" 2>/dev/null || true)
+        REJ_COUNT=${REJ_COUNT:-0}
         if [ "$REJ_COUNT" -gt 0 ]; then
             echo "Previously rejected: $REJ_COUNT (see .flowyeah/own-rejections-${number}.md for reasoning)"
             echo ""

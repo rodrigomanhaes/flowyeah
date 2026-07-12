@@ -14,7 +14,7 @@ flowyeah:review finalize [<number>]
 
 ## Invariant: Primary Checkout Is Untouched
 
-The review pipeline must not mutate the working tree, the index, or HEAD of the checkout it was invoked from (the "primary checkout"). Forbidden in that checkout, at every phase: `git checkout`, `git restore`, `git switch`, `git reset`, `git apply`, `git am`, `git merge`, `git rebase`, `git pull`, `git stash`, `git clean`, and any form like `git checkout <ref> -- <path>` that overwrites tracked files. `git fetch` (refs only, no working-tree side effects) is allowed.
+The review pipeline must not mutate the working tree, the index, or HEAD of the checkout it was invoked from (the "primary checkout"). Forbidden in that checkout, at every phase: `git checkout`, `git restore`, `git switch`, `git reset`, `git apply`, `git am`, `git merge`, `git rebase`, `git pull`, `git stash`, `git clean`, `git cherry-pick`, `git revert`, `git rm`, `git mv`, `git bisect`, and any form like `git checkout <ref> -- <path>` that overwrites tracked files. `git fetch` (refs only, no working-tree side effects) is allowed.
 
 Default to read-only commands when gathering context — they cover the great majority of needs:
 

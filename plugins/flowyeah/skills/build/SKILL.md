@@ -13,7 +13,7 @@ flowyeah:build [from <source>] [--continuous] [--intermittent] [--on-branch <bra
 
 ## Invariant: Primary Checkout Is Untouched
 
-The build pipeline must not mutate the working tree, the index, or HEAD of the checkout it was invoked from (the "primary checkout"). All mutation belongs inside the worktree created at step 3 — `.flowyeah/worktrees/<name>/`. Forbidden in the primary checkout: `git checkout`, `git checkout-index`, `git restore`, `git switch`, `git reset`, `git apply`, `git am`, `git merge`, `git rebase`, `git pull`, `git stash`, `git clean`. `git fetch` (refs only) is allowed.
+The build pipeline must not mutate the working tree, the index, or HEAD of the checkout it was invoked from (the "primary checkout"). All mutation belongs inside the worktree created at step 3 — `.flowyeah/worktrees/<name>/`. Forbidden in the primary checkout: `git checkout`, `git checkout-index`, `git restore`, `git switch`, `git reset`, `git apply`, `git am`, `git merge`, `git rebase`, `git pull`, `git stash`, `git clean`, `git cherry-pick`, `git revert`, `git rm`, `git mv`, `git bisect`. `git fetch` (refs only) is allowed.
 
 Steps 0-2 (validate config, resolve source, pick task) are explicitly read-only against the primary checkout — see step 1's "read-only, main checkout" annotation in the pipeline diagram. Step 3 creates the worktree without touching the primary's tree, index, or HEAD: refs are updated via `git fetch`, the branch is based on `origin/$DEFAULT_BRANCH`, and artifact ignoring goes through `info/exclude`. From that point on, all subsequent steps (implement, commit, test, push, PR, hooks, mark-done, cleanup) operate inside the worktree exclusively.
 

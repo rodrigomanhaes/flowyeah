@@ -56,12 +56,23 @@ case "$TOPLEVEL" in
     */.flowyeah/review-worktrees/*) exit 0 ;;
 esac
 
-# Detect the mutating git verbs. Match `git <verb>` with optional whitespace,
-# anywhere in the command (covers `cd x && git checkout ...`, `sudo git ...`,
-# pipelines, etc.). `git fetch` is intentionally NOT blocked — it only updates
-# refs.
-MUTATING_RE='(^|[^a-zA-Z0-9_-])git[[:space:]]+(checkout|checkout-index|restore|switch|reset|apply|am|merge|rebase|pull|stash|clean)([[:space:]]|$)'
-if ! [[ "$COMMAND" =~ $MUTATING_RE ]]; then
+# Strip read-only subforms first so they never false-positive: `git stash
+# list|show` and `git clean` dry-runs (-n / --dry-run, alone or in combined
+# flags) inspect without mutating.
+SANITIZED=$(printf '%s' "$COMMAND" | sed -E \
+    -e 's/(^|[^a-zA-Z0-9_-])git[[:space:]]+stash[[:space:]]+(list|show)/\1git-readonly/g' \
+    -e 's/(^|[^a-zA-Z0-9_-])git[[:space:]]+clean([[:space:]]+-[a-zA-Z]+)*[[:space:]]+(-[a-zA-Z]*n[a-zA-Z]*|--dry-run)/\1git-readonly/g')
+
+# Detect the mutating git verbs. Match `git <verb>` anywhere in the command
+# (covers `cd x && git checkout ...`, `sudo git ...`, pipelines) including
+# through global options (`git -C <path>`, `git -c k=v`, `--git-dir=<path>`)
+# and with any shell separator glued to the verb (`git pull;true`).
+# `git fetch` is intentionally NOT blocked — it only updates refs. Quoted
+# prose (`echo "git pull"`) still matches: the guard is conservative by
+# design and a spurious block is recoverable, a missed mutation is not.
+GLOBAL_OPT='(-C[[:space:]]+[^[:space:]]+|-c[[:space:]]+[^[:space:]]+|--[a-zA-Z-]+(=[^[:space:]]*)?)'
+MUTATING_RE="(^|[^a-zA-Z0-9_-])git([[:space:]]+${GLOBAL_OPT})*[[:space:]]+(checkout|checkout-index|restore|switch|reset|apply|am|merge|rebase|pull|stash|clean|cherry-pick|revert|rm|mv|bisect)([[:space:]&|;<>)]|\$)"
+if ! [[ "$SANITIZED" =~ $MUTATING_RE ]]; then
     exit 0
 fi
 
@@ -138,6 +149,7 @@ Forbidden in the primary checkout:
 
     git checkout / checkout-index / restore / switch / reset / apply / am
     git merge / rebase / pull / stash / clean
+    git cherry-pick / revert / rm / mv / bisect
 
 Allowed alternatives:
 
