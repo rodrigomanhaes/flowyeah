@@ -19,8 +19,11 @@ plugins/flowyeah/
 │   ├── bugsink/      # connection, source
 │   ├── newrelic/     # connection, source
 │   └── ghactions/    # connection, source
+├── adapters/_shared/ # Rules that apply across all adapters (write-safety)
 ├── hooks/            # Claude Code hooks for session persistence
+├── tests/            # test-hooks.sh + test-consistency.sh (run in CI)
 ├── config-schema.md  # Single source of truth for flowyeah.yml schema
+├── worktree-lifecycle.md  # Directory naming rule + setup/teardown procedures
 ├── setup.md          # Shared interactive config creation (used by all skills)
 └── flowyeah.yml      # Generated per-project config (not in this repo)
 ```
@@ -34,15 +37,16 @@ When editing plugin files (skills, adapters, hooks, config schema), always edit 
 - **Adapters are prose, not code.** Each `.md` file contains instructions and curl/CLI templates that Claude follows. They are NOT executed as scripts.
 - **Skills reference adapters by relative path:** `adapters/<name>/connection.md` + `adapters/<name>/source.md`
 - **Config schema lives in `config-schema.md`** at the plugin root. Build, review, setup, and check skills reference it as the single source of truth.
-- **`setup.md`** is the single source of truth for interactive config creation. Both skills delegate to it when `flowyeah.yml` is missing.
+- **`setup.md`** is the single source of truth for interactive config creation. Build, review, and respond delegate to it when `flowyeah.yml` is missing; check enters its Reconcile Mode for absent optional keys.
 
 ## Testing
 
 ```bash
-bash plugins/flowyeah/tests/test-hooks.sh
+bash plugins/flowyeah/tests/test-hooks.sh          # hooks, tree-guard, bump-version (needs jq)
+bash plugins/flowyeah/tests/test-consistency.sh    # cross-file consistency: schema↔skills↔README, adapter templates
 ```
 
-Tests run in isolated temp git repos. No external dependencies beyond bash and git. Currently covers hook behavior only (session injection, reminders, worktree detection). Adapter and skill consistency are validated by analysis, not automated tests. The CI pipeline (if configured) should run `bash plugins/flowyeah/tests/test-hooks.sh` as part of the test suite.
+Tests run in isolated temp git repos; jq is required (the suite fails, not skips, without it). CI is GitHub Actions (`.github/workflows/test.yml`), running both suites on every push to main and every PR.
 
 ## Hook Internals
 

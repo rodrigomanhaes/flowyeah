@@ -34,7 +34,7 @@ Depending on which adapters you use:
 |---------|----------|
 | GitHub, GitHub Actions | [`gh`](https://cli.github.com/) (GitHub CLI) — authenticate with `gh auth login` |
 | GitLab | `curl`, `jq`, and a [personal access token](https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html) |
-| Linear | [Claude Code Linear MCP plugin](https://github.com/anthropics/claude-code-linear) |
+| Linear | A connected [Linear MCP server](https://linear.app/docs/mcp) — the adapter calls Linear through MCP tools (see `adapters/linear/connection.md`) |
 | Bugsink | `curl`, `jq`, and a Bugsink API token |
 | New Relic | `curl`, `jq`, and a [NerdGraph API key](https://docs.newrelic.com/docs/apis/intro-apis/new-relic-api-keys/) |
 
@@ -212,6 +212,7 @@ Shows every key annotated with a status marker:
 | `# ✅` | Explicitly set in file |
 | `# ⬚ default: <value>` | Absent, using default |
 | `# ⚠ deprecated` | Key present but deprecated |
+| `# ⚠ unknown key` | Adapter key not declared in that adapter's schema |
 | `# ❌ <error message>` | Validation error |
 
 Ends with a summary of errors, warnings, and optional keys with their defaults.
@@ -274,6 +275,7 @@ code_review:
   optional_agents: []                     # Conditional agents based on changes (default: [])
   instructions: null                      # Relative path to review guidelines file
   evaluation_skill: null                  # Skill for evaluating respond comments
+  impact_analysis: null                   # Agent overriding the built-in impact analysis (review step 3c)
 
 issues:
   create_when_missing: ask                # ask | always | never (default: ask)
@@ -291,7 +293,7 @@ hooks:
     after_merge: null                     # Relative path to post-merge instructions
 
 adapters:
-  github:                                 # Adapter-specific config (schema-free)
+  github:                                 # Adapter-specific config — keys declared in adapters/<name>/config-schema.md
     # ...
 ```
 

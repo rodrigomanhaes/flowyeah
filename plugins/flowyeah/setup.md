@@ -1,6 +1,6 @@
 # flowyeah.yml Interactive Setup
 
-Shared setup instructions used by both `flowyeah:build` and `flowyeah:review` when `flowyeah.yml` is missing.
+Shared setup instructions used by `flowyeah:build`, `flowyeah:review`, and `flowyeah:respond` when `flowyeah.yml` is missing, and by `flowyeah:check` via Reconcile Mode.
 
 ## When to Run
 

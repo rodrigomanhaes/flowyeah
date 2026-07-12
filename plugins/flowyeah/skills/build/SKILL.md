@@ -273,6 +273,7 @@ The first commit in the worktree will include `flowyeah.yml` and the `.gitignore
 | github:#45 | `<type>/45` |
 | ghactions:12345678 | `fix/ci-<last_6_digits>` (always `fix`, see adapter) |
 | newrelic:MXxBUE18... | `fix/<error-class-slug>-<guid-prefix>` (always `fix`, see adapter) |
+| bugsink:68b87507-... | `fix/<first-8-uuid>` (always `fix`, see adapter) |
 | Prose/idea | `<type>/<slug>` |
 
 **Type inference:**
@@ -1008,36 +1009,46 @@ Adapters live in `adapters/` at the plugin level (shared across skills):
 ```
 adapters/
 ├── gitlab/
-│   ├── connection.md    # Auth, base URL, --form encoding
-│   ├── source.md        # Fetch issue → canonical format
-│   ├── hosting.md       # Create MR, poll CI, merge
-│   └── review.md        # Fetch MR, post formal review
+│   ├── connection.md      # Auth, base URL, --form encoding
+│   ├── config-schema.md   # Keys valid under adapters.gitlab
+│   ├── source.md          # Fetch issue → canonical format
+│   ├── hosting.md         # Create MR, poll CI, merge
+│   ├── review.md          # Fetch MR, post formal review
+│   └── respond.md         # Fetch/reply/resolve review threads
 ├── github/
-│   ├── connection.md    # gh CLI auth
-│   ├── source.md        # Fetch issue → canonical format
-│   ├── hosting.md       # Create PR, poll CI, merge
-│   └── review.md        # Fetch PR, post formal review
+│   ├── connection.md      # gh CLI auth
+│   ├── config-schema.md   # Keys valid under adapters.github (none)
+│   ├── source.md          # Fetch issue → canonical format
+│   ├── hosting.md         # Create PR, poll CI, merge
+│   ├── review.md          # Fetch PR, post formal review
+│   └── respond.md         # Fetch/reply/resolve review threads
 ├── linear/
-│   ├── connection.md    # MCP setup
-│   └── source.md        # Fetch issue → canonical format
+│   ├── connection.md      # MCP setup
+│   ├── config-schema.md   # Keys valid under adapters.linear
+│   └── source.md          # Fetch issue → canonical format
 ├── bugsink/
-│   ├── connection.md    # API token auth
-│   └── source.md        # Fetch error → canonical format
+│   ├── connection.md      # API token auth
+│   ├── config-schema.md   # Keys valid under adapters.bugsink
+│   └── source.md          # Fetch error → canonical format
 ├── newrelic/
-│   ├── connection.md    # NerdGraph auth
-│   └── source.md        # Fetch error group → canonical format
+│   ├── connection.md      # NerdGraph auth
+│   ├── config-schema.md   # Keys valid under adapters.newrelic
+│   └── source.md          # Fetch error group → canonical format
 ├── ghactions/
-│   ├── connection.md    # gh CLI auth
-│   └── source.md        # Fetch CI job logs → canonical format
+│   ├── connection.md      # gh CLI auth
+│   ├── config-schema.md   # Keys valid under adapters.ghactions (none)
+│   └── source.md          # Fetch CI job logs → canonical format
 └── _shared/
-    └── write-safety.md  # Transversal principle for all write operations
+    └── write-safety.md    # Transversal principle for all write operations
 ```
 
 Each integration directory contains:
 - **`connection.md`** — shared authentication, base URL, encoding conventions
+- **`config-schema.md`** — the keys valid under `adapters.<name>` (empty table = no keys allowed)
 - **`source.md`** — fetch data and convert to canonical format
 - **`hosting.md`** — create PR/MR, poll CI, merge
 - **`review.md`** — fetch PR/MR details, post formal review with inline comments
+- **`respond.md`** — fetch review threads, reply, resolve, re-request review
 
 `_shared/` holds rules that apply across all adapters regardless of transport. Each adapter's `connection.md` cross-references it where relevant.
 
