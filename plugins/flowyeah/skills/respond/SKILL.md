@@ -38,6 +38,8 @@ The `tree-guard.sh` PreToolUse hook enforces this rule on Bash. If it blocks a c
 
 The `--own` flag may appear in any position. The positional argument (if present) is the PR number; otherwise auto-detect from the current branch via the respond adapter.
 
+**Run from the main checkout.** If `git rev-parse --show-toplevel` contains `.flowyeah/worktrees/` or `.flowyeah/review-worktrees/`, STOP: "Run respond from the main checkout" — session files written inside a worktree are invisible to session-inject and tree-guard on the primary. Steps 5-7 `cd` into the worktree themselves.
+
 In `--own` mode:
 - Platform-specific fetch (step 2 normal path) is replaced by reading the findings file.
 - Thread reply, thread resolve, and re-request-review steps are skipped (no public threads exist for self-findings).
@@ -90,6 +92,8 @@ The respond skill uses:
 | `commits.writer` | Agent or `null` for commit messages |
 | `worktree.symlinks` | Paths symlinked from worktree to main checkout |
 | `worktree.env` | Environment variables for worktree |
+| `worktree.setup` | Commands run after worktree creation (step 5, via `worktree-lifecycle.md`) |
+| `worktree.teardown` | Commands run before worktree removal (step 10, owned worktrees only) |
 | `language` | Language for thread replies |
 
 ## Platform Detection
@@ -282,7 +286,7 @@ On success, echo: *"Responding to <count> findings from PR #{N}."*
 
 Group by reviewer is trivial (all `self`). If no findings are parseable, STOP: *"review-approved-{N}.md exists but contains no parseable findings — cannot proceed."*
 
-If zero synthetic comments result, the subsequent steps have nothing to do — report "No findings to respond to", remove `.flowyeah/respond-state-{N}.md` and `.flowyeah/respond-decisions-{N}.md` (if created), and exit. Do not mark `Phase: Responded` — the round didn't happen. A leftover state file would keep `tree-guard` blocking the branch indefinitely.
+If parsing succeeded but zero synthetic comments result (all parsed findings were filtered out — distinct from the unparseable case above, which STOPs), the subsequent steps have nothing to do — report "No findings to respond to", remove `.flowyeah/respond-state-{N}.md` and `.flowyeah/respond-decisions-{N}.md` (if created), and exit. Do not mark `Phase: Responded` — the round didn't happen. A leftover state file would keep `tree-guard` blocking the branch indefinitely.
 
 **Normal mode** (no `--own`): continue with the existing adapter fetch below.
 
@@ -408,7 +412,7 @@ This shape is forbidden because it:
 
 #### Per-finding UX
 
-For each item `i` in order (severity → confidence, as delivered by the evaluation in step 3), render the **Finding Card** — the same canonical `═══` header and `┌─│└` comment box used by `flowyeah:review` (keep the two skills in sync) — followed by a boxed critique block and the action menu:
+For each item `i` in order (severity then confidence when the evaluation provides them — normal-mode reviewer comments often carry neither, in which case preserve the fetched order), render the **Finding Card** — the same canonical `═══` header and `┌─│└` comment box used by `flowyeah:review` (keep the two skills in sync) — followed by a boxed critique block and the action menu:
 
 ```
 ═══════════════════════════════════════════════════════════
@@ -473,7 +477,7 @@ Your counter or question:
 
 #### Persistence
 
-After every decision (implement/reject), upsert an entry for that finding in `.flowyeah/respond-decisions-{N}.md` — write the block if it doesn't exist, or replace the existing block for that finding. Mid-discussion (before a terminal `[i]` or `[r]`), no persistence happens: decisions are only recorded when the user commits to a terminal action. Schema:
+After every decision (implement/reject), upsert an entry for that finding in `.flowyeah/respond-decisions-{N}.md` — write the block if it doesn't exist, or replace the existing block for that finding. Mid-discussion (before a terminal `[i]`, `[r]`, or `[s]` — the `[s]` reply path persists an `Action: discuss` entry with its `Reply:`), no persistence happens: decisions are only recorded when the user commits to a terminal action. Schema:
 
 ```markdown
 # Triage Decisions

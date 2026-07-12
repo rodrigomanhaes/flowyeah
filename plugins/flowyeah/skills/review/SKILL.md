@@ -469,7 +469,7 @@ This shape is forbidden because it:
 
 Render the **Finding Card** for every finding, every time — even when there is only one finding, even under `--own`, even when you are tempted to "just summarize."
 
-**Other reviewers' open threads:** After the findings list, if any open threads from other reviewers were found (step 2.9) and you have complementary context to add (technical justification, confirmation with evidence, expanded scope), present them separately:
+**Other reviewers' open threads:** After the findings list, if any open threads from other reviewers were found (step 2, context item 9) and you have complementary context to add (technical justification, confirmation with evidence, expanded scope), present them separately:
 
 ```
 ───────────────────────────────────────────────────────
@@ -509,6 +509,8 @@ Persist approved findings to `review-approved-{N}.md` (already done in step 5). 
 Update `review-state-{N}.md`: set `Phase: Findings Delivered`.
 
 #### 5c. Next Action Menu
+
+**Before presenting the menu:** if `Worktree:` in `review-state-{N}.md` is set and not `none`, tear the review worktree down now (`git worktree remove --force <path>`, then `rm -rf <path>` if the directory survives) and set the field back to `none` — the review worktree serves the review pipeline only, and both "Fix now" and "Delegate" terminate that pipeline; leaving it behind orphans it across rounds.
 
 Offer three options:
 
@@ -592,7 +594,7 @@ flowyeah:review finalize [<number>]
 **Without number (auto-detect):**
 1. Get current branch
 2. Glob `review-state-*.md`, extract `Branch:` from each
-3. Zero matches → list all active reviews (PR number + branch from each state file) and ask which to finalize
+3. Zero matches → list all active reviews (PR number + branch from each state file) and ask which to finalize. If no `review-state-*.md` files exist at all, report "No active review sessions." and stop
 4. One match → use it
 5. Multiple matches → list and ask
 

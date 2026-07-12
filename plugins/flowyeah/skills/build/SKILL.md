@@ -120,8 +120,9 @@ digraph pipeline {
     awaiting -> hooks [label="resume:\nPR merged"];
     awaiting -> next [label="--continuous:\npick next task"];
     hooks -> mark -> cleanup -> next;
-    next -> pick [label="--continuous"];
-    next -> resolve [label="done"];
+    next -> pick [label="--continuous:\ntasks remain"];
+    next -> finish [label="single task done /\nplan complete"];
+    finish [label="Report & exit"];
 }
 ```
 
@@ -132,7 +133,7 @@ Before any pipeline step, validate the loaded `flowyeah.yml`:
 1. **Load schema:** read `config-schema.md` from the plugin root.
 2. **Check required keys:** verify all keys marked **required** in the "Current Schema" section are present and have valid values.
 3. **Run validation rules:** execute all checks from the "Validation Rules" section. Errors STOP the pipeline; warnings are reported but don't block.
-4. **Auth verification:** for each adapter that will be used in this run (determined by the source command and `git_host`), verify credentials are reachable:
+4. **Auth verification:** for each adapter that will be used in this run — determined by the source command, `git_host`, and `issues.adapter` (when `create_when_missing` is `ask` or `always`; an unreachable issue adapter discovered only at step 6d wastes the whole implementation) — verify credentials are reachable:
    - Adapters with `token_env` + `token_source` → check the env var exists (via the token source file)
    - `github` → verify `gh auth status` succeeds
    - `linear` → verify Linear MCP is available
@@ -386,7 +387,7 @@ Replace the standard investigation with an escalating approach. The goal is to i
 
 **CI log source:** Read the failure log from `mission.md` (persisted there by the source adapter during Step 1). Do NOT re-fetch from the CI API — the original run may have been re-triggered and passed since, making the failure log unavailable. Session files are the authoritative source for the failure context.
 
-**Escalation levels** (stop as soon as the cause is found):
+**Escalation levels** (stop escalating as soon as the cause is found — then switch to the normal TDD fix cycle from step 4, with the cause as the failing-test starting point):
 
 All escalation levels run on the main branch (the worktree was created from `$DEFAULT_BRANCH` in Step 3). This is intentional — intermittent failures are investigated where the codebase lives, not on a PR branch.
 
@@ -468,6 +469,11 @@ else
 fi
 ```
 
+**Failure handling:**
+
+- **Rebase conflict:** resolve the conflicts in the worktree (they are ordinary merge conflicts against `origin/$DEFAULT_BRANCH`), continue the rebase, re-run the tests before pushing. If a conflict can't be resolved confidently, `git rebase --abort` and STOP — ask the user.
+- **Push rejected** (`--force-with-lease` failure or non-fast-forward): someone pushed to the branch since the last fetch. `git fetch origin $BRANCH`, inspect what landed, re-rebase on top of it, and retry once. Still rejected → STOP and ask — never escalate to a plain `--force`.
+
 ### 6d. Issue Linkage
 
 If the source was an issue tracker, `Issue-Ref` and `Issue-Close` are already set from step 1. Skip this step.
@@ -485,7 +491,7 @@ If the source was NOT an issue tracker (file, conversation, Bugsink, New Relic, 
 When `issues.create_when_missing` is `ask`, you MUST split the question and the action across two separate response turns.
 
 **Turn 1 — Ask and STOP:**
-1. Ask the user: "Deseja criar uma issue para rastrear este trabalho? (Yes/No)"
+1. Ask the user, in the configured `language`: "Create an issue to track this work? (Yes/No)"
 2. **END YOUR RESPONSE.** Do NOT create the issue. Do NOT proceed to step 7. Your response ends here — return control to the user.
 
 **Turn 2 — Act on the user's answer (next message):**
@@ -501,7 +507,7 @@ When creating an issue, use the source adapter pointed to by `issues.adapter` to
 
 **GATE — verify Step 6d before proceeding.** Check `Issue linkage (6d)` in `progress.md`. If it is unchecked and `issues.create_when_missing` is not `never`, STOP and execute Step 6d now. Do NOT create the PR/MR until issue linkage is resolved.
 
-**When `On-Branch: true` is set in state.md**, check if a PR/MR already exists before creating one:
+**Always check if an open PR/MR already exists before creating one** — fix iterations from 7b re-enter this step, and `--on-branch` sessions may attach to a branch that already has one (the hosting adapters' "Check for Existing PR" operation does this; reuse only `OPEN` ones):
 
 ```bash
 # GitHub
@@ -547,7 +553,7 @@ Code review results are reported in the terminal only — this is your current w
 
 ### 7a. Run PR Hooks
 
-After PR/MR creation (or when an existing open PR is found), check `hooks.pr.after_create` in `flowyeah.yml`. If configured, read the markdown file and follow its instructions.
+After PR/MR creation, check `hooks.pr.after_create` in `flowyeah.yml`. If configured, read the markdown file and follow its instructions.
 
 **Context available:** Branch, PR/MR number+url, issue reference (if any), adapter config, diff.
 
@@ -581,7 +587,7 @@ After PR/MR creation (or when an existing open PR is found), check `hooks.pr.aft
 - **Review agents find issues** → fix, create a new commit, restart from step 5 (commit → test → push). Skip code review and implementation approval on retry — the review already told you what to fix.
 - **CI fails 3 times** → STOP and ask for guidance
 
-**Git strategy for fixes:** Always create new commits, never amend. The PR will be squash-merged anyway (per `merge_strategy`), so individual fix commits don't clutter the final history. New commits also make it easier to review what changed between CI runs.
+**Git strategy for fixes:** Always create new commits, never amend — new commits make it easy to review what changed between CI runs. With `merge_strategy: squash` (the default) they collapse at merge; with `merge` or `rebase` the fix commits become permanent history, so tidy them into meaningful commits before the final push if they would read as noise (step 5's table makes rebase-mode commits the permanent record).
 
 ### 7c. Merge Decision
 
@@ -599,7 +605,7 @@ When `pull_requests.merge` is `ask`, you MUST split the question and the action 
 
 **Turn 1 — Ask and STOP:**
 1. Update `state.md`: set `Status: Awaiting merge decision`
-2. Present the PR/MR URL and ask: "Merge agora? (Yes/No)"
+2. Present the PR/MR URL and ask, in the configured `language`: "Merge now? (Yes/No)"
 3. **END YOUR RESPONSE.** Do NOT call any merge API. Do NOT proceed to step 8. Do NOT execute any further pipeline steps. Your response ends here — return control to the user.
 
 **Turn 2 — Act on the user's answer (next message):**
