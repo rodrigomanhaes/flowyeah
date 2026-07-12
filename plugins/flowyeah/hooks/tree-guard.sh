@@ -76,6 +76,10 @@ if ! [[ "$SANITIZED" =~ $MUTATING_RE ]]; then
     exit 0
 fi
 
+# Detached HEAD yields an empty branch: no session can match, so everything
+# is allowed. Intentional — mutations from a detached HEAD don't touch any
+# session's branch, and a checkout ONTO a session branch puts the user on
+# it, after which the guard applies to the following commands.
 CURRENT_BRANCH=$(git -C "$TOPLEVEL" branch --show-current 2>/dev/null)
 
 # Find an active session matching the current branch. Precedence: review →

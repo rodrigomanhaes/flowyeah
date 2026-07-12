@@ -280,6 +280,8 @@ On success, echo: *"Responding to <count> findings from PR #{N}."*
 | Reviewer name | `self (review --own)` |
 | Comment body | the Conventional Comments block from the finding (`**label (decoration):** subject` plus body) |
 | File path + line | from the finding's `- File:` line |
+| Confidence | from the finding's `- Confidence:` line (`—` when absent — findings persisted before the field existed) |
+| Source (card field) | `own review` |
 | Thread ID | synthetic: `own-{N}-{index}` where index is 1-based position in the file |
 | Review state | `SELF_REVIEW` |
 | Conventional parse | already in format — direct parse |
@@ -438,6 +440,8 @@ Source:     <comment author / own review>
 [d]iscuss  [i]mplement  [r]eject
 >
 ```
+
+When an item carries no confidence (normal-mode reviewer comments have none), render `Confidence: —` rather than inventing a number.
 
 Accept a single-letter action:
 

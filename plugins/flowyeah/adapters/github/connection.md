@@ -55,7 +55,9 @@ Every write (creating PRs, issues, comments, reviews; merging; editing assignees
 PR descriptions, issue bodies, and review comments are typically multi-line markdown. Pass them via `--body-file`, never via `--body "$VAR"`:
 
 ```bash
-# Correct
+# Correct — initialize TMPDIR_FY in the same invocation; shell state does
+# not persist across Bash calls, so never assume it is already exported
+TMPDIR_FY="${TMPDIR_FY:-$(mktemp -d)}"
 cat > "$TMPDIR_FY/pr-body.md" <<'EOF'
 ## Summary
 - multi-line content with `code`, $vars, "quotes" all safe

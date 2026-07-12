@@ -23,7 +23,7 @@ curl -s -H "Authorization: Bearer $TOKEN" \
    }]'
 ```
 
-**Pagination:** check the `x-next-page` response header. If non-empty, fetch the next page with `&page=<x-next-page>` and merge results. Continue until `x-next-page` is empty.
+**Pagination:** the `curl -s | jq` templates discard response headers, so paginate by page number: request `&page=2`, `&page=3`, ... merging results, until a page returns fewer than `per_page` items (or an empty array).
 
 **Output fields:**
 
@@ -58,7 +58,7 @@ curl -s -H "Authorization: Bearer $TOKEN" \
    .notes[0].author.username] | group_by(.) | map({user: .[0], unresolved_count: length})'
 ```
 
-**Pagination:** same `x-next-page` pattern as above — paginate and merge before grouping.
+**Pagination:** same page-number pattern as above — paginate and merge before grouping.
 
 **Interpreting the result:** If a reviewer has `unresolved_count > 0`, they are effectively requesting changes. Once the respond process resolves all their threads, re-request review from them (see below).
 

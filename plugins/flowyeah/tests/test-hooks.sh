@@ -1412,6 +1412,14 @@ EOF
     guard_run "git log --oneline -5" "$WORKDIR"
     assert_exit_eq "guard: allows git log with long option" 0 "$GUARD_RC"
 
+    # Detached HEAD: no branch to match — allowed by design (mutations from
+    # detached HEAD touch no session's branch; a checkout onto the session
+    # branch re-arms the guard for subsequent commands).
+    git checkout -q --detach
+    guard_run "git reset --hard" "$WORKDIR"
+    assert_exit_eq "guard: allows on detached HEAD (documented design)" 0 "$GUARD_RC"
+    git checkout -q main
+
     teardown
 
     # ── Respond session for a different branch is ignored ──

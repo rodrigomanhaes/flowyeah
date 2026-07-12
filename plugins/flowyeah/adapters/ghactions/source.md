@@ -41,10 +41,10 @@ gh api repos/{owner}/{repo}/actions/jobs/{job_id}
 ## Fetch Failed Log
 
 ```bash
-gh run view {run_id} --log-failed
+gh run view {run_id} --log-failed -R {owner}/{repo}
 ```
 
-Returns only the log lines from failed steps. Use this output as the failure log in the plan.
+Returns only the log lines from failed steps. Use this output as the failure log in the plan. The `-R` flag matters for the full-URL trigger form: without it, gh resolves the run against the current directory's repo, which 404s (or reads the wrong repo) when the URL points elsewhere.
 
 **Anchoring rule:** The `run_id` and `job_id` from the source URL/prefix identify a specific historical run. NEVER re-query the same workflow expecting to see the failure — the job may have been re-run and passed since. The fetched log and metadata are frozen evidence. When `--intermittent` is used, persist the full failure log to `mission.md` under a `## CI Failure Log` section so it survives context compaction and is available during investigation (Step 4) without requiring a fresh API call.
 

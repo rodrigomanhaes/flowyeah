@@ -103,7 +103,7 @@ curl -s -H "Authorization: Bearer $TOKEN" \
      }]'
 ```
 
-**Pagination:** check the `x-next-page` response header. If non-empty, fetch the next page with `&page=<x-next-page>` and merge results. Continue until `x-next-page` is empty.
+**Pagination:** the `curl -s | jq` templates discard response headers, so paginate by page number: request `&page=2`, `&page=3`, ... merging results, until a page returns fewer than `per_page` items (or an empty array).
 
 **Output fields:**
 

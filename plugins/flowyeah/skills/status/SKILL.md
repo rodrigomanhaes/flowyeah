@@ -259,7 +259,7 @@ Orphaned worktrees to remove:
 Remove 2 orphaned worktrees? (yes/no)
 ```
 
-For worktrees, follow the **Teardown** procedure from `worktree-lifecycle.md` before removal (close IDE windows, run teardown commands if env vars are recoverable from config, then `git worktree remove`).
+For worktrees, follow the **Teardown** procedure from `worktree-lifecycle.md` before removal (close IDE windows, then `git worktree remove`). Skip `worktree.teardown` commands for orphans: their env values lived in the session state file that no longer exists and cannot be reconstructed from config (`auto` entries are random per worktree) — warn the user that resources created by `worktree.setup` (e.g. per-worktree databases) may linger and need manual cleanup.
 
 **5. Stale review/respond state files** (branch no longer exists):
 

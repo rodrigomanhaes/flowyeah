@@ -36,6 +36,7 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 - `transaction` — controller action or job class where the error occurred
 - `digested_event_count` — total occurrences
 - `first_seen` / `last_seen` — time range
+- `friendly_id` — human-readable issue identifier. **Persist it to `state.md`** (e.g., a `Bugsink-Friendly-Id:` line) — the on_merge `ask` prompt at pipeline step 9 needs it, and by then the fetch response is long gone from context
 
 ### Step 2: Find the latest event
 
@@ -174,9 +175,9 @@ releases there is no "next release" to anchor to and the resolution degrades
 toward a plain resolve.
 
 - `always` → resolve.
-- `ask` → prompt "Resolver bugsink:`<id>` (`<friendly_id>`)? (S/N)"; resolve on
-  yes, skip on no. `<friendly_id>` comes from the issue metadata fetched in
-  "Fetch Error Details".
+- `ask` → prompt, in the configured `language`: "Resolve bugsink:`<id>` (`<friendly_id>`)? (Yes/No)"; resolve on
+  yes, skip on no. `<friendly_id>` comes from `state.md` (persisted during
+  "Fetch Error Details"); if missing there, re-fetch the issue metadata.
 - `never` / absent → skip.
 
 Resolve:

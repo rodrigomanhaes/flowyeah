@@ -332,6 +332,10 @@ assert_not_contains "build never checkouts/pulls the primary" 'git checkout $DEF
 assert_contains "build ignores artifacts via info/exclude" "info/exclude" "$BUILD_SKILL"
 assert_not_contains "build --on-branch avoids broken porcelain grep" 'grep -B1 "branch refs/heads' "$BUILD_SKILL"
 
+# The schema declares hooks.after_merge (flat) removed — build must not
+# keep honoring it as a working fallback.
+assert_not_contains "build does not honor the removed flat hooks.after_merge" "Backward compatibility" "$BUILD_SKILL"
+
 # Rollback must delete the local branch too, or the claim rule permanently
 # skips the retried task; bare invocations must resume active sessions
 # before falling back to plan resume.

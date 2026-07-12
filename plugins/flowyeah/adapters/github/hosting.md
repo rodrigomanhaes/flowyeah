@@ -96,6 +96,16 @@ Flags:
 
 If merge fails (e.g., conflicts, required reviews), report the error and ask the user.
 
+## Update PR (optional)
+
+If you need to update the PR after pushing fixes:
+
+```bash
+TMPDIR_FY="${TMPDIR_FY:-$(mktemp -d)}"
+# write the new body to "$TMPDIR_FY/pr-body.md" first (only when changing it)
+gh pr edit <number> --title "<new_title>" --body-file "$TMPDIR_FY/pr-body.md"
+```
+
 ## Issue Linking
 
 When the source was a GitHub issue, include `Closes #<issue_number>` in the PR body. GitHub auto-closes the issue on merge.

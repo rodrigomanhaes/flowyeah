@@ -67,12 +67,12 @@ Saved to `tmp/flowyeah/plans/<key>.md` in the main checkout.
 | `linear:PROJ-123` | `linear-proj-123` | `tmp/flowyeah/plans/linear-proj-123.md` |
 | `github:#45` | `github-45` | `tmp/flowyeah/plans/github-45.md` |
 | `bugsink:68b87507-...` | `bugsink-68b87507` | `tmp/flowyeah/plans/bugsink-68b87507.md` |
-| `newrelic:MXxBUE18...` | `newrelic-mxxbue` | `tmp/flowyeah/plans/newrelic-mxxbue.md` |
+| `newrelic:MXxBUE18...` | `newrelic-mxxbue18` | `tmp/flowyeah/plans/newrelic-mxxbue18.md` |
 | `ghactions:65262548526` | `ghactions-65262548526` | `tmp/flowyeah/plans/ghactions-65262548526.md` |
 | File source | slugified filename | `tmp/flowyeah/plans/redesign.md` |
 | Conversation (no source) | slugified work description | `tmp/flowyeah/plans/webhook-retry.md` |
 
-Plan keys are filesystem identifiers for deduplication — they use a minimal GUID prefix. Branch names (see table below) may use a different, more descriptive slug strategy defined by each adapter (e.g., NEWRELIC includes the error class in the branch name for readability).
+Plan keys are filesystem identifiers for deduplication — for GUID-based sources (bugsink, newrelic) they use the **first 8 characters of the GUID, lowercased**; a vaguer rule would let different sessions derive different keys for the same error and defeat dedup. Branch names (see table below) may use a different, more descriptive slug strategy defined by each adapter (e.g., NEWRELIC includes the error class in the branch name for readability).
 
 The `tmp/` directory should be gitignored. Plans are developer process artifacts, not versioned deliverables.
 
@@ -648,9 +648,7 @@ When `pull_requests.merge` is `ask`, you MUST split the question and the action 
 
 **GATE — verify Step 7c before proceeding.** Check `Merge decision (7c)` in `progress.md`. If it is unchecked, STOP — you cannot run after-merge hooks before the merge is complete.
 
-After a successful merge, check `hooks.pr.after_merge` in `flowyeah.yml`. If configured, read the markdown file and follow its instructions.
-
-**Backward compatibility:** If `hooks.after_merge` (flat) is present instead of `hooks.pr.after_merge`, use it and warn: "Deprecated: `hooks.after_merge` — move to `hooks.pr.after_merge`."
+After a successful merge, check `hooks.pr.after_merge` in `flowyeah.yml`. If configured, read the markdown file and follow its instructions. The flat `hooks.after_merge` form is removed (see the schema's Deprecated Keys) — it is not consulted; `flowyeah:check` flags it with the migration hint.
 
 | Hook | When it runs | Context available |
 |------|-------------|-------------------|
