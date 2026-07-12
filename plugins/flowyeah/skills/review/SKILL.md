@@ -89,6 +89,8 @@ The review adapter is determined from `git_host` in `flowyeah.yml`:
 
 Load the review adapter once at the start. **If the git host adapter has no `review.md`, STOP** — that adapter doesn't support code reviews. All platform-specific operations (fetch PR, post review, detect issue) go through the adapter.
 
+**Thread operations live in the respond adapter.** Fetching other reviewers' open threads (step 2 item 9) and replying to existing threads (step 5's complement replies) are documented in `adapters/<host>/respond.md` — load it alongside the review adapter when those steps run. If the host has no `respond.md`, skip those steps rather than improvising API calls.
+
 ## Session (Lightweight)
 
 Create `.flowyeah/review-state-{N}.md` for compaction resilience:
@@ -226,9 +228,9 @@ Collect in parallel. **All commands here are read-only against the primary check
 4. **CLAUDE.md files** — find all: global (`~/.claude/CLAUDE.md`), project root, `.claude/CLAUDE.md`, `.claude/standards/*.md`
 5. **Git history** — for each changed file: `git log --oneline -10 <file>`
 6. **Git blame** — for changed lines, run `git blame <base_sha> -- <file>` against the base SHA reported by the adapter. Do NOT check out the base branch.
-7. **Previous PR/MR feedback** — search recent merged PRs/MRs that touched the same files, collect review comments (via review adapter). Look for recurring themes — if a reviewer flagged the same pattern before, it's worth flagging again
+7. **Previous PR/MR feedback** — search recent merged PRs/MRs that touched the same files, collect review comments (via the review adapter's "Search Recent Merged PR/MR Feedback" operation). Look for recurring themes — if a reviewer flagged the same pattern before, it's worth flagging again
 8. **Previous review findings** — via review adapter's `Fetch Own Discussions`. Fetch all discussions/review comments authored by the authenticated user on this MR/PR. Parse Conventional Comments format to extract structured findings. If none found (first review), skip previous-review logic entirely
-9. **Other reviewers' open threads** — via review adapter, fetch all open (unresolved) review threads on the current PR/MR from other reviewers. For each thread, note: author, file:line, concern raised. Use these to avoid duplicating what others already flagged and to identify opportunities to complement their feedback (e.g., adding technical context, confirming a concern, or expanding on a suggestion)
+9. **Other reviewers' open threads** — via the respond adapter's thread fetch (see Platform Detection), collect all open (unresolved) review threads on the current PR/MR from other reviewers. For each thread, note: author, file:line, concern raised. Use these to avoid duplicating what others already flagged and to identify opportunities to complement their feedback (e.g., adding technical context, confirming a concern, or expanding on a suggestion)
 
 #### 2.8 Classify Previous Review Findings
 
@@ -483,7 +485,7 @@ Thread B (@reviewer · file:line):
   Your complement: [what you'd add]
 ```
 
-These are **not** findings — they are reply suggestions. The user can approve, edit, or skip each. Approved complements are posted as replies to the existing threads (via the review adapter) alongside the formal review submission in step 7.
+These are **not** findings — they are reply suggestions. The user can approve, edit, or skip each. Approved complements are posted as replies to the existing threads (via the respond adapter's Reply to Thread operation — see Platform Detection) alongside the formal review submission in step 7.
 
 After presenting the full list, ask the user for a **batch decision**:
 
@@ -514,15 +516,19 @@ Offer three options:
 2. **Delegate** — the skill pipeline terminates. Phase is set to `Delegated`. Open a fresh session in the main checkout and run `/flowyeah:respond --own {N}` to critique, discuss, and fix. The respond pipeline will read `.flowyeah/review-approved-{N}.md` and the new `Phase: Responded` is written when the round completes, enabling a fresh `review --own` for the next round.
 3. **Finalize** — clean up state files immediately (equivalent to `/review finalize`).
 
-#### Conflict: Re-invoking `/review` with active session on same branch
+#### Conflict: Re-invoking `/review` with an active session
 
-Before starting a new review, glob `review-state-*.md` and match `Branch:` against the current branch.
+Before starting a new review, check both directions:
 
-If a match is found with `Phase: Responded`, proceed silently — the prior round is closed. Overwrite the existing state files as if no session existed. Do not prompt.
+1. **By PR number:** if `review-state-{N}.md` exists for the target PR, that session is the conflict — regardless of which branch you are currently on. (Matching only the current branch would silently overwrite an active session when `/review N` is run from elsewhere.)
+2. **By branch:** glob `review-state-*.md` and match `Branch:` against the current branch, for the auto-detect case.
+3. **Respond coexistence:** if `respond-state-{N}.md` exists for the target PR, STOP: "A respond session for PR #N is mid-pipeline. Complete it (or remove its state files / run `/flowyeah:status clean`) before reviewing." Review and respond must not run concurrently on the same PR.
 
-If a match is found with `Phase: Fixing` or `Phase: Delegated`, present: "An --own review for PR #N is still active. Finalize it first, or continue fixing?"
+For a review-state match:
 
-If a match is found with any other phase, present: "A review for PR #N is already active on this branch (phase: X). Finalize it first?"
+- `Phase: Responded` → proceed silently — the prior round is closed. Overwrite the existing state files as if no session existed. Do not prompt.
+- `Phase: Fixing` or `Phase: Delegated` → present: "An --own review for PR #N is still active. Finalize it first, or continue fixing?"
+- Any other phase → present: "A review for PR #N is already active (phase: X). Finalize it first?"
 
 If the user chooses to finalize, run the finalize logic and stop. The user must re-invoke `/review` for a new session.
 

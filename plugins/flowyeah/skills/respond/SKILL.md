@@ -105,6 +105,8 @@ Load the respond adapter once at the start. **If the git host adapter has no `re
 
 ## Session (Lightweight)
 
+**Coexistence check first (normal mode):** before creating the state file, check for `.flowyeah/review-state-{N}.md`. If it exists with any phase other than `Responded`, STOP and ask: "A review session for PR #{N} is active (phase: X). Running respond concurrently on the same PR can conflict — finalize the review first?" Review and respond must not run concurrently on the same PR. (`--own` mode skips this — its preflight already requires a review session at `Phase: Delegated`.)
+
 Create `.flowyeah/respond-state-{N}.md` for compaction resilience:
 
 ```markdown

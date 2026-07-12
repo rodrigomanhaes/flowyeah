@@ -125,6 +125,27 @@ Example: **issue (blocking):** Race condition na criação de pagamento
 
 If the body does not match Conventional Comments format, skip it (likely a manual comment, not a structured review finding).
 
+## Search Recent Merged MR Feedback
+
+Find review comments from recently merged MRs that touched the same files. GitLab's MR list cannot filter by file, so bound the work: list the 20 most recent merged MRs, check the diffs of the few whose titles look related, and stop there — degrade gracefully rather than fetching every MR's diff:
+
+```bash
+# Recent merged MRs
+curl -s -H "Authorization: Bearer $TOKEN" \
+  "<url>/api/v4/projects/<project_id>/merge_requests?state=merged&order_by=updated_at&per_page=20" | \
+  jq '[.[] | {iid, title}]'
+
+# Files touched by one of them
+curl -s -H "Authorization: Bearer $TOKEN" \
+  "<url>/api/v4/projects/<project_id>/merge_requests/<iid>/diffs?per_page=100" | \
+  jq '[.[].new_path]'
+
+# Its review discussions (first page is enough for theme detection)
+curl -s -H "Authorization: Bearer $TOKEN" \
+  "<url>/api/v4/projects/<project_id>/merge_requests/<iid>/discussions?per_page=100" | \
+  jq '[.[].notes[] | select(.system == false) | {author: .author.username, body: .body}]'
+```
+
 ## Submit Formal Review
 
 GitLab uses **discussions** for inline review comments. Each discussion creates a resolvable thread anchored to a specific line in the diff.

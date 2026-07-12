@@ -134,6 +134,22 @@ Example: **issue (blocking):** Race condition na criação de pagamento
 
 If the body does not match Conventional Comments format, skip it (likely a manual comment, not a structured review finding).
 
+## Search Recent Merged PR Feedback
+
+Find review comments from recently merged PRs that touched the same files (recurring reviewer themes). Bounded to the last 20 merged PRs — this is context enrichment, not an exhaustive sweep:
+
+```bash
+# Merged PRs that touched a file
+gh pr list --state merged --limit 20 --json number,title,files \
+  --jq '[.[] | select(any(.files[]; .path == "<file_path>")) | {number, title}]'
+
+# Review comments on one of them
+gh api --paginate "repos/<owner>/<repo>/pulls/<number>/comments" \
+  --jq '.[] | {user: .user.login, path: .path, body: .body}'
+```
+
+If the search yields nothing (or the repo has few merged PRs), skip this context source — degrade gracefully rather than widening the sweep.
+
 ## Submit Formal Review
 
 GitHub supports atomic review submission — all inline comments + body + review type in a single API call.
