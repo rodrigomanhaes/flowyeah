@@ -1545,9 +1545,14 @@ fi
 echo ""
 echo "=== adapter config-schema.md ==="
 
+# Every adapter must declare its config schema — an adapter with no config
+# keys declares an empty one, so unknown keys under it are still flagged.
+# Discovery-based: a future adapter automatically gets this check.
 ADAPTERS_DIR="$(cd "$(dirname "$SCRIPT_DIR")/adapters" && pwd)"
-for adapter in bugsink gitlab linear newrelic; do
-    schema="$ADAPTERS_DIR/$adapter/config-schema.md"
+for dir in "$ADAPTERS_DIR"/*/; do
+    adapter="$(basename "$dir")"
+    case "$adapter" in _*) continue ;; esac
+    schema="$dir/config-schema.md"
     TOTAL=$((TOTAL + 1))
     if [ -f "$schema" ] && grep -qF "## Keys" "$schema"; then
         PASS=$((PASS + 1))
