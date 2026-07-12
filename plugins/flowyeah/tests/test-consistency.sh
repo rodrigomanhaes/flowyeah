@@ -332,6 +332,12 @@ assert_not_contains "build never checkouts/pulls the primary" 'git checkout $DEF
 assert_contains "build ignores artifacts via info/exclude" "info/exclude" "$BUILD_SKILL"
 assert_not_contains "build --on-branch avoids broken porcelain grep" 'grep -B1 "branch refs/heads' "$BUILD_SKILL"
 
+# On merge: manual / ask-no the session pauses (Awaiting Merge) — the task is
+# never marked done and the worktree never destroyed while the PR is open.
+assert_contains "build pauses unmerged sessions as Awaiting Merge" "Awaiting Merge" "$BUILD_SKILL"
+assert_not_contains "manual merge path does not route to mark-done" "Skip directly to step 9" "$BUILD_SKILL"
+assert_not_contains "ask-no path does not route to mark-done" "skip to step 9 and 10" "$BUILD_SKILL"
+
 # ── Section: Worktree naming contract ────────────────────
 # Worktree dirs are the branch name with '/' flattened to '-' (declared in
 # worktree-lifecycle.md). Raw branch names nest directories and break every

@@ -101,6 +101,7 @@ digraph pipeline {
     hooks [label="8. Run Hooks\n(pr.after_merge)"];
     mark [label="9. Mark Task Done"];
     cleanup [label="10. Cleanup Worktree"];
+    awaiting [label="Awaiting Merge\n(paused session)"];
     next [label="Next task?" shape=diamond];
 
     validate -> resolve -> pick -> worktree -> verify_wt;
@@ -113,9 +114,11 @@ digraph pipeline {
     ci_loop -> commit [label="issues found\nfix → commit → push\nskip approval+review"];
     ci_loop -> merge_decision [label="CI green +\nreview clean"];
     merge_decision -> hooks [label="auto:\nmerge via adapter"];
-    merge_decision -> cleanup [label="manual:\nSTOP, report URL"];
+    merge_decision -> awaiting [label="manual:\nreport URL, pause"];
     merge_decision -> hooks [label="ask:\nuser says yes"];
-    merge_decision -> cleanup [label="ask:\nuser says no"];
+    merge_decision -> awaiting [label="ask:\nuser says no"];
+    awaiting -> hooks [label="resume:\nPR merged"];
+    awaiting -> next [label="--continuous:\npick next task"];
     hooks -> mark -> cleanup -> next;
     next -> pick [label="--continuous"];
     next -> resolve [label="done"];
@@ -586,7 +589,7 @@ After PR/MR creation (or when an existing open PR is found), check `hooks.pr.aft
 | `pull_requests.merge` | Action | Can you merge? |
 |----------------------|--------|----------------|
 | `auto` | Use the git host adapter to merge | Yes |
-| `manual` | **STOP.** Report the PR/MR URL and do NOT merge. Do NOT proceed to step 8. Skip directly to step 9 (mark task) and step 10 (cleanup). | **No. Never.** |
+| `manual` | **STOP.** Report the PR/MR URL and do NOT merge. Do NOT proceed to step 8. Pause the session — see "Awaiting Merge" below. | **No. Never.** |
 | `ask` | **TWO-TURN STOP.** See `ask` protocol below. | **Only if user says yes in a separate turn** |
 
 **`ask` protocol — MANDATORY two-turn flow:**
@@ -600,7 +603,7 @@ When `pull_requests.merge` is `ask`, you MUST split the question and the action 
 
 **Turn 2 — Act on the user's answer (next message):**
 - User says **yes** → merge via the git host adapter, proceed to step 8
-- User says **no** → report the PR/MR URL, skip to step 9 and 10
+- User says **no** → report the PR/MR URL and pause the session — see "Awaiting Merge" below
 - User says something ambiguous → ask again (repeat Turn 1)
 
 **Red flags — if you're thinking any of these during Turn 1, STOP:**
@@ -612,7 +615,22 @@ When `pull_requests.merge` is `ask`, you MUST split the question and the action 
 | "I can ask and then call the merge API" | Question + action in the same turn = bug. STOP. |
 | "I'll save time by not waiting" | You are violating the user's configured control. STOP. |
 
-**If `pull_requests.merge` is `manual` or `ask` (and user says no), the pipeline ends here for this task.** Steps 8 (hooks) only run after a successful merge — skip them. Proceed to step 9 (mark task done in plan) and step 10 (cleanup worktree), then pick the next task.
+#### Awaiting Merge (paused session)
+
+**If `pull_requests.merge` is `manual` or `ask` (and user says no), the session pauses here.** No merge happened, so nothing that presumes a merge may run: the task is NOT marked done, after-merge hooks do NOT fire, and the worktree is NOT removed. Steps 8-10 are deferred to resume.
+
+**On pause:**
+
+1. Set `Status: Awaiting Merge` in `state.md`. Keep the worktree and all session files.
+2. In `progress.md`, check off `Merge decision (7c)` with the note "paused — awaiting manual merge". Steps 8-10 stay unchecked; they run on resume.
+3. Report the PR/MR URL and that the session is paused.
+4. **Single mode:** the run ends here. **Continuous mode:** pick the next task — the paused session stays in its worktree, and the claim rule (step 2) keeps its task from being re-picked.
+
+**On resume** — whenever a later invocation encounters a session with `Status: Awaiting Merge` (crash-recovery scan, bare `flowyeah:build`, or the user asking about it), query the PR state via the hosting adapter:
+
+- **Merged** → complete the deferred steps for that session: step 8 (after-merge hooks), step 9 (mark task done), step 10 (cleanup worktree).
+- **Closed without merging** → ask the user: run Pipeline Rollback (save post-mortem, uncheck task, remove worktree), or keep the session for rework.
+- **Still open** → report "PR #<n> still awaiting merge" and continue with whatever else the invocation was doing.
 
 **Merge failure recovery (auto mode only):**
 - **Merge conflict** (target branch moved ahead): rebase onto target, resolve conflicts, push, wait for CI again
@@ -665,7 +683,7 @@ If no hooks are configured, this step is a no-op.
 
 ### 9. Mark Task Done + Close Session
 
-**GATE — verify Step 8 before proceeding.** Check `After-merge hooks (8)` in `progress.md`. If it is unchecked and `hooks.pr.after_merge` is configured, STOP and execute Step 8 now. If no after-merge hook is configured, check it off as "N/A" and proceed.
+**GATE — step 9 runs only after a completed merge** (auto, ask→yes, or an Awaiting Merge session resumed after the PR merged — never on the pause path itself). Check `After-merge hooks (8)` in `progress.md`: if it is unchecked and `hooks.pr.after_merge` is configured, STOP and execute Step 8 now. If no after-merge hook is configured, check it off as "N/A" and proceed.
 
 - Promote qualified findings from `.flowyeah/findings.md` to auto memory
 - Check `[x]` in `tmp/flowyeah/plans/<key>.md` (from main checkout, after merge)
@@ -860,7 +878,7 @@ Has two sections: **Items** (implementation tasks from the plan) and **Pipeline*
 - If the source was an issue tracker (Issue-Ref already set), check off Issue linkage as "N/A — source is issue tracker"
 - If `issues.create_when_missing` is `never`, check off Issue linkage as "skipped — create_when_missing: never"
 - If `hooks.pr.after_create` is not configured, check off PR hooks as "N/A — no after_create hook"
-- If `pull_requests.merge` is `manual`, check off Merge decision as "manual — reported URL" and skip After-merge hooks
+- If `pull_requests.merge` is `manual` (or ask→no), check off Merge decision as "paused — awaiting manual merge". Steps 8-10 stay unchecked — they run when the session resumes after the merge (see "Awaiting Merge" in step 7c)
 
 ### findings.md — Accumulated Knowledge (update after discoveries)
 
@@ -903,8 +921,9 @@ After compaction, the hook re-injects state automatically:
 
 After a crash, the user returns to the main checkout. Run `flowyeah:build`:
 1. Scan `.flowyeah/worktrees/*/.flowyeah/state.md` for active sessions
-2. If one session: resume it directly
-3. If multiple sessions: show summary and ask which to resume
+2. Sessions with `Status: Awaiting Merge` are not resumed into implementation — handle them via the "Awaiting Merge" resume flow in step 7c (check the PR state via the hosting adapter first)
+3. If one resumable session: resume it directly
+4. If multiple sessions: show summary and ask which to resume
    ```
    Active sessions:
    1. feat-5588         → Webhook retry logic (Step 4: TDD)
