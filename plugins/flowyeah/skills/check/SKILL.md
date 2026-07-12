@@ -31,6 +31,7 @@ Show every key from the "Current Schema" section, with the user's value or the d
 |--------|---------|
 | `# ✅` | Explicitly set in file |
 | `# ⬚ default: <value>` | Absent, using default |
+| `# ⬚ not configured` | Absent optional key with no default |
 | `# ⚠ deprecated — <migration hint>` | Key present but deprecated |
 | `# ⚠ unknown key` | Adapter key present but not declared in its `config-schema.md` |
 | `# ❌ <error message>` | Validation error |
@@ -76,7 +77,7 @@ code_review:
     - pr-review-toolkit:code-reviewer
     - pr-review-toolkit:silent-failure-hunter
   optional_agents: []                    # ⬚ default: []
-  instructions: .flowyeah/review.md     # ✅   (or: # ⬚ not configured)
+  instructions: docs/review-guidelines.md     # ✅   (or: # ⬚ not configured)
   evaluation_skill:                      # ⬚ not configured
   impact_analysis:                       # ⬚ not configured (built-in tracing runs)
 

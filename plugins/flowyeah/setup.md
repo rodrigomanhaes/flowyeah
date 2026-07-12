@@ -257,7 +257,7 @@ These are project-specific rules that review agents and critical checks should e
 
 Options: **No** (default), **Yes**
 
-If **Yes**: ask for the file path (suggest `.flowyeah/review-guidelines.md`), validate the file exists, add `code_review.instructions: <path>` to the generated YAML.
+If **Yes**: ask for the file path (suggest `docs/review-guidelines.md` — must be a versioned path; `.flowyeah/` is gitignored, so files there never reach teammates or worktrees), validate the file exists, add `code_review.instructions: <path>` to the generated YAML.
 
 If **No**: skip, don't add the key.
 
@@ -315,7 +315,7 @@ Hooks are markdown files with instructions that the AI follows at specific pipel
 - `after_create` — runs after PR/MR creation (e.g., post to Slack, link external trackers)
 - `after_merge` — runs after a successful merge, before marking the task done
 
-If the user wants hooks, ask for the file path for each hook point (default: `.flowyeah/hooks/<hook-name>.md`). Remind the user they need to create the file with the instructions.
+If the user wants hooks, ask for the file path for each hook point (default: `docs/flowyeah-hooks/<hook-name>.md` — must be a versioned path; `.flowyeah/` is gitignored). Remind the user they need to create the file with the instructions.
 
 If the user doesn't want hooks, skip this section entirely (no `hooks` key in YAML).
 
@@ -362,7 +362,7 @@ code_review:
   impact_analysis: <answer>               # omit if not configured
 
 issues:
-  adapter: <answer>
+  adapter: <answer>                       # omit if create_when_missing is never (question skipped)
   create_when_missing: <answer>
 
 worktree:
@@ -377,8 +377,8 @@ worktree:
 
 hooks:                             # omit section entirely if no hooks
   pr:
-    after_create: <answer>         # path to markdown file, e.g. .flowyeah/hooks/after-pr-create.md
-    after_merge: <answer>          # path to markdown file, e.g. .flowyeah/hooks/after-merge.md
+    after_create: <answer>         # path to markdown file, e.g. docs/flowyeah-hooks/after-pr-create.md
+    after_merge: <answer>          # path to markdown file, e.g. docs/flowyeah-hooks/after-merge.md
 
 adapters:
   <adapter>:

@@ -666,11 +666,11 @@ After a successful merge, check `hooks.pr.after_merge` in `flowyeah.yml`. If con
 ```yaml
 hooks:
   pr:
-    after_create: .flowyeah/hooks/after-pr-create.md
-    after_merge: .flowyeah/hooks/after-merge.md
+    after_create: docs/flowyeah-hooks/after-pr-create.md
+    after_merge: docs/flowyeah-hooks/after-merge.md
 ```
 
-**Example hook file** (`.flowyeah/hooks/after-merge.md`):
+**Example hook file** (`docs/flowyeah-hooks/after-merge.md`):
 ```markdown
 # After Merge: Associate Milestone
 
