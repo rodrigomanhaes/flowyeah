@@ -488,6 +488,8 @@ Thread B (@reviewer · file:line):
 
 These are **not** findings — they are reply suggestions. The user can approve, edit, or skip each. Approved complements are posted as replies to the existing threads (via the respond adapter's Reply to Thread operation — see Platform Detection) alongside the formal review submission in step 7.
 
+**Render before you ask.** The cards are user-facing output, not internal notes. The batch-decision prompt below (typically a question-tool call) may only be issued in a response whose own visible message text already contains every card — before making the call, check your output for the `═══` card headers; if they are not there, render the cards first. Updating the state file to `Interactive Approval` is not presentation, and consolidation summaries ("N findings: X suggestions, Y nitpicks") do not count as cards. A decision prompt without the cards on screen asks the user to approve findings they cannot see.
+
 After presenting the full list, ask the user for a **batch decision**:
 
 1. **Approve all** — include every finding in the review
@@ -505,7 +507,7 @@ Persist approved findings to `review-approved-{N}.md` after the batch decision i
 
 #### 5b. Deliver Findings
 
-Persist approved findings to `review-approved-{N}.md` (already done in step 5). Present them using the **Finding Card** format from step 5 — one card per finding, exactly as in normal mode. Do not collapse them into a concise list or summary table; the card is the standard here too.
+Persist approved findings to `review-approved-{N}.md` (already done in step 5). Present them using the **Finding Card** format from step 5 — one card per finding, exactly as in normal mode. Do not collapse them into a concise list or summary table; the card is the standard here too. Step 5's "Render before you ask" rule applies to the step 5c menu: the cards must be on screen before the menu is offered.
 
 Update `review-state-{N}.md`: set `Phase: Findings Delivered`.
 

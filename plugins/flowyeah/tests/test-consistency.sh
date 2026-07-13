@@ -381,6 +381,18 @@ assert_contains "status checks Worktree: references before calling a worktree or
 assert_contains "status clean handles respond-decisions files" "respond-decisions" "$STATUS_SKILL"
 assert_not_contains "status counts nested subtasks in plans" "grep -c '^\- \[" "$STATUS_SKILL"
 
+# ── Section: Finding presentation contract ───────────────
+# Both skills render Finding Cards before asking for a decision. A decision
+# prompt issued without the cards on screen asks the user to judge findings
+# they cannot see (observed: review step 5 jumped from consolidation straight
+# to the batch-decision question).
+
+echo ""
+echo "=== Finding presentation contract ==="
+
+assert_contains "review step 5 renders cards before asking" "Render before you ask" "$PLUGIN_DIR/skills/review/SKILL.md"
+assert_contains "respond step 4 renders cards before asking" "Render before you ask" "$RESPOND_SKILL"
+
 # ── Section: No personalization in distributed instructions ──
 # The plugin ships to arbitrary users — skill/adapter prose must not
 # hardcode a person's name (LICENSE and manifest author are fine).
