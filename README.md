@@ -233,7 +233,7 @@ flowyeah:status clean
 
 Each category is presented separately — you confirm or skip before anything is removed.
 
-`clean` also asks the git host which branches already landed, so review and respond sessions whose PR merged are retired even when the branch still exists locally. Merged build sessions are reported rather than deleted: they still owe after-merge hooks and marking the task done, which `flowyeah:build` completes on resume. Branches the host cannot be queried for are listed as unresolved and left untouched — this is the only part of `status` that needs network access.
+`clean` also asks the git host which branches already landed, so sessions whose PR merged are retired even when the branch still exists locally. Review and respond sessions are simply removed. A merged build session still owes its after-merge hooks and marking the task done, so `clean` runs those first and then removes the worktree — behind a confirmation that names the hook file and the plan task, since hooks usually write to your issue tracker. Sessions whose PR was closed without merging are only reported: rework or rollback is a decision `flowyeah:build` walks you through. Branches the host cannot be queried for are listed as unresolved and left untouched — this is the only part of `status` that needs network access.
 
 ## Project Configuration
 

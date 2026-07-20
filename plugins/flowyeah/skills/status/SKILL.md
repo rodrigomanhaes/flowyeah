@@ -252,7 +252,8 @@ If the git host cannot be reached at all (missing token, `gh auth status` fails,
 **What gets cleaned depends on the session type**, because a merged build session is not finished work:
 
 - **Review and respond sessions** → remove. The round is over and nothing is deferred. Same file set as categories 6 and 7: `review-state-{N}.md` plus `review-approved-{N}.md` and `own-rejections-{N}.md`; `respond-state-{N}.md` plus `respond-decisions-{N}.md`. Remove a review worktree at `.flowyeah/review-worktrees/{N}/` with it.
-- **Build sessions** → **report, do not remove.** A build session paused at `Status: Awaiting Merge` still owes steps 8-10: after-merge hooks, marking the task `[x]` in its plan, then worktree teardown. Deleting the worktree here would skip the hooks and leave the task unchecked forever, with no handle left to notice. Point the user at `/flowyeah:build`, whose resume path detects the merge and runs the deferred steps in order — including the worktree removal this category is tempted to do early.
+- **Build sessions, merged** → **complete, then remove.** A build session paused at `Status: Awaiting Merge` still owes steps 8-10: after-merge hooks, marking the task `[x]` in its plan, then worktree teardown. Removing the worktree without them would skip the hooks and leave the task unchecked forever, with no handle left to notice. So clean runs them rather than skipping them — see "Completing a merged build session" below.
+- **Build sessions, closed without merging** → **report only.** The choice is rework or discard, and discarding means build's Pipeline Rollback, which writes a post-mortem to `tmp/flowyeah/aborted/`, unchecks the task, and deletes the branch. That is a judgment about unmerged work, not cleanup. Name the session and point at `/flowyeah:build`, which asks the question properly on resume.
 
 ```
 Merged sessions
@@ -264,17 +265,30 @@ Merged sessions
     - .flowyeah/respond-state-38.md (PR #38 closed without merging)
       + respond-decisions-38.md
 
-  Deferred to build (steps 8-10 still pending):
+  Complete and remove (steps 8-10 pending):
     - worktrees/feat-5588/ (128M) — PR #5588 merged, Status: Awaiting Merge
-      Run `/flowyeah:build` to fire after-merge hooks, mark the task done, and remove it.
+        will run hooks.pr.after_merge → docs/flowyeah-hooks/after-merge.md
+        will check off "Webhook retry logic" in tmp/flowyeah/plans/gitlab-5588.md
+        will run worktree.teardown, then remove the worktree
+
+  Reported only:
+    - worktrees/fix-5590/ (96M) — PR #5590 closed without merging
+      Run `/flowyeah:build` to choose rework or rollback.
 
   Unresolved:
     - feat/webhook-v2 — could not query the git host, skipped
 
 Remove 2 merged sessions (and 4 companions, 64M)? (yes/no)
+Complete and remove 1 merged build session (128M)? (yes/no)
 ```
 
-The confirmation covers only the removable set. Deferred and unresolved entries are reported, never acted on.
+Ask the two questions separately — removing finished review state and executing a pipeline's remaining steps are different kinds of action, and a single prompt would let a yes to one carry the other. Reported and unresolved entries are never acted on.
+
+**Completing a merged build session.** Follow steps 8, 9, and 10 of `skills/build/SKILL.md` as written, in order, honoring their GATE checks against the session's `progress.md` — do not reimplement them here. Step 8 reads `hooks.pr.after_merge` from `flowyeah.yml` and follows that file's instructions, which are user-authored and typically write to external systems (milestones, issue trackers). That is why the confirmation names the hook file, the plan task, and the teardown up front instead of asking a generic "remove this?": the user is approving outward-facing writes, not just a disk cleanup.
+
+Step 10's teardown works here where it cannot for orphaned worktrees in category 5 — the session's `state.md` is intact, so `## Worktree Env` still holds the resolved env that `worktree.teardown` needs.
+
+If any step fails, stop at that session and report where it stopped. Do not remove the worktree: build's own gates forbid cleanup before post-merge obligations are met, and the session must stay resumable. Continue with the next session.
 
 **2. Completed plans** (all tasks `[x]`):
 
@@ -406,6 +420,7 @@ Finalize 1 closed review round? (yes/no)
 - **Aborted sessions keep the 30-day threshold.** Recent aborted sessions may still be useful for post-mortem.
 - **Active sessions are never offered for cleanup.** A worktree is active if any of the three ownership signals from section 4 matches (in-worktree `state.md`, `Worktree:` reference in a review/respond state file, or `review-state-{N}.md` for a review worktree) — skip it. When in doubt about ownership, skip: deleting a live worktree destroys uncommitted work.
 - **Never force-remove build and respond worktrees.** They hold work: a failing `git worktree remove` usually means uncommitted changes. Report the error and skip. Review worktrees under `.flowyeah/review-worktrees/` are the exception — they are throwaway read-only checkouts of someone else's branch, which is why `review finalize` (reused by category 7) removes them with `--force`.
+- **Category 1 is the only category that writes anywhere but the local filesystem.** Completing a merged build session runs `hooks.pr.after_merge`, whose instructions commonly write to issue trackers. Every other category only deletes local files.
 - **Category 1 is the only category that reaches the network.** Everything else is local file inspection. `flowyeah:status` without `clean` never queries the git host — it stays fast and works offline, which is also why its "Cleanable" summary line does not count merged sessions.
 - **`Phase: Responded` is safe-to-finalize when no active respond session exists.** The round is complete; the review relationship may still have future rounds, so finalization is the user's call, not automatic.
 
@@ -416,7 +431,8 @@ After all categories are processed:
 ```
 Clean complete:
   Removed: 2 merged sessions, 2 plans, 1 aborted session, 1 worktree (148M freed)
-  Deferred: 1 merged build session (run `/flowyeah:build` to finish steps 8-10)
+  Completed: 1 merged build session (after-merge hook ran, task checked off, 128M freed)
+  Reported: 1 closed build session (run `/flowyeah:build` to choose rework or rollback)
   Skipped: 1 stale state file (user declined)
   Unresolved: 1 branch (git host unreachable)
 ```

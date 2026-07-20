@@ -396,9 +396,17 @@ assert_contains "status clean treats a failed query as unknown, not unmerged" "U
 assert_contains "status clean reports branches it could not resolve" "Unresolved" "$STATUS_SKILL"
 
 # A merged build session still owes steps 8-10 (after-merge hooks, mark task
-# done). Deleting its worktree here would skip those silently, so clean hands
-# it back to build instead of removing it.
-assert_contains "status clean defers merged build sessions to build" "flowyeah:build" "$STATUS_SKILL"
+# done). clean completes them itself, but only behind a confirmation that
+# names them — step 8 runs user-authored hook instructions that write to
+# external systems, so a generic "remove this?" would understate the action.
+assert_contains "status clean completes deferred build steps itself" "Complete and remove" "$STATUS_SKILL"
+assert_contains "status clean delegates the deferred steps to build's procedure" "flowyeah:build" "$STATUS_SKILL"
+assert_contains "status clean names the after-merge hook in the confirmation" "hooks.pr.after_merge" "$STATUS_SKILL"
+assert_contains "status clean honors build's step gates" "progress.md" "$STATUS_SKILL"
+
+# Closed-without-merging is a rework-or-discard judgment (build's rollback
+# writes a post-mortem), not cleanup. clean reports it and stops.
+assert_contains "status clean does not auto-roll-back closed sessions" "Pipeline Rollback" "$STATUS_SKILL"
 
 # Both hosting adapters must document the state query clean (and build's
 # Awaiting Merge resume) depends on.
