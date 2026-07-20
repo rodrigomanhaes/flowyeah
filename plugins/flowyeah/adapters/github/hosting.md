@@ -37,6 +37,24 @@ gh pr create \
 
 If `delete_source_branch` is true, the branch is deleted after merge (handled by the merge step).
 
+## Query PR State
+
+Resolve whether the PR for a branch is still open, merged, or closed. Used by `flowyeah:build` when resuming an `Awaiting Merge` session and by `flowyeah:status clean` to find sessions whose work already landed.
+
+```bash
+gh pr view <source_branch> --json number,state,url --jq '{number, state, url}'
+```
+
+| `state` | Meaning |
+|---------|---------|
+| `OPEN` | Still awaiting merge |
+| `MERGED` | Landed |
+| `CLOSED` | Closed without merging |
+
+`gh pr view <branch>` returns the most recent PR for the branch regardless of state, so a merged branch still resolves after the PR is closed.
+
+**A failed command is not an answer.** Exit code 1 covers both "no PR exists for this branch" and "the query could not run" (no auth, no network, repo not found). Distinguish them before acting: re-run `gh auth status`, and treat any authentication or network failure as *unknown*, never as "no PR" or "not merged". Callers must skip the branch and say so rather than infer a state.
+
 ## Poll CI Status
 
 ```bash

@@ -57,6 +57,27 @@ curl -s --request POST -H "Authorization: Bearer $TOKEN" \
 
 Save `iid` and `web_url` for later steps.
 
+## Query MR State
+
+Resolve whether the MR for a branch is still open, merged, or closed. Used by `flowyeah:build` when resuming an `Awaiting Merge` session and by `flowyeah:status clean` to find sessions whose work already landed.
+
+Query by source branch without a `state` filter — the existing-MR check above filters to `opened`, which cannot distinguish "merged" from "never existed":
+
+```bash
+curl -s -w '\n%{http_code}' -H "Authorization: Bearer $TOKEN" \
+  "<url>/api/v4/projects/<project_id>/merge_requests?source_branch=<source_branch>&order_by=updated_at&per_page=1" | \
+  jq -r '.[0] | {iid, state, web_url}'
+```
+
+| `state` | Meaning |
+|---------|---------|
+| `opened` | Still awaiting merge |
+| `merged` | Landed |
+| `closed` | Closed without merging |
+| `locked` | Merge in progress — treat as `opened` |
+
+**An empty result is not an answer.** `[]` means "no MR for this branch", but a transport or auth failure also yields no usable JSON. Check the HTTP status appended by `-w`: only `200` makes the body meaningful. On `401`/`403`/`5xx` or a connection failure, the state is *unknown* — callers must skip the branch and say so, never infer "not merged".
+
 ## Poll CI Status
 
 **Endpoint:** `GET /projects/<project_id>/merge_requests/<iid>/pipelines`

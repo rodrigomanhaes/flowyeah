@@ -633,7 +633,7 @@ When `pull_requests.merge` is `ask`, you MUST split the question and the action 
 3. Report the PR/MR URL and that the session is paused.
 4. **Single mode:** the run ends here. **Continuous mode:** pick the next task — the paused session stays in its worktree, and the claim rule (step 2) keeps its task from being re-picked.
 
-**On resume** — whenever a later invocation encounters a session with `Status: Awaiting Merge` (crash-recovery scan, bare `flowyeah:build`, or the user asking about it), query the PR state via the hosting adapter:
+**On resume** — whenever a later invocation encounters a session with `Status: Awaiting Merge` (crash-recovery scan, bare `flowyeah:build`, or the user asking about it), query the PR state via the **Query PR State** / **Query MR State** section of `adapters/<git_host>/hosting.md`:
 
 - **Merged** → complete the deferred steps for that session: step 8 (after-merge hooks), step 9 (mark task done), step 10 (cleanup worktree).
 - **Closed without merging** → ask the user: run Pipeline Rollback (save post-mortem, uncheck task, remove worktree), or keep the session for rework.

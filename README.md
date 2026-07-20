@@ -233,6 +233,8 @@ flowyeah:status clean
 
 Each category is presented separately — you confirm or skip before anything is removed.
 
+`clean` also asks the git host which branches already landed, so review and respond sessions whose PR merged are retired even when the branch still exists locally. Merged build sessions are reported rather than deleted: they still owe after-merge hooks and marking the task done, which `flowyeah:build` completes on resume. Branches the host cannot be queried for are listed as unresolved and left untouched — this is the only part of `status` that needs network access.
+
 ## Project Configuration
 
 All project conventions live in `flowyeah.yml` at the project root. Run `flowyeah:check` to validate your config against the schema.

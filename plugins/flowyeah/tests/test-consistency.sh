@@ -381,6 +381,35 @@ assert_contains "status checks Worktree: references before calling a worktree or
 assert_contains "status clean handles respond-decisions files" "respond-decisions" "$STATUS_SKILL"
 assert_not_contains "status counts nested subtasks in plans" "grep -c '^\- \[" "$STATUS_SKILL"
 
+# ── Section: Merged-session cleanup ──────────────────────
+# Branch existence is not merge status: a merged branch that still exists
+# locally keeps its worktree and state files alive forever. clean resolves
+# merge state through the git host, and degrades loudly when it cannot.
+
+echo ""
+echo "=== Merged-session cleanup ==="
+
+assert_contains "status clean has a merged-session category" "Merged sessions" "$STATUS_SKILL"
+assert_contains "status clean resolves merge state via the git host" "git_host" "$STATUS_SKILL"
+assert_contains "status clean skips the category when the host is unreachable" "Skip the category" "$STATUS_SKILL"
+assert_contains "status clean treats a failed query as unknown, not unmerged" "Unknown is not unmerged" "$STATUS_SKILL"
+assert_contains "status clean reports branches it could not resolve" "Unresolved" "$STATUS_SKILL"
+
+# A merged build session still owes steps 8-10 (after-merge hooks, mark task
+# done). Deleting its worktree here would skip those silently, so clean hands
+# it back to build instead of removing it.
+assert_contains "status clean defers merged build sessions to build" "flowyeah:build" "$STATUS_SKILL"
+
+# Both hosting adapters must document the state query clean (and build's
+# Awaiting Merge resume) depends on.
+assert_contains "github hosting documents a PR state query" "Query PR State" "$PLUGIN_DIR/adapters/github/hosting.md"
+assert_contains "gitlab hosting documents an MR state query" "Query MR State" "$PLUGIN_DIR/adapters/gitlab/hosting.md"
+
+# The blanket "never force-remove" rule contradicted category 6, which forces
+# removal of review worktrees via review finalize. The ban is about worktrees
+# that can hold work.
+assert_contains "force-removal ban is scoped to worktrees holding work" "build and respond worktrees" "$STATUS_SKILL"
+
 # ── Section: Finding presentation contract ───────────────
 # Both skills render Finding Cards before asking for a decision. A decision
 # prompt issued without the cards on screen asks the user to judge findings
