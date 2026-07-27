@@ -17,6 +17,9 @@ SCHEMA="$PLUGIN_DIR/config-schema.md"
 SETUP="$PLUGIN_DIR/setup.md"
 CHECK_SKILL="$PLUGIN_DIR/skills/check/SKILL.md"
 BUILD_SKILL="$PLUGIN_DIR/skills/build/SKILL.md"
+REVIEW_SKILL="$PLUGIN_DIR/skills/review/SKILL.md"
+RESPOND_SKILL="$PLUGIN_DIR/skills/respond/SKILL.md"
+STATUS_SKILL="$PLUGIN_DIR/skills/status/SKILL.md"
 
 # ── Helpers ──────────────────────────────────────────────
 
@@ -392,6 +395,23 @@ assert_contains "build declares the Two-Turn Stop" "## Two-Turn Stop" "$BUILD_SK
 assert_count "build spells the protocol exactly once" "Turn 1 —" "$BUILD_SKILL" 1
 assert_contains "status reuses build's Two-Turn Stop by name" "Two-Turn Stop" "$PLUGIN_DIR/skills/status/SKILL.md"
 
+# ── Section: Rules live with the step they govern ────────
+# Each skill ended with a `## Never` list that restated rules already stated
+# in the steps that enforce them — or that the user's own CLAUDE.md already
+# forbids. The few bullets carrying something unique moved into their step.
+
+echo ""
+echo "=== Rules live with the step they govern ==="
+
+for skill in build review respond; do
+    assert_not_contains "$skill has no trailing Never list" "## Never" "$PLUGIN_DIR/skills/$skill/SKILL.md"
+done
+
+assert_contains "build's cleanup gate explains the injection hook" "repeats unchecked" "$BUILD_SKILL"
+assert_contains "review step 6 forbids skipping the review type question" "Skipping this question" "$REVIEW_SKILL"
+assert_contains "review step 7 names the wrong gh invocation" "gh pr review --comment --body" "$REVIEW_SKILL"
+assert_contains "review step 7 keeps the open-thread rationale" "stop-point" "$REVIEW_SKILL"
+
 # ── Section: Worktree naming contract ────────────────────
 # Worktree dirs are the branch name with '/' flattened to '-' (declared in
 # worktree-lifecycle.md). Raw branch names nest directories and break every
@@ -401,7 +421,6 @@ echo ""
 echo "=== Worktree naming contract ==="
 
 LIFECYCLE="$PLUGIN_DIR/worktree-lifecycle.md"
-RESPOND_SKILL="$PLUGIN_DIR/skills/respond/SKILL.md"
 
 assert_contains "worktree-lifecycle declares the slug rule" "tr '/' '-'" "$LIFECYCLE"
 assert_not_contains "respond does not address worktree dirs by raw branch name" "worktrees/<branch>" "$RESPOND_SKILL"
@@ -417,7 +436,6 @@ echo "=== State-file lifecycle ==="
 
 assert_contains "review finalize cleans up leftover respond state" "respond-state-{N}.md" "$PLUGIN_DIR/skills/review/SKILL.md"
 
-STATUS_SKILL="$PLUGIN_DIR/skills/status/SKILL.md"
 
 # status must know every artifact class the pipelines create.
 assert_contains "status scans review worktrees" "review-worktrees" "$STATUS_SKILL"
@@ -475,7 +493,7 @@ assert_contains "force-removal ban is scoped to worktrees holding work" "build a
 echo ""
 echo "=== Finding presentation contract ==="
 
-REVIEW_SKILL="$PLUGIN_DIR/skills/review/SKILL.md"
+
 FINDING_CARD="$PLUGIN_DIR/finding-card.md"
 
 assert_contains "review step 5 renders cards before asking" "Render before you ask" "$REVIEW_SKILL"

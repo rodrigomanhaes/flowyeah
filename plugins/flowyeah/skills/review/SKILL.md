@@ -478,13 +478,15 @@ Present the recommendation alongside the options. Mark the recommended option:
 2. **Comment** — formal review with comments only
 3. **Approve** — approve with observations
 
+Skipping this question and picking the event yourself is never sanctioned — the recommendation is advice to the user, and the event type is theirs to choose.
+
 ### 7. Submit Formal Review
 
-**MANDATORY:** Always submit as a formal platform review with inline comments. Never post a generic timeline comment.
+**MANDATORY:** Always submit as a formal platform review with inline comments, through the review adapter's submit operation. A generic timeline comment is not a review, and neither is `gh pr review --comment --body` — that posts a body-only review with no inline threads.
 
 Load the review adapter and follow its instructions to:
 
-1. Build inline comments array — **every approved finding** becomes an inline comment. If a finding lacks a precise line, find the best anchor (see Error Handling). No findings go in the review body — the body is a summary, not a fallback destination.
+1. Build inline comments array — **every approved finding** becomes an inline comment. If a finding lacks a precise line, find the best anchor (see Error Handling). No findings go in the review body — the body is a summary, not a fallback destination. Every finding is a stop-point for the reviewed developer: it must create an open thread they need to resolve, which the review body cannot do.
 2. Build review body (consolidated summary only — requirements validation, previous review follow-up, and overview. No findings.)
 3. Submit the formal review with the event type chosen in step 6
 
@@ -594,16 +596,3 @@ Review comments are written in the language configured in `language`. Default: `
 | Agent fails | Report which failed, continue with others |
 | Remote communication failure (401, 403, 429, 5xx, timeout) | Retry up to 2 times with a short pause. If still failing, **STOP and report the error to the user.** Do not attempt alternative approaches or workarounds. For writes that may have landed (GitLab's per-finding discussion POSTs especially), verify what was created and retry only the missing pieces — see the `Submitting Review` recovery row. |
 | Inline comment position not in diff | Find the best anchor: the most relevant changed line in the same file, or the file's first changed line. If the file has no changed lines at all (finding from a cross-cutting concern), anchor on the most relevant file's first changed hunk. Every finding MUST become an inline comment — never move findings to the review body. |
-
-## Never
-
-**Note:** The submission rules below apply to the normal review path (steps 6-7). `--own` mode does not submit — these rules do not apply to self-audit reviews.
-
-- Post without explicit user approval
-- Include findings the user skipped
-- Use `gh pr review --comment --body` (that's not an inline review)
-- Post a generic timeline comment instead of a formal review
-- Skip the review type question
-- Submit a review without inline comments (when there are approved findings with file:line)
-- Put findings in the review body instead of as inline comments. Every finding is a stop-point for the reviewed developer — it must create an open thread they need to resolve. The review body is a summary layer only.
-- Mutate the working tree, index, or HEAD of the primary checkout at any phase, including context gathering. Use `.flowyeah/review-worktrees/{N}/` for any necessary mutation (see "Invariant: Primary Checkout Is Untouched"). The pre-tool-use hook `tree-guard.sh` enforces this — if it blocks a command, do not retry, escalate, or work around it; either move the work into the review worktree or stop and ask the user.

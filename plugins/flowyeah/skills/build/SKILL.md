@@ -678,6 +678,8 @@ If no hooks are configured, this step is a no-op.
 
 **GATE — verify Steps 8 and 9 before proceeding.** Check `After-merge hooks (8)` and `Mark task done (9)` in `progress.md`. If either is unchecked (and not marked N/A), STOP and execute the missing steps first. Do NOT clean up the worktree until post-merge obligations are fulfilled.
 
+Every unchecked step between your current position and cleanup is a step you must execute — the injection hook repeats unchecked pipeline items at the end of every prompt for exactly this reason. The pull from a completed merge straight to cleanup is what this gate exists to stop.
+
 Removes the worktree and everything in it, including `.flowyeah/` session files.
 
 Follow the **Teardown** procedure from `worktree-lifecycle.md` (at the plugin root):
@@ -1063,21 +1065,3 @@ The core skill reads the adapter and follows its instructions. **Config lookup r
 2. What went wrong or is unclear
 3. What you've already tried (if applicable)
 4. Specific question — not "what should I do?" but "should I use approach A or B?"
-
-## Never
-
-- Write code outside a worktree (analysis and planning OK, code changes NOT)
-- Skip code review to make progress
-- Implement workarounds instead of asking
-- Accept "good enough" implementations
-- Ignore test failures, warnings, or errors
-- Assume requirements when unsure
-- Give back the prompt during CI wait — not to ask "what next?", not to ask "should I monitor CI?", not to report the PR URL and stop. Poll CI, fix failures, stay in the loop until 7b is resolved
-- **Waste effort on commit messages when `merge_strategy: squash`** — they're thrown away; apply conventions to the PR title instead
-- **Skip conventions on PR title when `merge_strategy: squash` or `merge`** — the PR title IS the final commit message
-- **Merge a PR/MR when `pull_requests.merge` is `manual`** — STOP and report the URL
-- **Merge a PR/MR when `pull_requests.merge` is `ask` without the user's explicit answer** — the question and the merge MUST be in separate response turns. Asking and merging in the same turn is a bug, even if you "know" the user would say yes.
-- **Create an issue when `issues.create_when_missing` is `ask` without the user's explicit answer** — the question and the creation MUST be in separate response turns
-- **Combine a question and its corresponding action in the same response turn when the config says `ask`** — this applies to ALL `ask`-mode settings. The question ends your turn. The action starts the next turn, after the user answers.
-- **Skip a configured process skill because the task looks simple** — `implementation.brainstorm` controls which phases run; `implementation.process_skills` controls how each phase executes. These are independent decisions. A configured skill is mandatory for its phase regardless of task complexity or source type.
-- **Jump from merge (7c) to cleanup (10) skipping after-merge hooks (8) and mark-done (9)** — check `progress.md` Pipeline section. Every unchecked step between your current position and cleanup is a step you MUST execute. The injection hook repeats unchecked items at the end of every prompt for exactly this reason.

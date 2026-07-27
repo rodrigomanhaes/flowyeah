@@ -711,16 +711,3 @@ Respond complete — N items (M implemented, K rejected, J discussed, P praise a
 ```
 
 Omit the `P praise auto-acked` field when `P == 0`.
-
-## Never
-
-- Push without running tests (when code was changed)
-- Reply to comments the user skipped
-- Resolve threads without replying first
-- Skip the triage step for actionable findings (praise-ack at step 2.5 is the only sanctioned exception)
-- Present findings as a batch summary, table, or triage memo — step 4 is one finding per prompt, single-letter action, persist, advance (see §4 anti-pattern)
-- Route a non-`praise` comment through the auto-ack path (free-form positives without a `praise` label go through normal triage)
-- Implement without user approval
-- Re-request review from `DISMISSED` reviewers (GitHub)
-- Re-request review from `APPROVED` reviewers when no code was changed (GitHub)
-- Modify code outside the worktree (see "Invariant: Primary Checkout Is Untouched"). The pre-tool-use hook `tree-guard.sh` blocks tree-mutating git commands in the primary checkout while a respond session is active for the current branch. If it blocks a command, do not retry, escalate, or work around it; either move into `.flowyeah/worktrees/<slug>/` or abort the session.
