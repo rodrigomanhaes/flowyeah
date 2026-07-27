@@ -328,6 +328,22 @@ assert_contains "setup.md questions mention after_create hook" "after_create" "$
 echo ""
 echo "=== Build invariant integrity ==="
 
+# The invariant is shared by build, review and respond. Each used to enumerate
+# the same ~19 forbidden git commands inline — three copies of a list whose
+# only executable form is tree-guard.sh. The enumeration now lives in
+# primary-checkout.md; the skills state the positive rule and point at it.
+
+PRIMARY_CHECKOUT="$PLUGIN_DIR/primary-checkout.md"
+
+assert_file_exists "primary-checkout.md exists" "$PRIMARY_CHECKOUT"
+assert_contains "primary-checkout.md enumerates the forbidden commands" "git cherry-pick" "$PRIMARY_CHECKOUT"
+assert_contains "primary-checkout.md carries the read-only command table" 'git show <sha>:<file>' "$PRIMARY_CHECKOUT"
+
+for skill in build review respond; do
+    assert_contains "$skill points at primary-checkout.md" "primary-checkout.md" "$PLUGIN_DIR/skills/$skill/SKILL.md"
+    assert_not_contains "$skill does not re-enumerate the forbidden commands" "git cherry-pick" "$PLUGIN_DIR/skills/$skill/SKILL.md"
+done
+
 assert_not_contains "build never checkouts/pulls the primary" 'git checkout $DEFAULT_BRANCH && git pull' "$BUILD_SKILL"
 assert_contains "build ignores artifacts via info/exclude" "info/exclude" "$BUILD_SKILL"
 assert_not_contains "build --on-branch avoids broken porcelain grep" 'grep -B1 "branch refs/heads' "$BUILD_SKILL"

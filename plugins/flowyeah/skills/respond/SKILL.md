@@ -17,20 +17,9 @@ flowyeah:respond [--own] [<number>]
 
 ## Invariant: Primary Checkout Is Untouched
 
-The respond pipeline must not mutate the working tree, the index, or HEAD of the checkout it was invoked from (the "primary checkout"). All code mutation belongs inside the worktree created (or reused) at step 5 — `.flowyeah/worktrees/<slug>/`. Forbidden in the primary checkout, at every phase: `git checkout`, `git checkout-index`, `git restore`, `git switch`, `git reset`, `git apply`, `git am`, `git merge`, `git rebase`, `git pull`, `git stash`, `git clean`, `git cherry-pick`, `git revert`, `git rm`, `git mv`, `git bisect`. `git fetch` (refs only, no working-tree side effects) is allowed.
+**All code mutation happens inside the worktree created (or reused) at step 5 — `.flowyeah/worktrees/<slug>/`.** The checkout the pipeline was invoked from (the "primary checkout") stays as the user left it. See `primary-checkout.md` at the plugin root for the read-only command table, what the rule excludes, and how `tree-guard.sh` enforces it.
 
 This applies through the full lifecycle: steps 0-4 (config, identify, fetch, evaluate, triage) need only read-only operations against the primary checkout; steps 5-7 (worktree setup, implement, test) operate exclusively inside the worktree (`cd` into it before any code edit); steps 8-10 (push, re-request, cleanup) push from the worktree and remove it without touching the primary.
-
-Default to read-only commands when gathering context — they cover everything the pipeline needs in steps 0-4:
-
-| Need | Command |
-|------|---------|
-| PR comments / threads / state | Respond adapter API (`gh api`, GitLab REST) |
-| File content at any SHA | `git show <sha>:<file>` |
-| Per-line authorship at a SHA | `git blame <sha> -- <file>` |
-| File history | `git log --oneline -10 <file>` |
-
-The `tree-guard.sh` PreToolUse hook enforces this rule on Bash. If it blocks a command, do not retry, escalate, or work around it — either move into `.flowyeah/worktrees/<slug>/` (after step 5) or stop and ask the user. Edit/Write tool calls are not currently hook-gated, so the agent must hold the rule deliberately for those: never edit project files outside the worktree.
 
 `finalize`-style cleanup is not a separate command for respond; the pipeline self-cleans at step 10. To abort mid-pipeline, remove `.flowyeah/respond-state-{N}.md` and `.flowyeah/respond-decisions-{N}.md` manually (or use `/flowyeah:status clean`).
 

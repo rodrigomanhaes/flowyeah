@@ -13,13 +13,11 @@ flowyeah:build [from <source>] [--continuous] [--intermittent] [--on-branch <bra
 
 ## Invariant: Primary Checkout Is Untouched
 
-The build pipeline must not mutate the working tree, the index, or HEAD of the checkout it was invoked from (the "primary checkout"). All mutation belongs inside the worktree created at step 3 — `.flowyeah/worktrees/<name>/`. Forbidden in the primary checkout: `git checkout`, `git checkout-index`, `git restore`, `git switch`, `git reset`, `git apply`, `git am`, `git merge`, `git rebase`, `git pull`, `git stash`, `git clean`, `git cherry-pick`, `git revert`, `git rm`, `git mv`, `git bisect`. `git fetch` (refs only) is allowed.
+**The agent's commitment: from step 3 onward, every command — `git`, `bundle`, test runners, anything — runs with the worktree at `.flowyeah/worktrees/<name>/` as cwd.** The checkout the pipeline was invoked from (the "primary checkout") stays as the user left it. If a command must reference the primary's state, do it through read-only access (`git show <sha>:<file>`, `git log`, `git blame`), never by `cd`-ing back to the primary to mutate it. See `primary-checkout.md` at the plugin root for the read-only command table and what the rule excludes.
 
 Steps 0-2 (validate config, resolve source, pick task) are explicitly read-only against the primary checkout — see step 1's "read-only, main checkout" annotation in the pipeline diagram. Step 3 creates the worktree without touching the primary's tree, index, or HEAD: refs are updated via `git fetch`, the branch is based on `origin/$DEFAULT_BRANCH`, and artifact ignoring goes through `info/exclude`. From that point on, all subsequent steps (implement, commit, test, push, PR, hooks, mark-done, cleanup) operate inside the worktree exclusively.
 
-This invariant is held by the build agent itself. The `tree-guard.sh` PreToolUse hook does not enforce it for build sessions — the build pipeline runs from inside its worktree (where the hook stays out of the way), and the primary checkout is left free for unrelated user work (deploys, hotfixes, rebases on stable branches). Git itself prevents the primary from sharing the worktree's branch, so the build branch's state is mechanically isolated regardless of what happens on the primary.
-
-The agent's commitment: from step 3 onward, every command — `git`, `bundle`, test runners, anything — runs with the worktree as cwd. If a command must reference the primary's state, do it through read-only access (`git show <sha>:<file>`, `git log`, `git blame`), never by `cd`-ing back to the primary to mutate it.
+This invariant is held by the build agent itself — `tree-guard.sh` does not enforce it for build sessions (see `primary-checkout.md`, "What tree-guard enforces"). Git itself prevents the primary from sharing the worktree's branch, so the build branch's state is mechanically isolated regardless of what happens on the primary.
 
 ## Sources
 

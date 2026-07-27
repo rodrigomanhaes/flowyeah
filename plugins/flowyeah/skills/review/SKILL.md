@@ -14,17 +14,7 @@ flowyeah:review finalize [<number>]
 
 ## Invariant: Primary Checkout Is Untouched
 
-The review pipeline must not mutate the working tree, the index, or HEAD of the checkout it was invoked from (the "primary checkout"). Forbidden in that checkout, at every phase: `git checkout`, `git restore`, `git switch`, `git reset`, `git apply`, `git am`, `git merge`, `git rebase`, `git pull`, `git stash`, `git clean`, `git cherry-pick`, `git revert`, `git rm`, `git mv`, `git bisect`, and any form like `git checkout <ref> -- <path>` that overwrites tracked files. `git fetch` (refs only, no working-tree side effects) is allowed.
-
-Default to read-only commands when gathering context — they cover the great majority of needs:
-
-| Need | Command |
-|------|---------|
-| PR diff, file list, commits | Review adapter API (`gh pr diff <N>`, GitLab diff endpoint) |
-| File content at any SHA | `git show <sha>:<file>` |
-| Per-line authorship at a SHA | `git blame <sha> -- <file>` |
-| File history | `git log --oneline -10 <file>` |
-| Recursive symbol search at a SHA | `git grep -n '<symbol>' <sha>` (requires that SHA's objects fetched locally) |
+**Every phase of the review pipeline reads the primary checkout and writes nothing to it** — not its working tree, not its index, not its HEAD. Gather context with read-only commands; `primary-checkout.md` at the plugin root has the command table and what the rule excludes.
 
 When deeper inspection is genuinely justified — running code at PR HEAD, applying a candidate patch to verify behavior, full-tree LSP/recursive-grep navigation against materialized files — create a dedicated review worktree at `.flowyeah/review-worktrees/{N}/`, perform the work there, and remove it before the session terminates. The worktree path is recorded in `Worktree:` inside `review-state-{N}.md` so `finalize` and crash recovery can clean it up unconditionally. The review worktree is **separate** from build worktrees at `.flowyeah/worktrees/` — never reuse a build worktree, and `finalize` for review must never touch build worktrees.
 
