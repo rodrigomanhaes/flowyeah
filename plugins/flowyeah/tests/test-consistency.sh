@@ -58,6 +58,21 @@ assert_not_contains() {
     fi
 }
 
+assert_count() {
+    local label="$1" pattern="$2" file="$3" expected="$4"
+    local got
+    TOTAL=$((TOTAL + 1))
+    got="$(grep -cF -- "$pattern" "$file" || true)"
+    if [ "$got" -eq "$expected" ]; then
+        PASS=$((PASS + 1))
+    else
+        FAIL=$((FAIL + 1))
+        echo "FAIL: $label"
+        echo "  expected $expected line(s) matching: $pattern"
+        echo "  got $got in: $file"
+    fi
+}
+
 assert_dir_in_list() {
     local label="$1" dirname="$2" list="$3"
     TOTAL=$((TOTAL + 1))
@@ -363,6 +378,19 @@ assert_contains "bare invocation resumes active sessions before plans" "Active s
 assert_contains "build pauses unmerged sessions as Awaiting Merge" "Awaiting Merge" "$BUILD_SKILL"
 assert_not_contains "manual merge path does not route to mark-done" "Skip directly to step 9" "$BUILD_SKILL"
 assert_not_contains "ask-no path does not route to mark-done" "skip to step 9 and 10" "$BUILD_SKILL"
+
+# ── Section: Two-Turn Stop ───────────────────────────────
+# Every `ask`-mode setting splits the question and the action across two
+# response turns. The protocol was spelled out in full at both call sites
+# (issue creation, merge decision) plus a red-flag table plus Never bullets.
+# One named section owns it now; the call sites name it and move on.
+
+echo ""
+echo "=== Two-Turn Stop ==="
+
+assert_contains "build declares the Two-Turn Stop" "## Two-Turn Stop" "$BUILD_SKILL"
+assert_count "build spells the protocol exactly once" "Turn 1 —" "$BUILD_SKILL" 1
+assert_contains "status reuses build's Two-Turn Stop by name" "Two-Turn Stop" "$PLUGIN_DIR/skills/status/SKILL.md"
 
 # ── Section: Worktree naming contract ────────────────────
 # Worktree dirs are the branch name with '/' flattened to '-' (declared in

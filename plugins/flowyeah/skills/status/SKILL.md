@@ -414,7 +414,7 @@ Finalize 1 closed review round? (yes/no)
 ### Cleanup Rules
 
 - **Each category is confirmed independently.** The user can say yes to plans and no to worktrees.
-- **TWO-TURN STOP per category.** Ask in one turn, act on the answer in the next. Same protocol as `pull_requests.merge: ask` in the build skill.
+- **Two-Turn Stop per category.** Ask in one turn, act on the answer in the next — the same protocol build applies to every `ask`-mode setting (`skills/build/SKILL.md`, "Two-Turn Stop").
 - **Completed plans have no age threshold in clean mode.** The build skill's 7-day auto-cleanup only applies to background lifecycle checks. When the user explicitly runs `clean`, all completed plans are offered for removal.
 - **Stale plans keep the 30-day threshold.** Plans with unchecked tasks that are younger than 30 days might still be relevant.
 - **Aborted sessions keep the 30-day threshold.** Recent aborted sessions may still be useful for post-mortem.

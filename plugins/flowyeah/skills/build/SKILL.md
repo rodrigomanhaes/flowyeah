@@ -19,6 +19,16 @@ Steps 0-2 (validate config, resolve source, pick task) are explicitly read-only 
 
 This invariant is held by the build agent itself — `tree-guard.sh` does not enforce it for build sessions (see `primary-checkout.md`, "What tree-guard enforces"). Git itself prevents the primary from sharing the worktree's branch, so the build branch's state is mechanically isolated regardless of what happens on the primary.
 
+## Two-Turn Stop
+
+Every `ask`-mode setting — `pull_requests.merge: ask`, `issues.create_when_missing: ask`, and any other the schema adds — splits the question and the action across two response turns.
+
+**Turn 1 — ask, then end your response.** Put the question to the user in the configured `language`. Your response ends there: no API call, no further pipeline step. Control returns to the user.
+
+**Turn 2 — act on the answer.** The user's next message decides what happens. An ambiguous answer means asking again, which is a fresh Turn 1.
+
+The question ends your turn; the action starts the next one. This holds even when you are confident which way the user will answer — a setting is `ask` because the user wants the choice, not your prediction of it.
+
 ## Sources
 
 | Source | Example | Adapter |
@@ -480,22 +490,11 @@ If the source was NOT an issue tracker (file, conversation, Bugsink, New Relic, 
 
 | `issues.create_when_missing` | Action |
 |------------------------------|--------|
-| `ask` | **TWO-TURN STOP.** See `ask` protocol below. |
+| `ask` | **Two-Turn Stop** (see the section above). |
 | `always` | Create one automatically via `issues.adapter`. |
 | `never` | Skip silently. |
 
-**`ask` protocol — MANDATORY two-turn flow:**
-
-When `issues.create_when_missing` is `ask`, you MUST split the question and the action across two separate response turns.
-
-**Turn 1 — Ask and STOP:**
-1. Ask the user, in the configured `language`: "Create an issue to track this work? (Yes/No)"
-2. **END YOUR RESPONSE.** Do NOT create the issue. Do NOT proceed to step 7. Your response ends here — return control to the user.
-
-**Turn 2 — Act on the user's answer (next message):**
-- User says **yes** → create via `issues.adapter`, save Issue Linkage values, proceed to step 7
-- User says **no** → skip issue creation, proceed to step 7
-- User says something ambiguous → ask again (repeat Turn 1)
+**Two-Turn Stop for issue creation.** Turn 1 asks "Create an issue to track this work? (Yes/No)" and ends there — no issue, no step 7. Turn 2 acts: **yes** → create via `issues.adapter`, save Issue Linkage values, proceed to step 7; **no** → skip issue creation, proceed to step 7.
 
 When creating an issue, use the source adapter pointed to by `issues.adapter` to create it. Save the resulting Issue Linkage values (`Issue-Ref`, `Issue-Close`) to `state.md` — they will be used for the PR title and body in step 7.
 
@@ -595,30 +594,9 @@ After PR/MR creation, check `hooks.pr.after_create` in `flowyeah.yml`. If config
 |----------------------|--------|----------------|
 | `auto` | Use the git host adapter to merge | Yes |
 | `manual` | **STOP.** Report the PR/MR URL and do NOT merge. Do NOT proceed to step 8. Pause the session — see "Awaiting Merge" below. | **No. Never.** |
-| `ask` | **TWO-TURN STOP.** See `ask` protocol below. | **Only if user says yes in a separate turn** |
+| `ask` | **Two-Turn Stop** (see the section above). | **Only if user says yes in a separate turn** |
 
-**`ask` protocol — MANDATORY two-turn flow:**
-
-When `pull_requests.merge` is `ask`, you MUST split the question and the action across two separate response turns. This is not optional.
-
-**Turn 1 — Ask and STOP:**
-1. Update `state.md`: set `Status: Awaiting merge decision`
-2. Present the PR/MR URL and ask, in the configured `language`: "Merge now? (Yes/No)"
-3. **END YOUR RESPONSE.** Do NOT call any merge API. Do NOT proceed to step 8. Do NOT execute any further pipeline steps. Your response ends here — return control to the user.
-
-**Turn 2 — Act on the user's answer (next message):**
-- User says **yes** → merge via the git host adapter, proceed to step 8
-- User says **no** → report the PR/MR URL and pause the session — see "Awaiting Merge" below
-- User says something ambiguous → ask again (repeat Turn 1)
-
-**Red flags — if you're thinking any of these during Turn 1, STOP:**
-
-| Thought | Reality |
-|---------|---------|
-| "I'll just ask and merge in the same message" | That defeats the entire purpose. STOP. |
-| "The user will probably say yes anyway" | You don't know that. STOP. |
-| "I can ask and then call the merge API" | Question + action in the same turn = bug. STOP. |
-| "I'll save time by not waiting" | You are violating the user's configured control. STOP. |
+**Two-Turn Stop for the merge decision.** Turn 1 sets `Status: Awaiting merge decision` in `state.md`, presents the PR/MR URL, asks "Merge now? (Yes/No)", and ends there — no merge API call, no step 8, no further pipeline steps. Turn 2 acts: **yes** → merge via the git host adapter, proceed to step 8; **no** → report the PR/MR URL and pause the session (see "Awaiting Merge" below).
 
 #### Awaiting Merge (paused session)
 
