@@ -381,7 +381,7 @@ Present findings from the step 2.5 actionable group one at a time (praise-ack it
 
 **MANDATORY: one finding per prompt.** Do not collapse multiple findings into a single review memo, table, or batch approval form. Each finding gets its own prompt with its own `[d]/[i]/[r]` action. Persist the decision, then advance to the next finding.
 
-**Render before you ask.** The action prompt for a finding — whether the `[d]/[i]/[r]` text menu or a question-tool call — may only be issued in a response whose own visible message text already contains that finding's card and critique blocks. Before asking, check your output for the `═══` card header; if it is not there, render the card first. A decision prompt without the card on screen asks the user to judge a finding they cannot see.
+**Render before you ask.** The action prompt for a finding — whether the `[d]/[i]/[r]` text menu or a question-tool call — may only be issued in a response whose own visible message text already contains that finding's card and critique blocks. Before asking, check your output for the `═══` card header and for the code fence wrapping it; if either is missing, render the card first. A decision prompt without the card on screen asks the user to judge a finding they cannot see.
 
 #### Anti-pattern (do not do this)
 

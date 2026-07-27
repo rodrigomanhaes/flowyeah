@@ -421,7 +421,7 @@ Thread B (@reviewer · file:line):
 
 These are **not** findings — they are reply suggestions. The user can approve, edit, or skip each. Approved complements are posted as replies to the existing threads (via the respond adapter's Reply to Thread operation — see Platform Detection) alongside the formal review submission in step 7.
 
-**Render before you ask.** The cards are user-facing output, not internal notes. The batch-decision prompt below (typically a question-tool call) may only be issued in a response whose own visible message text already contains every card — before making the call, check your output for the `═══` card headers; if they are not there, render the cards first. Updating the state file to `Interactive Approval` is not presentation, and consolidation summaries ("N findings: X suggestions, Y nitpicks") do not count as cards. A decision prompt without the cards on screen asks the user to approve findings they cannot see.
+**Render before you ask.** The cards are user-facing output, not internal notes. The batch-decision prompt below (typically a question-tool call) may only be issued in a response whose own visible message text already contains every card — before making the call, check your output for the `═══` card headers and for the code fence wrapping them; if either is missing, render the cards first. Updating the state file to `Interactive Approval` is not presentation, and consolidation summaries ("N findings: X suggestions, Y nitpicks") do not count as cards. A decision prompt without the cards on screen asks the user to approve findings they cannot see.
 
 After presenting the full list, ask the user for a **batch decision**:
 

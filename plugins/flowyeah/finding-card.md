@@ -24,6 +24,10 @@ Source:     <who found it>
 
 Render every finding as its own card, in order, one after another — even when there is only one finding.
 
+**Emit the cards inside a fenced code block.** Open a bare ```` ``` ```` fence at column 0 before the first card and close it after the last one, so the whole run renders literally. Every body line starts with `│`, so a fence written inside a box never begins its line and cannot close the outer one — code snippets nest safely.
+
+Without the outer fence the box body is parsed as Markdown: an inner ```` ```ruby ```` block becomes an inline code span, its fences disappear, and every newline collapses to a space. The snippet lands on a single line, strung together by the `│` prefixes.
+
 ## Fields
 
 | Field | Value |
