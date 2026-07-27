@@ -279,7 +279,7 @@ File: line still present in changed hunks?
 
 For entries with `File: (general)` (no precise line), the diff-overlap rule cannot apply. Treat them as `STILL_REJECTED` unconditionally — there is no signal that says they have been addressed. The author can clear all persisted rejections (general and specific alike) by running `/flowyeah:review finalize {N}`, which removes the entire ledger.
 
-**Output (persisted rejections):** one list — `previously_rejected_findings[]`. Each entry preserves `File:`, `Label:`, `Subject:`, and `Reasoning:`.
+**Output (persisted rejections):** one list — `previously_rejected_findings[]`. Each entry preserves `File:`, `Label:`, `Confidence:`, `Subject:`, and `Reasoning:`. `Confidence:` is preserved but deliberately **not** passed to the agents in step 3 — it exists so the ledger can be read back as calibration data (which score bands get rejected), and telling an agent that a prior finding scored low would bias it against raising a legitimate concern rather than inform it.
 
 This list is **separate** from `unresolved_findings[]`. It does not get carried forward as a user-visible finding (see step 4, consolidation rule 7) — it is used only as agent context (see step 3, Run Review Agents).
 
@@ -382,9 +382,16 @@ Adjust all default scores based on evidence, the same as `3b`.
 - Something that looks like a bug but isn't
 - Pedantic nitpicks a senior engineer wouldn't mention
 - Issues linters/typecheckers/CI will catch
-- General quality issues unless explicitly in CLAUDE.md
+- General quality issues unless explicitly in CLAUDE.md, and the rule cited decides this case. A long CLAUDE.md is not a blanket licence — "PR reviews MUST verify X" admits only findings that actually turn on X
 - Issues silenced with lint-ignore comments
 - Language-specific linter defaults in generated/migration files (e.g., Ruby's `frozen_string_literal` in migrations)
+- A silent `nil`, default, or swallowed branch on a path no real input reaches. Confirm input exists that produces the case before flagging; if no record in the system can produce it, it is not a finding
+- Behavior of a gem, library, or framework asserted without checking the version in use (`Gemfile.lock`, `package.json`, lockfile). A behavior that changed across majors is a false positive when claimed against the wrong one
+- A problem that predates the diff and the diff does not worsen. Say so in one line and suggest an issue — do not spend a finding, and do not re-derive the analysis
+- A change whose probable damage is smaller than the cost of making it. State what breaks and how often; "could theoretically happen" is not a frequency
+- Missing coverage for a defensive branch that is unreachable, or for behavior that is incidental rather than contractual
+
+**Findings that ask for a decision, not a change,** are legitimate and are not covered by the damage rule above — a reviewer may reasonably want a conscious sign-off on a deliberate trade-off. Label them `question` or `thought` and say plainly that the sign-off is the ask. Do not dress them as `issue` or `suggestion`: that spends the author's attention on a fix request you are not actually making.
 
 **"Touched it, own it":** If the PR touches a file (even for refactoring), the author is responsible for issues in that code. Only truly untouched lines are excluded.
 

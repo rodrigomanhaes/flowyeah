@@ -142,6 +142,7 @@ After the user makes triage decisions (step 4), persist results to `.flowyeah/re
 ## Comment 1
 - Thread: <thread_id>
 - File: app/services/payment_service.rb:42
+- Confidence: —
 - Action: implement
 - Final critique:
     Assessment: agree
@@ -151,6 +152,7 @@ After the user makes triage decisions (step 4), persist results to `.flowyeah/re
 ## Comment 2
 - Thread: <thread_id>
 - File: (general)
+- Confidence: —
 - Action: reject
 - Final critique:
     Assessment: disagree
@@ -160,6 +162,7 @@ After the user makes triage decisions (step 4), persist results to `.flowyeah/re
 ## Comment 3
 - Thread: <thread_id>
 - File: app/controllers/api/v1/payments_controller.rb:18
+- Confidence: —
 - Action: discuss
 - Reply: Good point, but the validation happens upstream in the service layer — see PaymentValidator#call
 - Final critique:
@@ -190,6 +193,7 @@ Schema:
 ## Rejection 1
 - File: app/services/foo.rb:42
 - Label: issue
+- Confidence: 75
 - Subject: Missing null check on user.email
 - Rejected at: 2026-05-04T15:30:00Z
 - Reasoning: |
@@ -199,6 +203,7 @@ Schema:
 ## Rejection 2
 - File: (general)
 - Label: suggestion
+- Confidence: —
 - Subject: Extract validation into a service object
 - Rejected at: 2026-05-04T18:12:00Z
 - Reasoning: |
@@ -211,6 +216,7 @@ Schema:
 |-------|----------|--------|
 | `File:` | yes | Copied from the matching entry in `respond-decisions-{N}.md`. Use `(general)` for findings without `file:line`. |
 | `Label:` | yes | Conventional Comments label from the original finding, with decorations preserved (e.g., `issue (blocking)`, `suggestion (non-blocking)`). Mirrors the format used in `review-approved-{N}.md` and `respond-decisions-{N}.md`. |
+| `Confidence:` | yes | The finding's confidence score, copied from `respond-decisions-{N}.md`. Write `—` when the source carries none — reviewer comments in normal mode have no score, and findings persisted before the field existed have none either. Recorded so that rejection rate can be read against the score the review assigned: a band that is rejected as often as it is kept is a band that is not earning its place. |
 | `Subject:` | yes | The first non-empty line of the original finding body, stripped of label prefix. Used as the dedup key together with `File:`. |
 | `Rejected at:` | yes | ISO 8601 UTC timestamp at the moment cleanup ran. |
 | `Reasoning:` | yes | Multi-line block (literal `|` YAML scalar). Copied from the `Final critique:` block of the matching `respond-decisions-{N}.md` entry — specifically the `Reasoning:` sub-field. If the user rejected without discussion, the round-1 critique reasoning is what lands here. |
@@ -466,6 +472,7 @@ After every decision (implement/reject), upsert an entry for that finding in `.f
 ## Finding 1
 - Thread: own-{N}-1
 - File: app/models/payment.rb:42
+- Confidence: 85
 - Action: implement
 - Final critique:
     Assessment: agree (after round 2 discussion)
@@ -475,6 +482,7 @@ After every decision (implement/reject), upsert an entry for that finding in `.f
 ## Finding 2
 - Thread: own-{N}-2
 - File: (general)
+- Confidence: 40
 - Action: reject
 - Final critique:
     Assessment: disagree
@@ -484,6 +492,7 @@ After every decision (implement/reject), upsert an entry for that finding in `.f
 ## Comment 3
 - Thread: <thread_id>
 - File: app/controllers/api/v1/payments_controller.rb:18
+- Confidence: —
 - Action: discuss
 - Reply: Validation lives upstream in PaymentValidator#call — see service layer
 - Final critique:
@@ -491,6 +500,8 @@ After every decision (implement/reject), upsert an entry for that finding in `.f
     Reasoning: behaviour depends on which layer owns validation
     Recommendation: discuss
 ```
+
+`Confidence:` carries through the score captured at step 2 — the `- Confidence:` line of the finding in `--own` mode, `—` for reviewer comments in normal mode, which have none. It is written verbatim and never invented; step 10 copies it into `own-rejections-{N}.md` so rejection rate stays readable against the score the review assigned.
 
 For normal-mode respond, `Thread:` uses the platform's real thread ID and headings use `## Comment` instead of `## Finding`. The `Final critique:` block is new in both modes and stores the **last** round's assessment (after any discussion). If the user rejects without discussing, `Final critique:` mirrors the round-1 critique. The `[s]` path (normal mode only, see Per-finding UX) produces `Action: discuss` plus a `Reply:` field capturing the user's reply to post at step 8.
 
@@ -641,7 +652,7 @@ Cleanup has two paths depending on mode.
 Do **not** remove the worktree — it's owned by `build`. Run the items in this order — `Phase: Responded` is the completion marker crash recovery keys on, so it is written **last**; every earlier item is idempotent, so a crash mid-cleanup re-applies step 10 safely. Specifically:
 
 1. **Persist cross-round rejections:** read `.flowyeah/respond-decisions-{N}.md` and update `.flowyeah/own-rejections-{N}.md` per the rules below. Create the rejections file (with header `# Previously Rejected Findings (PR #{N})` and a single trailing blank line) if it does not exist. The rules:
-   - For each `## Finding K` block in `respond-decisions-{N}.md` with `Action: reject` — upsert a `## Rejection M` block into `own-rejections-{N}.md`. The dedup key is `(File, Subject)`. If a matching entry exists, replace it: overwrite all fields (`File`, `Label`, `Subject`, `Reasoning`) with the new values derived from the matching `respond-decisions-{N}.md` entry, and set `Rejected at:` to the current timestamp. Otherwise append a new entry. `M` is the next available 1-based index after the highest existing `## Rejection` heading. (Indices are never reused after deletion; gaps in the sequence are expected and benign.) See the schema in the "Cross-Round Persistence" section above for field mapping.
+   - For each `## Finding K` block in `respond-decisions-{N}.md` with `Action: reject` — upsert a `## Rejection M` block into `own-rejections-{N}.md`. The dedup key is `(File, Subject)`. If a matching entry exists, replace it: overwrite all fields (`File`, `Label`, `Confidence`, `Subject`, `Reasoning`) with the new values derived from the matching `respond-decisions-{N}.md` entry, and set `Rejected at:` to the current timestamp. Otherwise append a new entry. `M` is the next available 1-based index after the highest existing `## Rejection` heading. (Indices are never reused after deletion; gaps in the sequence are expected and benign.) See the schema in the "Cross-Round Persistence" section above for field mapping.
    - For each `## Finding K` block with `Action: implement` — if a matching entry exists in `own-rejections-{N}.md` (same `File:` and `Subject:`), remove it. The user has overridden their previous rejection by choosing to fix the issue this round; the rejection no longer applies. If no match exists, do nothing.
    - `Action: discuss` blocks (only present in normal mode) and `Action: praise-ack` blocks are ignored — neither represents a rejection. Same for any other action value.
    - If after all updates `own-rejections-{N}.md` contains no `## Rejection ` headings (regardless of whether the `# Previously Rejected Findings` header line is present), delete the file. A header-only file is noise.
