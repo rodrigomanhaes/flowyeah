@@ -269,12 +269,12 @@ done < <(sed -n '/## Deprecated Keys/,/^## /p' "$SCHEMA" | grep '^|' | grep -v '
 # ── Section: Adapter tree in build SKILL.md ──────────────
 
 echo ""
-echo "=== Adapter tree in build SKILL.md ==="
+echo "=== Adapter tree in adapters/README.md ==="
 
 # Extract adapter names from the ASCII tree in build SKILL.md.
 # Lines like: ├── gitlab/  or └── newrelic/  or └── _shared/
 # Use sed to extract the adapter directory name.
-tree_adapters="$(grep -E '(├── |└── )[a-z_]+/' "$BUILD_SKILL" | sed 's/.*[├└]── //; s/\/.*//' | sort -u)"
+tree_adapters="$(grep -E "(├── |└── )[a-z_]+/" "$PLUGIN_DIR/adapters/README.md" | sed "s/.*[├└]── //; s/\/.*//" | sort -u)"
 
 # Actual adapter directories
 real_adapters="$(ls -d "$PLUGIN_DIR"/adapters/*/ 2>/dev/null | xargs -n1 basename | sort -u)"
@@ -282,7 +282,7 @@ real_adapters="$(ls -d "$PLUGIN_DIR"/adapters/*/ 2>/dev/null | xargs -n1 basenam
 # Every real adapter directory is in the tree
 while IFS= read -r adapter; do
     [ -z "$adapter" ] && continue
-    assert_dir_in_list "real adapter $adapter in build SKILL.md tree" "$adapter" "$tree_adapters"
+    assert_dir_in_list "real adapter $adapter in adapters/README.md tree" "$adapter" "$tree_adapters"
 done <<< "$real_adapters"
 
 # Every tree entry has an actual directory
@@ -394,6 +394,34 @@ echo "=== Two-Turn Stop ==="
 assert_contains "build declares the Two-Turn Stop" "## Two-Turn Stop" "$BUILD_SKILL"
 assert_count "build spells the protocol exactly once" "Turn 1 —" "$BUILD_SKILL" 1
 assert_contains "status reuses build's Two-Turn Stop by name" "Two-Turn Stop" "$PLUGIN_DIR/skills/status/SKILL.md"
+
+# ── Section: build's disclosed reference ─────────────────
+# build carried its two flag branches, its session-file schemas and a copy of
+# the adapter tree inline — material most runs never reach, in the longest
+# SKILL.md of the five. Each moved behind a pointer from the step that needs
+# it. The pointers are what make the material reachable, so they are asserted.
+
+echo ""
+echo "=== build's disclosed reference ==="
+
+assert_file_exists "on-branch reference exists" "$PLUGIN_DIR/skills/build/on-branch.md"
+assert_file_exists "intermittent reference exists" "$PLUGIN_DIR/skills/build/intermittent.md"
+assert_file_exists "session-files reference exists" "$PLUGIN_DIR/skills/build/session-files.md"
+assert_file_exists "adapters README exists" "$PLUGIN_DIR/adapters/README.md"
+
+assert_contains "build step 3 points at the on-branch flow" "on-branch.md" "$BUILD_SKILL"
+assert_contains "build step 4 points at the intermittent escalation" "intermittent.md" "$BUILD_SKILL"
+assert_contains "build points at the session-file schemas" "session-files.md" "$BUILD_SKILL"
+assert_contains "build points at the adapter reference" "adapters/README.md" "$BUILD_SKILL"
+
+# The escalation levels and the attach flow must not survive in both places.
+assert_not_contains "build does not inline the on-branch attach script" "Diverged local branch" "$BUILD_SKILL"
+assert_not_contains "build does not inline the escalation levels" "Framework-specific bisect" "$BUILD_SKILL"
+assert_contains "on-branch.md carries the attach flow" "Diverged local branch" "$PLUGIN_DIR/skills/build/on-branch.md"
+assert_contains "intermittent.md carries the escalation levels" "Framework-specific bisect" "$PLUGIN_DIR/skills/build/intermittent.md"
+
+# progress.md's Pipeline checklist stays inline: every GATE names its items.
+assert_contains "build keeps the pipeline checklist inline" "After-merge hooks (8)" "$BUILD_SKILL"
 
 # ── Section: Descriptions carry triggers, not identity ───
 # Every skill's `description:` sits in the context window on every turn. It

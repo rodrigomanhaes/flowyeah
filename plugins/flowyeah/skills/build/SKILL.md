@@ -175,65 +175,9 @@ Parse command arguments, read content, convert to canonical plan format. Save to
 
 Create worktree and branch. **Always worktree, always branch.** Worktree directory names derive from the branch with `/` flattened to `-` (`worktree-lifecycle.md`, Directory Naming) — `<type>/<slug>` branches live at `.flowyeah/worktrees/<type>-<slug>/`.
 
-**When `--intermittent` is passed:**
+**When `--intermittent` is passed:** the worktree is created from `$DEFAULT_BRANCH`, never from a PR branch — read `intermittent.md` in this skill's directory before continuing, then resume the standard flow below. `--intermittent` overrides `--on-branch`.
 
-Intermittent failure investigations are **always independent** from the origin PR. Even if the source is a CI failure from a PR, the investigation starts fresh from the configured main branch — because intermittent failures are usually pre-existing issues that surfaced randomly on that run.
-
-- **Always create the worktree from `$DEFAULT_BRANCH`** — never from the PR branch, never from `--on-branch`.
-- **If `--on-branch` is also passed, ignore it** — intermittent takes precedence. The investigation needs a clean main-branch environment.
-- **Do NOT checkout or reproduce on the origin PR's branch** during investigation. Step 4 handles the case where the failure turns out to be PR-specific (see "PR-caused failure escape hatch" in the intermittent escalation).
-- **The `CI-PR` field in state.md is informational only** — it records where the failure was observed, but the investigation and any resulting fix are separate from that PR.
-
-After this, follow the standard worktree creation flow below (starting from `git fetch origin $DEFAULT_BRANCH`).
-
-**When `--on-branch <branch>` is passed:**
-
-Skip the normal branch creation flow. Instead, attach to the existing branch:
-
-```bash
-git fetch origin <branch>
-
-SLUG=$(printf '%s' "<branch>" | tr '/' '-')
-
-# Locate a worktree that already has this branch checked out (exact ref match)
-EXISTING=$(git worktree list --porcelain | awk -v ref="refs/heads/<branch>" \
-  '/^worktree /{wt=substr($0,10)} $0=="branch "ref{print wt; exit}')
-
-if [ -n "$EXISTING" ]; then
-  case "$EXISTING" in
-    */.flowyeah/worktrees/*)
-      # Reuse the worktree from a previous session
-      cd "$EXISTING"
-      ;;
-    *)
-      # Checked out in the primary or a user-managed worktree — STOP (see below)
-      ;;
-  esac
-elif git show-ref --verify --quiet "refs/heads/<branch>"; then
-  # Local branch exists but is checked out nowhere. Refuse stale state:
-  # fast-forward if strictly behind origin, STOP if diverged (see below).
-  BEHIND=$(git rev-list --count "<branch>..origin/<branch>" 2>/dev/null || echo 0)
-  AHEAD=$(git rev-list --count "origin/<branch>..<branch>" 2>/dev/null || echo 0)
-  if [ "$BEHIND" -gt 0 ] && [ "$AHEAD" -eq 0 ]; then
-    git branch -f <branch> origin/<branch>
-  fi
-  git worktree add ".flowyeah/worktrees/$SLUG" <branch>
-  cd ".flowyeah/worktrees/$SLUG"
-else
-  # No local branch — create one tracking the remote
-  git worktree add ".flowyeah/worktrees/$SLUG" -b <branch> --track origin/<branch>
-  cd ".flowyeah/worktrees/$SLUG"
-fi
-```
-
-- **No new remote branch is ever created** — `--on-branch` only attaches to a branch that already exists (a local tracking branch may be created for a remote-only branch).
-- **Worktree reuse** — only worktrees under `.flowyeah/worktrees/` are reused. If the branch is checked out in the primary checkout or a user-managed worktree, **STOP** and report: git refuses a second checkout of the same branch, and mutating a checkout the pipeline doesn't own would violate the invariant. Ask whether to free the branch or work there manually.
-- **Diverged local branch** (`BEHIND > 0` and `AHEAD > 0`): **STOP** and ask — fast-forwarding would discard local commits, and rebasing them is the user's decision.
-- **Local-only branch** — if `git fetch origin <branch>` reports the remote has no such branch, skip the staleness checks and attach to the local branch directly.
-- **Session files** — if `.flowyeah/state.md` exists in the worktree, resume from it (same as crash recovery). If not, create fresh session files with `On-Branch: true` in `state.md`.
-- **Skip** branch naming, type inference, and issue claiming — the branch and any associated issue are already set up.
-
-After attaching, the rest of Step 3 runs normally: worktree verification (3b), symlinks, env setup.
+**When `--on-branch <branch>` is passed:** skip the normal branch creation flow and attach to the existing branch instead — read `on-branch.md` in this skill's directory and follow it, then resume at 3b.
 
 ```bash
 # Read git.default_branch from flowyeah.yml (default: main)
@@ -389,34 +333,7 @@ These are independent. `brainstorm` decides WHETHER brainstorming/planning happe
 | "I brainstormed with the user in Step 1 already" | Step 1 brainstorming (source resolution) is about WHAT to build. Step 4 brainstorming is about HOW to build it. They serve different purposes. |
 | "The process skill is overkill for this change" | The user configured it for a reason. Invoke it. |
 
-**When `Investigation: intermittent` is set in state.md:**
-
-Replace the standard investigation with an escalating approach. The goal is to identify why a test fails intermittently, not just make it pass once.
-
-**CI log source:** Read the failure log from `mission.md` (persisted there by the source adapter during Step 1). Do NOT re-fetch from the CI API — the original run may have been re-triggered and passed since, making the failure log unavailable. Session files are the authoritative source for the failure context.
-
-**Escalation levels** (stop escalating as soon as the cause is found — then switch to the normal TDD fix cycle from step 4, with the cause as the failing-test starting point):
-
-All escalation levels run on the main branch (the worktree was created from `$DEFAULT_BRANCH` in Step 3). This is intentional — intermittent failures are investigated where the codebase lives, not on a PR branch.
-
-1. **Run the failing test in isolation.** Does it fail by itself? If yes, the failure is not intermittent — fall back to standard debugging. Invoke `process_skills.debugging` if configured (mandatory — same rule as other process skills).
-
-2. **Check ordering dependency.** Run the full spec file (or suite) with the seed from the CI log (in `mission.md`). Reproduce the failure with the same test ordering.
-
-3. **Analyze shared state.** Look for: database records leaking between tests, global variable mutation, file system side effects, time-dependent assertions (`Time.now`, `Date.today`), external service dependencies.
-
-4. **Framework-specific bisect.** If the above don't reveal the cause:
-
-   | `testing.command` contains | Bisect approach |
-   |----------------------------|-----------------|
-   | `rspec` | `rspec --bisect --seed <seed>` |
-   | `pytest` | `pytest --randomly-seed=<seed>` + manual narrowing |
-   | `jest` | `jest --runInBand` to isolate ordering effects |
-   | Other | Report automated bisect is unavailable, suggest manual investigation |
-
-5. **PR-caused failure escape hatch.** If levels 1–4 cannot reproduce the failure on main at all, and the source has a `CI-PR` field, the failure may not be intermittent — it may be caused by the PR's own changes. STOP the intermittent investigation and report: "Could not reproduce on main. This failure may be caused by the PR itself, not an intermittent issue." Let the user decide how to proceed.
-
-6. **STOP and report.** If bisect or other levels found evidence of intermittency but couldn't isolate the root cause, the problem may be infrastructure-level (timing, external services, resource contention). Present findings and ask for guidance.
+**When `Investigation: intermittent` is set in state.md:** replace the standard investigation with the escalating approach in `intermittent.md` (this skill's directory), which reads the failure log from `mission.md` and escalates until the cause is found. Return to the normal TDD cycle above once it is.
 
 ### 5. Commit
 
@@ -755,75 +672,24 @@ Session state lives in `.flowyeah/` inside the worktree. It survives context com
     └── findings.md    # LEARNED — discoveries, gotchas, insights
 ```
 
-### state.md — Rich Context (update very frequently)
+### state.md — the fields other things parse
 
-Must have parseable header lines for crash recovery summaries:
+Full schema, the worked example, and the update cadence live in `session-files.md` (this skill's directory). These header lines are the contract other parts of flowyeah read, so step 3 must write them and later steps must keep them current:
 
-```markdown
-# Current State
-
+```
 Type: build
-Status: Implementing
-Step: 4 (Implement) — TDD phase
-Mode: single                          # single | continuous
-Task: Webhook retry logic
-Source: gitlab:#5588
-Plan: tmp/flowyeah/plans/gitlab-5588.md  # relative to main checkout
-Branch: feat/5588
-Worktree: .flowyeah/worktrees/feat-5588
-Issue-Ref: #5588                      # from source adapter's Issue Linkage
-Issue-Close: Closes #5588             # close keyword for PR/MR body
-Investigation: intermittent            # set in Step 3 when --intermittent flag is passed
-On-Branch: true                       # set in Step 3 when --on-branch flag is passed
-
-## Worktree Env
-DB_SUFFIX=kM4tQ8hN
-REDIS_DB=pL7nR2wY
-
-## Key Decisions Made
-- Chose exponential backoff over linear retry (better for rate-limited APIs)
-- Max 5 retries with jitter to avoid thundering herd
-- Using ActiveJob retry mechanism rather than custom loop
-
-## What's Been Done
-- Brainstormed 3 approaches
-- Plan: 4 implementation steps
-- Steps 1-2 complete: model and service layer
-- Step 3 in progress: controller integration
-
-## Dead Ends
-- Tried custom retry loop with sleep — race condition with Sidekiq's own retry
-- Tried rescue_from in controller — too late, webhook already marked as failed
-
-## Current Focus
-Writing failing feature spec for webhook retry behavior.
-
-## Next Action
-Complete the feature spec, then implement the controller action.
+Status: <phase, or "Awaiting Merge" when paused at 7c>
+Step: <number and name>
+Mode: single | continuous
+Task / Source / Plan / Branch / Worktree
+Issue-Ref / Issue-Close       # from the source adapter's Issue Linkage (step 1)
+Investigation: intermittent   # step 3, when --intermittent was passed
+On-Branch: true               # step 3, when --on-branch was passed
 ```
 
-**Update when:** every pipeline step transition, every phase transition within step 4, after completing subtasks, after discovering dead ends, after making key decisions. The more context here, the better a resumed session performs.
+Below the header, `## Worktree Env` holds the resolved env that step 6 exports and `worktree.teardown` needs at step 10.
 
-### mission.md — Goal (update rarely)
-
-```markdown
-# Mission
-
-Implement webhook retry with exponential backoff for failed deliveries.
-
-## Scope
-- Retry mechanism with configurable max attempts
-- Exponential backoff with jitter
-- Dead letter queue for permanently failed webhooks
-- Admin UI to view retry status
-
-## Success Criteria
-- [ ] Failing webhooks are retried up to 5 times
-- [ ] Backoff is exponential with jitter
-- [ ] Permanently failed webhooks go to dead letter queue
-- [ ] Admin can see retry history
-- [ ] All tests pass, CI green
-```
+**Update when:** every pipeline step transition, every phase transition within step 4, after completing subtasks, after discovering dead ends, after making key decisions. The more context there, the better a resumed session performs.
 
 ### progress.md — Checklist (update after each item)
 
@@ -869,42 +735,9 @@ Has two sections: **Items** (implementation tasks from the plan) and **Pipeline*
 - If `hooks.pr.after_create` is not configured, check off PR hooks as "N/A — no after_create hook"
 - If `pull_requests.merge` is `manual` (or ask→no), check off Merge decision as "paused — awaiting manual merge". Steps 8-10 stay unchecked — they run when the session resumes after the merge (see "Awaiting Merge" in step 7c)
 
-### findings.md — Accumulated Knowledge (update after discoveries)
+### findings.md and the injection hooks
 
-```markdown
-# Findings
-
-## Summary
-ActiveJob's retry_on has a quirk: exponential backoff is capped at
-the job's max wait time, not the retry count. Set both explicitly.
-
-## Details
-
-### ActiveJob retry_on gotcha
-The `wait` parameter in retry_on accepts a lambda but the exponential
-calculation is capped by `retry_jitter` config. Must set both:
-  retry_on WebhookError, wait: :polynomially_longer, attempts: 5
-  self.retry_jitter = 0.15
-```
-
-Keep `## Summary` current — the injection hook only shows the summary section, not full details.
-
-### Hook-Based Injection
-
-Two hooks (installed via this plugin's `hooks/hooks.json`) power session recovery:
-
-1. **`UserPromptSubmit`** — `session-inject.sh` injects all 4 files on every prompt (findings: summary only). This is how state survives context compaction.
-
-2. **`PostToolUse` on Edit/Write** — `session-remind.sh` nudges to update state.md after making changes.
-
-Both scripts are guarded: exit silently if no `flowyeah.yml` in project or no active `.flowyeah/` session.
-
-### Context Compaction Recovery
-
-After compaction, the hook re-injects state automatically:
-1. Read injected state to find current position
-2. Continue from where `state.md` indicates
-3. Do NOT restart the task from scratch
+Schemas and hook behaviour are in `session-files.md`. What matters while working: keep `findings.md`'s `## Summary` current — the injection hook shows only that section, and step 9 promotes qualified findings to auto memory before the worktree is removed.
 
 ### Crash Recovery
 
@@ -992,57 +825,9 @@ adapters:
 
 ### Adapters
 
-Adapters live in `adapters/` at the plugin level (shared across skills):
+Platform integrations live in `adapters/` at the plugin level, shared across skills. `adapters/README.md` has the directory layout, what each role file does, and how to add an integration.
 
-```
-adapters/
-├── gitlab/
-│   ├── connection.md      # Auth, base URL, --form encoding
-│   ├── config-schema.md   # Keys valid under adapters.gitlab
-│   ├── source.md          # Fetch issue → canonical format
-│   ├── hosting.md         # Create MR, poll CI, merge
-│   ├── review.md          # Fetch MR, post formal review
-│   └── respond.md         # Fetch/reply/resolve review threads
-├── github/
-│   ├── connection.md      # gh CLI auth
-│   ├── config-schema.md   # Keys valid under adapters.github (none)
-│   ├── source.md          # Fetch issue → canonical format
-│   ├── hosting.md         # Create PR, poll CI, merge
-│   ├── review.md          # Fetch PR, post formal review
-│   └── respond.md         # Fetch/reply/resolve review threads
-├── linear/
-│   ├── connection.md      # MCP setup
-│   ├── config-schema.md   # Keys valid under adapters.linear
-│   └── source.md          # Fetch issue → canonical format
-├── bugsink/
-│   ├── connection.md      # API token auth
-│   ├── config-schema.md   # Keys valid under adapters.bugsink
-│   └── source.md          # Fetch error → canonical format
-├── newrelic/
-│   ├── connection.md      # NerdGraph auth
-│   ├── config-schema.md   # Keys valid under adapters.newrelic
-│   └── source.md          # Fetch error group → canonical format
-├── ghactions/
-│   ├── connection.md      # gh CLI auth
-│   ├── config-schema.md   # Keys valid under adapters.ghactions (none)
-│   └── source.md          # Fetch CI job logs → canonical format
-└── _shared/
-    └── write-safety.md    # Transversal principle for all write operations
-```
-
-Each integration directory contains:
-- **`connection.md`** — shared authentication, base URL, encoding conventions
-- **`config-schema.md`** — the keys valid under `adapters.<name>` (empty table = no keys allowed)
-- **`source.md`** — fetch data and convert to canonical format
-- **`hosting.md`** — create PR/MR, poll CI, merge
-- **`review.md`** — fetch PR/MR details, post formal review with inline comments
-- **`respond.md`** — fetch review threads, reply, resolve, re-request review
-
-`_shared/` holds rules that apply across all adapters regardless of transport. Each adapter's `connection.md` cross-references it where relevant.
-
-The core skill reads the adapter and follows its instructions. **Config lookup rule:** all adapter config is always under `adapters.<name>` in `flowyeah.yml`, regardless of whether the adapter is used as a source, git host, or both. Each adapter's config keys are declared in `adapters/<name>/config-schema.md`.
-
-**Adding a new integration:** create an adapter directory with `connection.md` + the adapter types you need, add config to `flowyeah.yml`. No changes to core skills.
+**Config lookup rule:** all adapter config is under `adapters.<name>` in `flowyeah.yml`, regardless of whether the adapter is used as a source, a git host, or both.
 
 ## Stop Conditions
 

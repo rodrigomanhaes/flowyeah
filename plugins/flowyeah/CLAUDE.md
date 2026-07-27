@@ -8,11 +8,13 @@ Claude Code plugin for plan-to-PR pipelines.
 plugins/flowyeah/
 ├── skills/           # Auto-discovered by Claude Code from SKILL.md
 │   ├── build/        # Main pipeline: source → plan → worktree → TDD → PR
+│   │                 #   + on-branch.md, intermittent.md, session-files.md
 │   ├── review/       # Formal code review with inline comments
 │   ├── respond/     # Address review feedback on PRs/MRs
 │   ├── check/        # Config audit: validates flowyeah.yml against schema
 │   └── status/       # Project health: sessions, plans, worktrees, cleanup
 ├── adapters/         # Platform integrations (shared across skills)
+│   ├── README.md     # Layout, role files, how to add an integration
 │   ├── gitlab/       # connection, source, git host, review, respond
 │   ├── github/       # connection, source, git host, review, respond
 │   ├── linear/       # connection, source
@@ -23,6 +25,8 @@ plugins/flowyeah/
 ├── hooks/            # Claude Code hooks for session persistence
 ├── tests/            # test-hooks.sh + test-consistency.sh (run in CI)
 ├── config-schema.md  # Single source of truth for flowyeah.yml schema
+├── finding-card.md   # How a finding is shown (review + respond)
+├── primary-checkout.md  # The don't-touch-the-primary invariant (build/review/respond)
 ├── worktree-lifecycle.md  # Directory naming rule + setup/teardown procedures
 ├── setup.md          # Shared interactive config creation (used by all skills)
 └── flowyeah.yml      # Generated per-project config (not in this repo)
@@ -60,7 +64,7 @@ Tests run in isolated temp git repos; jq is required (the suite fails, not skips
 1. Create `adapters/<name>/connection.md` (required — auth and API conventions)
 2. Add whichever roles apply: `source.md`, `hosting.md`, `review.md`, `respond.md`
 3. Create `adapters/<name>/config-schema.md` declaring its config keys — with an empty keys table if the adapter takes none (see `adapters/github/config-schema.md`), so typo'd keys under it are still flagged. Adding or renaming any adapter key later means updating this file too, or `flowyeah:check` will flag it as an unknown key.
-4. Update `config-schema.md` (root) if adding a new adapter type
+4. Update `config-schema.md` (root) if adding a new adapter type, and the tree in `adapters/README.md` (a consistency test compares it against the real directories)
 5. Update `setup.md` if the adapter needs interactive config questions
 
 ## Commits
