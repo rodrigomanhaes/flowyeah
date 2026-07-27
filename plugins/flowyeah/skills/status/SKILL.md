@@ -1,6 +1,6 @@
 ---
 name: status
-description: Show active sessions, plans, and worktrees. Use with `clean` to remove stale artifacts interactively.
+description: Use when checking what flowyeah work is in flight — active sessions, plans, worktrees. Use `clean` to remove stale artifacts interactively.
 ---
 
 # flowyeah:status — Project Health Overview

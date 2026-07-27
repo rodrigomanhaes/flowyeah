@@ -1,6 +1,6 @@
 ---
 name: build
-description: Use when starting work from any source - ideas, issues, conversation context, or plan files - that needs implementation with git isolation, TDD, code review, and CI verification
+description: Use when implementing work from an issue, error report, CI failure, plan file, or the conversation; when resuming a paused or crashed session; or with --intermittent for a flaky test
 ---
 
 # flowyeah:build — Plan-to-PR Pipeline

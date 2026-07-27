@@ -395,6 +395,39 @@ assert_contains "build declares the Two-Turn Stop" "## Two-Turn Stop" "$BUILD_SK
 assert_count "build spells the protocol exactly once" "Turn 1 —" "$BUILD_SKILL" 1
 assert_contains "status reuses build's Two-Turn Stop by name" "Two-Turn Stop" "$PLUGIN_DIR/skills/status/SKILL.md"
 
+# ── Section: Descriptions carry triggers, not identity ───
+# Every skill's `description:` sits in the context window on every turn. It
+# earns that place by listing what should invoke the skill — not by restating
+# the pipeline the body already documents. Flags that route a run down a
+# different path (--own, finalize) are triggers and must appear.
+
+echo ""
+echo "=== Descriptions carry triggers, not identity ==="
+
+for skill in build check respond review status; do
+    f="$PLUGIN_DIR/skills/$skill/SKILL.md"
+    desc="$(grep -m1 '^description:' "$f")"
+    TOTAL=$((TOTAL + 1))
+    if [ "${#desc}" -le 200 ]; then
+        PASS=$((PASS + 1))
+    else
+        FAIL=$((FAIL + 1))
+        echo "FAIL: $skill description stays under 200 chars"
+        echo "  got ${#desc}: $desc"
+    fi
+done
+
+assert_contains "review description names --own" "--own" "$REVIEW_SKILL"
+assert_contains "review description names finalize" "finalize" "$REVIEW_SKILL"
+
+TOTAL=$((TOTAL + 1))
+if grep -m1 '^description:' "$RESPOND_SKILL" | grep -qF -- "--own"; then
+    PASS=$((PASS + 1))
+else
+    FAIL=$((FAIL + 1))
+    echo "FAIL: respond description names its --own branch"
+fi
+
 # ── Section: Rules live with the step they govern ────────
 # Each skill ended with a `## Never` list that restated rules already stated
 # in the steps that enforce them — or that the user's own CLAUDE.md already

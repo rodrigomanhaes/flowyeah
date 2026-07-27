@@ -1,6 +1,6 @@
 ---
 name: check
-description: Audit flowyeah.yml against the config schema — reports errors, warnings, deprecated keys, and absent optional fields with their defaults
+description: Use when auditing or validating flowyeah.yml, or when a flowyeah setting is not taking effect and the config may be at fault
 ---
 
 # flowyeah:check — Configuration Audit

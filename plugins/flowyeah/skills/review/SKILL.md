@@ -1,6 +1,6 @@
 ---
 name: review
-description: Use when reviewing a pull request or merge request - runs code review agents, validates requirements against issues, checks for critical patterns, and submits formal reviews with inline comments. Use with --own for self-audit (no submission). Use finalize to clean up review state.
+description: Use when reviewing a pull request or merge request. Use --own to self-audit your own PR without submitting anything, and finalize to tear down review state.
 ---
 
 # flowyeah:review — PR/MR Review Pipeline

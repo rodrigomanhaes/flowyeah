@@ -1,6 +1,6 @@
 ---
 name: respond
-description: Use when addressing review feedback on a PR/MR - fetches comments, evaluates via configurable skill, triages interactively, implements fixes, replies to threads, resolves conversations, and conditionally re-requests review
+description: Use when addressing review feedback on a pull request or merge request. Use --own to work through the findings from a prior review --own round.
 ---
 
 # flowyeah:respond — PR/MR Review Response Pipeline
