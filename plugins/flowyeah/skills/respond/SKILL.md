@@ -416,22 +416,10 @@ This shape is forbidden because it:
 
 #### Per-finding UX
 
-For each item `i` in order (severity then confidence when the evaluation provides them — normal-mode reviewer comments often carry neither, in which case preserve the fetched order), render the **Finding Card** — the same canonical `═══` header and `┌─│└` comment box used by `flowyeah:review` (keep the two skills in sync) — followed by a boxed critique block and the action menu:
+For each item `i` in order (severity then confidence when the evaluation provides them — normal-mode reviewer comments often carry neither, in which case preserve the fetched order), render the **Finding Card** — read `finding-card.md` at the plugin root for the template and its fields; `flowyeah:review` renders the same card from the same file. Use the `Finding <i> of <N>` title line, since findings are presented one at a time here. Follow the card with a boxed critique block and the action menu:
 
 ```
-═══════════════════════════════════════════════════════════
-Finding i of N
-═══════════════════════════════════════════════════════════
-Label:      <label> (<decoration>)
-Confidence: <0-100>/100
-File:       <path>:<line>
-Source:     <comment author / own review>
-
-┌─────────────────────────────────────────────────────────
-│ **<label> (<decoration>):** <subject>
-│
-│ <body>
-└─────────────────────────────────────────────────────────
+<Finding Card for item i — see finding-card.md>
 
 ┌─ Critique (round 1) ─────────────────────────────────────
 │ Assessment:  <agree | disagree | needs-clarification>
@@ -442,8 +430,6 @@ Source:     <comment author / own review>
 [d]iscuss  [i]mplement  [r]eject
 >
 ```
-
-When an item carries no confidence (normal-mode reviewer comments have none), render `Confidence: —` rather than inventing a number.
 
 Accept a single-letter action:
 

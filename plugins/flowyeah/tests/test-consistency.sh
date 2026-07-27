@@ -423,12 +423,30 @@ assert_contains "force-removal ban is scoped to worktrees holding work" "build a
 # prompt issued without the cards on screen asks the user to judge findings
 # they cannot see (observed: review step 5 jumped from consolidation straight
 # to the batch-decision question).
+#
+# The card template itself lives in finding-card.md. Both skills pointed at
+# their own copy before, prefixed with "keep the two in sync" — and the copies
+# had already drifted. Re-declaring the template in a skill fails here.
 
 echo ""
 echo "=== Finding presentation contract ==="
 
-assert_contains "review step 5 renders cards before asking" "Render before you ask" "$PLUGIN_DIR/skills/review/SKILL.md"
+REVIEW_SKILL="$PLUGIN_DIR/skills/review/SKILL.md"
+FINDING_CARD="$PLUGIN_DIR/finding-card.md"
+
+assert_contains "review step 5 renders cards before asking" "Render before you ask" "$REVIEW_SKILL"
 assert_contains "respond step 4 renders cards before asking" "Render before you ask" "$RESPOND_SKILL"
+
+assert_file_exists "finding-card.md exists" "$FINDING_CARD"
+assert_contains "finding-card.md carries the card template" "Label:      " "$FINDING_CARD"
+assert_contains "finding-card.md documents the previously-raised variant" "PREVIOUSLY RAISED" "$FINDING_CARD"
+assert_contains "finding-card.md documents the praise variant" "Confidence: —" "$FINDING_CARD"
+
+assert_contains "review points at the shared card spec" "finding-card.md" "$REVIEW_SKILL"
+assert_contains "respond points at the shared card spec" "finding-card.md" "$RESPOND_SKILL"
+
+assert_not_contains "review does not re-declare the card template" "Label:      " "$REVIEW_SKILL"
+assert_not_contains "respond does not re-declare the card template" "Label:      " "$RESPOND_SKILL"
 
 # ── Section: No personalization in distributed instructions ──
 # The plugin ships to arbitrary users — skill/adapter prose must not

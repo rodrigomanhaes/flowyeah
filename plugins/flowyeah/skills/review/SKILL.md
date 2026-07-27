@@ -402,73 +402,9 @@ Adjust all default scores based on evidence, the same as `3b`.
 
 ### 5. Interactive Approval
 
-Present **all findings at once** as a numbered list. Every finding MUST be rendered using the **Finding Card** format defined below. This is the canonical presentation for every finding the user sees — here and in step 5b — and it is shared with `flowyeah:respond`'s triage screen (keep the two in sync). The card is not decoration; it is the contract. Never substitute a prose paragraph, a compressed bullet list, or a table for it.
+Present **all findings at once** as a numbered list. Every finding MUST be rendered as a **Finding Card** — read `finding-card.md` at the plugin root for the template, its fields, and the previously-raised and praise variants. That file is the single source of truth for the card, here and at step 5b.
 
-**Finding Card format:**
-
-```
-═══════════════════════════════════════════════════════════
-Finding 1
-═══════════════════════════════════════════════════════════
-Label:      [issue/suggestion/nitpick/...] ([blocking/non-blocking])
-Confidence: [score]/100
-File:       [path:line]
-Source:     [agent/analysis that found it]
-
-┌─────────────────────────────────────────────────────────
-│ **[label] ([decoration]):** [subject]
-│
-│ [discussion - context, justification, suggested code]
-└─────────────────────────────────────────────────────────
-```
-
-**Variants:**
-
-- **Previously raised** — append `  ⟳ PREVIOUSLY RAISED` to the `Finding N` title line, set `Source: previous review`, and open the discussion with a `⟳ Previously flagged, still unresolved.` line:
-
-```
-═══════════════════════════════════════════════════════════
-Finding 2  ⟳ PREVIOUSLY RAISED
-═══════════════════════════════════════════════════════════
-Label:      [original label] ([original decoration])
-Confidence: [original score]/100
-File:       [path:line]
-Source:     previous review
-
-┌─────────────────────────────────────────────────────────
-│ **[label] ([decoration]):** [subject]
-│
-│ ⟳ Previously flagged, still unresolved.
-│ [original discussion body]
-└─────────────────────────────────────────────────────────
-```
-
-- **Praise** — same card, with `Confidence: —` and no `(decoration)` after the label.
-
-Render every finding as its own card, in order, one after another.
-
-#### Anti-pattern (do not do this)
-
-```
-✗ WRONG — prose summary instead of cards
-
-Finding 1 — issue (non-blocking) · confidence 80
-app/models/.../access_token.rb:11
-
-The new .timeout(...) makes the token request fail fast, but the resulting
-error is not normalized anywhere in the chain...
-
----
-Finding 2 — suggestion (non-blocking) · confidence 75
-...
-```
-
-This shape is forbidden because it:
-- Drops the `═══` header and `┌─│└` comment box, collapsing the scannable `Label`/`Confidence`/`File`/`Source` fields into a run-on header line.
-- Buries the conventional-comment body in a prose paragraph, so the user can't see at a glance what would actually be posted as the inline comment.
-- Produces the "wall of text" the card format exists to prevent.
-
-Render the **Finding Card** for every finding, every time — even when there is only one finding, even under `--own`, even when you are tempted to "just summarize."
+Render the card for every finding, every time — even when there is only one finding, even under `--own`, even when you are tempted to "just summarize."
 
 **Other reviewers' open threads:** After the findings list, if any open threads from other reviewers were found (step 2, context item 9) and you have complementary context to add (technical justification, confirmation with evidence, expanded scope), present them separately:
 
@@ -507,7 +443,7 @@ Persist approved findings to `review-approved-{N}.md` after the batch decision i
 
 #### 5b. Deliver Findings
 
-Persist approved findings to `review-approved-{N}.md` (already done in step 5). Present them using the **Finding Card** format from step 5 — one card per finding, exactly as in normal mode. Do not collapse them into a concise list or summary table; the card is the standard here too. Step 5's "Render before you ask" rule applies to the step 5c menu: the cards must be on screen before the menu is offered.
+Persist approved findings to `review-approved-{N}.md` (already done in step 5). Present them as **Finding Cards** (`finding-card.md`) — one card per finding, exactly as in normal mode. Step 5's "Render before you ask" rule applies to the step 5c menu: the cards must be on screen before the menu is offered.
 
 Update `review-state-{N}.md`: set `Phase: Findings Delivered`.
 
