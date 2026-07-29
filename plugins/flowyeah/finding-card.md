@@ -13,12 +13,13 @@ Finding <n>
 Label:      <label> (<decoration>)
 Confidence: <0-100>/100
 File:       <path>:<line>
+Scope:      <scope>
 Source:     <who found it>
 
 ┌─────────────────────────────────────────────────────────
 │ **<label> (<decoration>):** <subject>
 │
-│ <discussion — context, justification, suggested code>
+│ <body — see "The body" below>
 └─────────────────────────────────────────────────────────
 ```
 
@@ -36,13 +37,32 @@ Without the outer fence the box body is parsed as Markdown: an inner ```` ```rub
 | `Label:` | Conventional Comments label — `praise`, `issue`, `suggestion`, `todo`, `question`, `thought`, `nitpick`, `chore`, `note` — with its decoration: `(blocking)`, `(non-blocking)`, `(if-minor)`. |
 | `Confidence:` | `<0-100>/100`. Render `—` when the item carries no confidence: praise, and normal-mode reviewer comments, which have none. Invent nothing. |
 | `File:` | `<path>:<line>`, or `(general)` for a finding with no precise anchor. |
+| `Scope:` | Where the finding sits relative to the change under review: `in-diff`, or `pre-existing — outside the diff`, either one optionally followed by `— does not block this <PR\|MR>`. Everything about the finding's standing lives in this field and is never restated in the body. |
 | `Source:` | Where it came from — the agent or analysis that produced it, `previous review`, `own review`, or the comment author's name. |
 
 The box body is the Conventional Comments block verbatim — what would actually be posted as the inline comment, so the user can see at a glance what they are approving.
 
+## The body
+
+State the finding. Do not defend it.
+
+**Budget: 80 words of prose.** Code snippets and command output are evidence, not prose, and do not count against it. A body that runs past the budget is almost always defending itself rather than explaining more.
+
+The fields already carry the defense. `Confidence: 70` says you might be wrong. `Label` and `Scope` say what the finding costs the reader. Prose that repeats them spends the budget twice and tells the reader nothing new.
+
+Three moves do most of the damage. None of them belong in the body:
+
+| Move | What it looks like | Write this instead |
+|------|--------------------|--------------------|
+| Explanatory parenthetical, 4+ words | `... (observability is intact — Sidekiq still records it server-side)` | Cut it. If the point matters, it is a sentence; if it does not, it is not in the card. |
+| Concessive against an objection nobody raised | `Literally true about the link, but the table shows Sigla, Nome, Vigência …` | State what is true. The concession answers a reader who is not there. |
+| `not X` / `I'm not saying` | `This is a UX gap, not a hang` · `I'm not saying this blocks` | The label and `Scope:` already said it. |
+
+Across 2531 rendered cards, a body carrying none of these moves runs 76 words at the median; one carrying five or more runs 180. The length is the argument, not the analysis.
+
 ## Variants
 
-**Previously raised.** Append `  ⟳ PREVIOUSLY RAISED` to the title line, set `Source: previous review`, keep the original label and confidence, and open the discussion with a `⟳ Previously flagged, still unresolved.` line:
+**Previously raised.** Append `  ⟳ PREVIOUSLY RAISED` to the title line, set `Source: previous review`, keep the original label and confidence, and open the discussion with a `⟳ Previously flagged, still unresolved.` line. `Scope:` is the exception to "keep the original": it is re-derived against the diff under review now, since a finding that was outside the previous diff may be inside this one.
 
 ```
 ═══════════════════════════════════════════════════════════
@@ -51,6 +71,7 @@ Finding <n>  ⟳ PREVIOUSLY RAISED
 Label:      <original label> (<original decoration>)
 Confidence: <original score>/100
 File:       <path>:<line>
+Scope:      <re-derived against the current diff>
 Source:     previous review
 
 ┌─────────────────────────────────────────────────────────

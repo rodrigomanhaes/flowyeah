@@ -129,6 +129,7 @@ After the user makes approval decisions (step 5), persist results to `.flowyeah/
 - File: app/models/payment.rb:42
 - Label: issue (blocking)
 - Confidence: 75
+- Scope: in-diff
 - Body: |
     **issue (blocking):** Race condition na criação de pagamento
     ...
