@@ -36,10 +36,28 @@ fi
 # Create parent directories if needed (for nested paths like vendor/bundle)
 /bin/mkdir -p "$(/usr/bin/dirname "<path>")"
 
+# A path git materializes — one holding a tracked file, such as app/assets/builds with a
+# versioned .keep — already exists in a fresh worktree. `ln -s` would nest the link inside it
+# instead of replacing it, and the worktree silently ends up without the linked content.
+if [ -e "<path>" ] && [ ! -L "<path>" ]; then
+  echo "Warning: <path> already exists in the worktree — symlink NOT created." >&2
+  echo "         It holds a tracked file, so git recreates it. Link the files individually" >&2
+  echo "         from worktree.setup instead." >&2
+  continue
+fi
+
 /bin/ln -s "$TARGET" "<path>"
 ```
 
 If `worktree.symlinks` is empty or absent, skip.
+
+**`worktree.symlinks` only works for paths git does not materialize** — gitignored ones such as `.env`, `node_modules` or `vendor/bundle`. A directory that holds even a single tracked file exists in every worktree, so its entry can never take effect. Link the contents from `worktree.setup` instead, skipping the tracked file:
+
+```yaml
+worktree:
+  setup:
+    - find "$MAIN_WORKTREE/app/assets/builds" -maxdepth 1 -type f ! -name .keep -exec ln -sf {} app/assets/builds/ \;
+```
 
 ### 2. Environment
 
