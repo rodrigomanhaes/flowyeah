@@ -601,6 +601,6 @@ Review comments are written in the language configured in `language`. Default: `
 | Error | Action |
 |-------|--------|
 | PR/MR not found | Ask user for number/URL |
-| Agent fails | Report which failed, continue with others |
+| Agent fails | **STOP.** Report which agent failed and its error, then ask the user: retry it, proceed without it, or abort. Do not present findings until the user decides. |
 | Remote communication failure (401, 403, 429, 5xx, timeout) | Retry up to 2 times with a short pause. If still failing, **STOP and report the error to the user.** Do not attempt alternative approaches or workarounds. For writes that may have landed (GitLab's per-finding discussion POSTs especially), verify what was created and retry only the missing pieces — see the `Submitting Review` recovery row. |
 | Inline comment position not in diff | Find the best anchor: the most relevant changed line in the same file, or the file's first changed line. If the file has no changed lines at all (finding from a cross-cutting concern), anchor on the most relevant file's first changed hunk. Every finding MUST become an inline comment — never move findings to the review body. |
