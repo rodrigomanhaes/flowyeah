@@ -319,7 +319,7 @@ Run directly (not delegated to agents):
 
 **Database Concurrency:** For any migration adding an index, verify if it should be unique. Application-level validations are NOT sufficient for concurrency — DB constraints are required. If a unique index exists, check for `RecordNotUnique` rescue.
 
-**CLAUDE.md Compliance:** Check global and project CLAUDE.md rules against the diff (e.g., ABOUTME comments, naming conventions, error handling).
+**CLAUDE.md Compliance:** Check global and project CLAUDE.md rules against the diff (e.g., naming conventions, error handling).
 
 **Naming Consistency:** Flag semantic inconsistencies — names that contradict each other, method names that don't match behavior.
 
