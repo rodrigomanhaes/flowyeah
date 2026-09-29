@@ -259,6 +259,7 @@ implementation:
     planning: null                        # Skill name or null
     tdd: null                             # Skill name or null
     debugging: null                       # Skill name or null
+    verification: null                    # Skill name or null
 
 commits:
   conventions: conventional               # conventional | freeform (default: conventional)

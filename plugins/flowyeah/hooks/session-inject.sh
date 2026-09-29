@@ -180,7 +180,7 @@ if [ "$SESSION_TYPE" = "build" ]; then
 
     # Inject process skills enforcement from flowyeah.yml
     SKILLS=""
-    for phase in brainstorming planning tdd debugging; do
+    for phase in brainstorming planning tdd debugging verification; do
         SKILL=$(awk -v phase="$phase" '
             /^  process_skills:/ { in_block=1; next }
             in_block && /^  [^ ]/ { in_block=0 }

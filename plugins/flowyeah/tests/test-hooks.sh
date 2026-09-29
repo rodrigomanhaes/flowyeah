@@ -626,6 +626,7 @@ implementation:
     planning: superpowers:writing-plans
     tdd: superpowers:test-driven-development
     debugging: superpowers:systematic-debugging
+    verification: superpowers:verification-before-completion
 EOF
 mkdir -p .flowyeah
 echo -e "Type: build\nStatus: Implementing\nStep: 4" > .flowyeah/state.md
@@ -635,6 +636,7 @@ assert_output_contains "inject: shows brainstorming skill" "superpowers:brainsto
 assert_output_contains "inject: shows planning skill" "superpowers:writing-plans" "$OUTPUT"
 assert_output_contains "inject: shows tdd skill" "superpowers:test-driven-development" "$OUTPUT"
 assert_output_contains "inject: shows debugging skill" "superpowers:systematic-debugging" "$OUTPUT"
+assert_output_contains "inject: shows verification skill" "verification → superpowers:verification-before-completion" "$OUTPUT"
 teardown
 
 # Test: partial process_skills → only configured phases listed
@@ -655,6 +657,7 @@ assert_output_contains "inject partial: shows tdd skill" "superpowers:test-drive
 assert_output_contains "inject partial: shows debugging skill" "superpowers:systematic-debugging" "$OUTPUT"
 assert_output_not_contains "inject partial: no brainstorming" "brainstorming" "$OUTPUT"
 assert_output_not_contains "inject partial: no planning" "planning" "$OUTPUT"
+assert_output_not_contains "inject partial: no verification" "verification" "$OUTPUT"
 teardown
 
 # Test: quoted values → quotes stripped from skill name

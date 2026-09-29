@@ -100,6 +100,7 @@ digraph pipeline {
     commit [label="5. Commit"];
     test [label="6. Test"];
     approval [label="6b. Implementation Approval\n(implementation.approval)" shape=diamond];
+    verification [label="6b2. Verification Gate\n(process_skills.verification)" shape=diamond];
     deliver [label="6c. Rebase → Push"];
     issue_link [label="6d. Issue Linkage\n(issues.create_when_missing)" shape=diamond];
     pr [label="7. Create PR/MR"];
@@ -116,7 +117,9 @@ digraph pipeline {
     verify_wt -> implement [label="in worktree"];
     verify_wt -> worktree [label="NOT in worktree\nSTOP"];
     implement -> commit -> test -> approval;
-    approval -> deliver [label="approved /\nauto-approved"];
+    approval -> verification [label="approved /\nauto-approved"];
+    verification -> deliver [label="fresh evidence /\nnot configured"];
+    verification -> implement [label="verification fails"];
     approval -> implement [label="changes requested"];
     deliver -> issue_link -> pr -> pr_hooks -> ci_loop;
     ci_loop -> commit [label="issues found\nfix → commit → push\nskip approval+review"];
@@ -310,6 +313,8 @@ These are independent. `brainstorm` decides WHETHER brainstorming/planning happe
 | TDD | No | Do TDD inline |
 | Debug | Yes | **MUST** invoke the configured skill via Skill tool |
 | Debug | No | Debug inline |
+| Verification | Yes | **MUST** invoke the configured skill via Skill tool (step 6b2) |
+| Verification | No | No gate beyond step 6 |
 
 **Configured process skills are mandatory.** If `process_skills.tdd` is configured and you are about to do TDD, you MUST invoke that skill — even if the task is trivial, even if you're on the "direct TDD" path, even if the source is a one-line fix from ghactions.
 
@@ -375,10 +380,23 @@ export REDIS_DB=pL7nR2wY
 3. Test results summary
 
 Then ask: **"Approve implementation?"** with options:
-- **Approve** → continue to step 6c (push)
+- **Approve** → continue to step 6b2 (verification gate)
 - **Request changes** → ask what to change, return to step 4 (implement)
 
 **When `auto` skips approval**, log to `state.md` that approval was auto-granted with the rationale.
+
+### 6b2. Verification Gate
+
+**If `implementation.process_skills.verification` is not configured, this step is a no-op** — go straight to step 6c. Step 6's test run is the only check.
+
+**When configured, it is mandatory.** Invoke the configured skill via the Skill tool, then:
+
+1. Run the verification command the skill calls for — at minimum `testing.command` with the step 6 scope, with the worktree env exported.
+2. Record in `state.md` under `## Verification`: the exact command, the `HEAD` SHA it ran against, and the result (pass/fail counts or exit code).
+3. **Block step 6c until the evidence is fresh:** the recorded SHA must equal the current `git rev-parse HEAD`. Any commit after the run makes it stale; run it again.
+4. Verification fails → return to step 4. Do not push.
+
+This step also runs when step 7b restarts from step 5 — skipping approval and code review on retry does not skip the evidence gate.
 
 ### 6c. Rebase → Push
 
@@ -709,6 +727,7 @@ Has two sections: **Items** (implementation tasks from the plan) and **Pipeline*
 - [ ] Commit (5)
 - [ ] Test (6)
 - [ ] Implementation approval (6b)
+- [ ] Verification gate (6b2)
 - [ ] Rebase + push (6c)
 - [ ] Issue linkage (6d)
 - [ ] Create PR/MR (7)
@@ -730,6 +749,7 @@ Has two sections: **Items** (implementation tasks from the plan) and **Pipeline*
 - Each item is checked off as it completes
 - The hook injection shows unchecked pipeline items on every prompt, preventing skipped steps
 - If `implementation.approval` is `auto` and auto-approved, check it off with a note
+- If `process_skills.verification` is not configured, check off Verification gate as "N/A — no verification skill"
 - If the source was an issue tracker (Issue-Ref already set), check off Issue linkage as "N/A — source is issue tracker"
 - If `issues.create_when_missing` is `never`, check off Issue linkage as "skipped — create_when_missing: never"
 - If `hooks.pr.after_create` is not configured, check off PR hooks as "N/A — no after_create hook"

@@ -61,6 +61,7 @@ implementation:
     planning:                            # ⬚ not configured
     tdd:                                 # ⬚ not configured
     debugging:                           # ⬚ not configured
+    verification:                        # ⬚ not configured
 
 commits:
   conventions: conventional              # ⬚ default: conventional

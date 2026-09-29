@@ -150,7 +150,7 @@ Options: `always`, `auto` (default)
 
 ### 9. Process skills
 
-> Do you use process skills for brainstorming, planning, TDD, or debugging?
+> Do you use process skills for brainstorming, planning, TDD, debugging, or verification?
 
 Process skills are Claude Code skills invoked at specific pipeline phases. They enforce a structured methodology (e.g., `superpowers:brainstorming` for brainstorming, `superpowers:test-driven-development` for TDD). If configured, they are mandatory — the pipeline will always invoke them.
 
@@ -164,10 +164,11 @@ If **Yes**: ask for each phase independently:
 | `planning` | Skill for planning? | `superpowers:writing-plans` |
 | `tdd` | Skill for TDD? | `superpowers:test-driven-development` |
 | `debugging` | Skill for debugging? | `superpowers:systematic-debugging` |
+| `verification` | Skill for verification before push? | `superpowers:verification-before-completion` |
 
 Each phase can be configured independently — leave blank to skip. Only configured phases will be enforced.
 
-If **No**: skip, don't add the `process_skills` key. The pipeline will brainstorm, plan, do TDD, and debug inline without invoking specific skills.
+If **No**: skip, don't add the `process_skills` key. The pipeline will brainstorm, plan, do TDD, and debug inline without invoking specific skills, and push without a verification gate beyond step 6.
 
 ### 10. Worktree isolation
 
@@ -353,6 +354,7 @@ implementation:
     planning: <answer>
     tdd: <answer>
     debugging: <answer>
+    verification: <answer>
 
 commits:
   conventions: <answer>

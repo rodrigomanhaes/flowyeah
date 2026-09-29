@@ -17,6 +17,7 @@ Single source of truth for `flowyeah.yml` configuration. Referenced by setup, bu
 | `implementation.process_skills.planning` | string | skill name | none | **Mandatory** when configured — skill invoked for planning phase. If absent, plan inline. Independent of `implementation.brainstorm` |
 | `implementation.process_skills.tdd` | string | skill name | none | **Mandatory** when configured — skill invoked for TDD phase. If absent, do TDD inline. Applies even when `brainstorm: auto` skips to direct TDD |
 | `implementation.process_skills.debugging` | string | skill name | none | **Mandatory** when configured — skill invoked for debugging/investigation. If absent, debug inline |
+| `implementation.process_skills.verification` | string | skill name | none | **Mandatory** when configured — skill invoked after implementation approval and before push. If absent, no verification gate beyond step 6 |
 | `commits.conventions` | string | `conventional` \| `freeform` | `conventional` | Applied to commits or PR title depending on `merge_strategy` |
 | `commits.writer` | string | agent name or `null` | `null` | Agent name = delegate commit message authoring to that agent; `null` = write commit messages inline |
 | `pull_requests.delete_source_branch` | boolean | `true` \| `false` | `true` | Delete source branch after merge |
