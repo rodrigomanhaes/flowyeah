@@ -564,6 +564,8 @@ assert_file_exists "finding-card.md exists" "$FINDING_CARD"
 assert_contains "finding-card.md carries the card template" "Label:      " "$FINDING_CARD"
 assert_contains "finding-card.md documents the previously-raised variant" "PREVIOUSLY RAISED" "$FINDING_CARD"
 assert_contains "finding-card.md documents the praise variant" "Confidence: —" "$FINDING_CARD"
+assert_contains "review gates praise on code_review.praise" "code_review.praise" "$REVIEW_SKILL"
+assert_not_contains "review does not demand praise unconditionally" "**Include at least one \`praise\`:**" "$REVIEW_SKILL"
 
 assert_contains "review points at the shared card spec" "finding-card.md" "$REVIEW_SKILL"
 assert_contains "respond points at the shared card spec" "finding-card.md" "$RESPOND_SKILL"

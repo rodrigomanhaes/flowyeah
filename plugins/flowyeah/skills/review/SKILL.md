@@ -396,7 +396,9 @@ Adjust all default scores based on evidence, the same as `3b`.
 
 **"Touched it, own it":** If the PR touches a file (even for refactoring), the author is responsible for issues in that code. Only truly untouched lines are excluded.
 
-**Include at least one `praise`:** Surface at least one sincere `praise` finding for the user to consider — but never false praise. Look for something genuinely good. The praise is a finding like any other: the user's batch decision in step 5 governs whether it is submitted. An excluded praise is never resurfaced — not as an inline comment, not in the review body.
+**Praise follows `code_review.praise`:**
+- **`false` or absent (default):** surface no `praise` finding. Drop any praise an agent returns during consolidation.
+- **`true`:** surface at least one sincere `praise` finding for the user to consider — but never false praise. Look for something genuinely good. The praise is a finding like any other: the user's batch decision in step 5 governs whether it is submitted. An excluded praise is never resurfaced — not as an inline comment, not in the review body.
 
 ### 5. Interactive Approval
 

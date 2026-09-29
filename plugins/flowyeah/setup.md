@@ -285,6 +285,18 @@ If **Yes**: ask for the agent name. Add `code_review.impact_analysis: <agent>` t
 
 If **No**: skip, don't add the key.
 
+### 14d. Praise in reviews
+
+> Should `flowyeah:review` surface a `praise` finding in each review?
+
+Off by default: when every PR gets an AI review, praise is noise the author has to read past.
+
+Options: **No** (default), **Yes**
+
+If **Yes**: add `code_review.praise: true` to the generated YAML.
+
+If **No**: skip, don't add the key.
+
 ### 15. Issues
 
 > Create issues automatically when the source wasn't an issue tracker?
@@ -360,6 +372,7 @@ code_review:
   instructions: <answer>                  # omit if not configured
   evaluation_skill: <answer>              # omit if not configured
   impact_analysis: <answer>               # omit if not configured
+  praise: <answer>                        # omit if false
 
 issues:
   adapter: <answer>                       # omit if create_when_missing is never (question skipped)

@@ -278,6 +278,7 @@ code_review:
   instructions: null                      # Relative path to review guidelines file
   evaluation_skill: null                  # Skill for evaluating respond comments
   impact_analysis: null                   # Agent overriding the built-in impact analysis (review step 3c)
+  praise: false                           # Surface a praise finding in each review (default: false)
 
 issues:
   create_when_missing: ask                # ask | always | never (default: ask)

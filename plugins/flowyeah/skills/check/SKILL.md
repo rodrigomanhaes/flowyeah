@@ -80,6 +80,7 @@ code_review:
   instructions: docs/review-guidelines.md     # ✅   (or: # ⬚ not configured)
   evaluation_skill:                      # ⬚ not configured
   impact_analysis:                       # ⬚ not configured (built-in tracing runs)
+  praise: false                          # ⬚ default: false
 
 issues:
   create_when_missing: ask               # ✅
