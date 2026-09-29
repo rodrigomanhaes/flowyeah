@@ -270,6 +270,7 @@ pull_requests:
   rebase: true                            # Rebase before PR (default: true)
   merge: manual                           # auto | manual | ask (default: manual)
   merge_strategy: squash                  # squash | merge | rebase (default: squash)
+  writer: null                            # Agent for PR/MR title and description, or null (default: null — commits.writer rules apply)
 
 code_review:
   agents:                                 # Review agents to run (required, non-empty)

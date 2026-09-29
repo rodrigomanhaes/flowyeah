@@ -76,6 +76,26 @@ assert_count() {
     fi
 }
 
+# Print the dotted path of every key in the first ```yaml block after the
+# line matching $2, derived from two-space indentation. A leaf name alone
+# is ambiguous once two sections share it (commits.writer, pull_requests.writer).
+yaml_key_paths() {
+    local file="$1" heading="$2"
+    awk -v heading="$heading" '
+        $0 ~ heading { armed = 1 }
+        armed && !inblock && /^```yaml/ { inblock = 1; next }
+        inblock && /^```/ { exit }
+        inblock && /^ *[a-z_]+:/ {
+            level = (match($0, /[^ ]/) - 1) / 2
+            name = $0; sub(/^ */, "", name); sub(/:.*/, "", name)
+            path[level] = name
+            out = path[0]
+            for (i = 1; i <= level; i++) out = out "." path[i]
+            print out
+        }
+    ' "$file"
+}
+
 assert_dir_in_list() {
     local label="$1" dirname="$2" list="$3"
     TOTAL=$((TOTAL + 1))
@@ -211,6 +231,7 @@ while IFS= read -r line; do
 done < <(sed -n '/## Current Schema/,/^##/p' "$SCHEMA" | grep '^| `')
 
 schema_keys="$(echo "$schema_keys" | sed '/^$/d')"
+check_yaml_keys="$(yaml_key_paths "$CHECK_SKILL" '^### Example')"
 
 while IFS= read -r key; do
     [ -z "$key" ] && continue
@@ -218,10 +239,22 @@ while IFS= read -r key; do
     case "$key" in
         *\<*) continue ;;
     esac
-    # Extract the leaf segment (last part after .)
-    leaf="$(echo "$key" | sed 's/.*\.//')"
-    assert_contains "schema key '$key' (leaf: $leaf) in check SKILL.md annotated YAML" "$leaf:" "$CHECK_SKILL"
+    assert_dir_in_list "schema key '$key' in check SKILL.md annotated YAML" "$key" "$check_yaml_keys"
 done <<< "$schema_keys"
+
+# ── Section: pull_requests.writer ────────────────────────
+# The PR/MR title and description get their own writer; with squash they are
+# the only thing that survives the merge.
+
+echo ""
+echo "=== pull_requests.writer ==="
+
+assert_dir_in_list "schema declares pull_requests.writer" "pull_requests.writer" "$schema_keys"
+assert_dir_in_list "setup.md generates pull_requests.writer" "pull_requests.writer" "$(yaml_key_paths "$SETUP" '^## Generate')"
+assert_dir_in_list "README example has pull_requests.writer" "pull_requests.writer" "$(yaml_key_paths "$README" '^## Project Configuration')"
+assert_contains "setup.md asks for a PR/MR writer" "Use a PR/MR writer agent?" "$SETUP"
+assert_contains "build delegates title and body to pull_requests.writer" "pull_requests.writer" "$BUILD_SKILL"
+assert_contains "build rewrites title and body when the PR/MR already exists" "Update PR/MR" "$BUILD_SKILL"
 
 # ── Section: Validation rules integrity ──────────────────
 

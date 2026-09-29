@@ -19,11 +19,12 @@ Single source of truth for `flowyeah.yml` configuration. Referenced by setup, bu
 | `implementation.process_skills.debugging` | string | skill name | none | **Mandatory** when configured — skill invoked for debugging/investigation. If absent, debug inline |
 | `implementation.process_skills.verification` | string | skill name | none | **Mandatory** when configured — skill invoked after implementation approval and before push. If absent, no verification gate beyond step 6 |
 | `commits.conventions` | string | `conventional` \| `freeform` | `conventional` | Applied to commits or PR title depending on `merge_strategy` |
-| `commits.writer` | string | agent name or `null` | `null` | Agent name = delegate commit message authoring to that agent; `null` = write commit messages inline |
+| `commits.writer` | string | agent name or `null` | `null` | Agent name = delegate commit message authoring to that agent; `null` = write commit messages inline. Also writes the PR/MR title and description where `merge_strategy` makes them the permanent record (`squash`, `merge`), unless `pull_requests.writer` is set |
 | `pull_requests.delete_source_branch` | boolean | `true` \| `false` | `true` | Delete source branch after merge |
 | `pull_requests.rebase` | boolean | `true` \| `false` | `true` | Rebase onto target before push |
 | `pull_requests.merge` | string | `auto` \| `manual` \| `ask` | `manual` | `auto` = merge via adapter; `manual` = report URL, never merge; `ask` = prompt user |
 | `pull_requests.merge_strategy` | string | `squash` \| `merge` \| `rebase` | `squash` | Determines where commit conventions are applied (PR title vs individual commits) |
+| `pull_requests.writer` | string | agent name or `null` | `null` | Agent name = delegate PR/MR title and description to that agent, in every `merge_strategy`; takes precedence over `commits.writer` for title and description. `null` = `commits.writer` rules apply |
 | `code_review.agents` | list of strings | agent names | **required** (non-empty) | Always launched during CI wait |
 | `code_review.optional_agents` | list of strings | agent names | `[]` | AI decides based on what changed |
 | `code_review.instructions` | string | file path (relative to project root) | none | Project-specific guidelines (the *what* a project cares about). Read once during config validation. Consumed by `flowyeah:review`, `flowyeah:respond`, and `flowyeah:build`: in review, injected into review agents and evaluated as an inline critical check; in respond, used to evaluate each comment during triage; in build, injected into the review agents launched during the CI wait (step 7b). Guidelines may reference external resources (e.g. a Linear issue, a docs URL) that the skill resolves via available tools. |

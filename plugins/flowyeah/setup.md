@@ -236,6 +236,12 @@ Options: `squash` (default), `merge`, `rebase`
 
 **Note:** If the git host is GitLab, warn that `rebase` is a project-level setting in GitLab and cannot be requested per merge request via API. Recommend `squash` or `merge` for GitLab projects.
 
+> Use a PR/MR writer agent?
+
+Options: agent name (e.g. `my-pr-agent`), or `null` (default — `commits.writer` rules apply)
+
+If an agent name is provided, the pipeline delegates the PR/MR title and description to that agent in every merge strategy, and `commits.writer` covers commit messages only.
+
 ### 13. Code review agents
 
 > Which agents run code review?
@@ -365,6 +371,7 @@ pull_requests:
   rebase: <answer>
   merge: <answer>
   merge_strategy: <answer>
+  writer: <answer>                        # omit if null
 
 code_review:
   agents:

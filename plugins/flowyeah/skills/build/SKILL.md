@@ -448,7 +448,7 @@ gh pr view <branch> --json number,url,state 2>/dev/null
 # GitLab — use the git host adapter's equivalent
 ```
 
-- **PR exists and is open** — skip PR creation. Use the existing PR's number and URL for CI wait, code review, and merge decision.
+- **PR exists and is open** — skip PR creation. Use the existing PR's number and URL for CI wait, code review, and merge decision. If `Create PR/MR (7)` is already checked in `progress.md` (this session created it and is re-entering from 7b), rewrite the title and body against the current diff with the rules below and apply them through the adapter's "Update PR/MR" operation: the fix commits changed the diff, and with `squash` the description becomes the merge commit. A PR/MR this session did not create (e.g. `--on-branch` attached to it) keeps its title and body.
 - **PR exists but is closed/merged** — STOP and report to user.
 - **No PR exists** — create one normally.
 
@@ -465,9 +465,9 @@ Load the git host adapter from `adapters/<git_host>/connection.md` + `adapters/<
 
 | `merge_strategy` | Title + body effort | Why |
 |-------------------|---------------------|-----|
-| `squash` | **Full.** Apply `commits.conventions` and `commits.writer` (if `null`, write directly without delegating to an agent) to the PR title+description. The title becomes the squash commit message — it IS the final history. | Individual commits are thrown away; PR title survives. |
-| `merge` | **Full.** Apply `commits.conventions` and `commits.writer` (if `null`, write directly without delegating to an agent). The title becomes the merge commit message. | Merge commit (PR title) is what shows in `git log --first-parent`. |
-| `rebase` | **Minimal.** Descriptive title in `language`, but no conventions or writer agent needed. Individual commits (Step 5) already carry the conventions. | PR title is UI-only; individual commits are the permanent record. |
+| `squash` | **Full.** Apply `commits.conventions` and the writer (see writer rules below) to the PR title+description. The title becomes the squash commit message — it IS the final history. | Individual commits are thrown away; PR title survives. |
+| `merge` | **Full.** Apply `commits.conventions` and the writer (see writer rules below). The title becomes the merge commit message. | Merge commit (PR title) is what shows in `git log --first-parent`. |
+| `rebase` | **Minimal.** Descriptive title in `language`, no conventions. Individual commits (Step 5) already carry the conventions. Only `pull_requests.writer` applies here — `commits.writer` does not. | PR title is UI-only; individual commits are the permanent record. The description is still what reviewers read. |
 
 **Title rules:**
 - In `language`
@@ -477,7 +477,13 @@ Load the git host adapter from `adapters/<git_host>/connection.md` + `adapters/<
 **Body rules:**
 - Summary of changes
 - If `Issue-Close` exists in `state.md`, include it — e.g., `Closes #5588`
-- When `commits.writer` applies (see table above): delegate to the writer agent for both title and body
+
+**Writer rules** — who writes the title and body:
+1. `pull_requests.writer` set → delegate both to that agent, in every `merge_strategy`.
+2. Otherwise, with `squash` or `merge` and `commits.writer` set → delegate both to `commits.writer`.
+3. Otherwise → write them inline.
+
+When delegating, pass the agent the full diff (`git diff <git.default_branch>...HEAD`), the source issue/card content with `Issue-Ref` and `Issue-Close` from `state.md`, the session plan (`Plan:` in `state.md`), `language`, and `commits.conventions` when the table above applies it. Without the issue and the plan the description degrades into a diff summary. Check the returned title and body against the title and body rules above before handing them to the adapter.
 
 Code review results are reported in the terminal only — this is your current work session, not a team review artifact.
 

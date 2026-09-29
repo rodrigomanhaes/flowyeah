@@ -72,6 +72,7 @@ pull_requests:
   rebase: true                           # ⬚ default: true
   merge: manual                          # ✅
   merge_strategy: squash                 # ⬚ default: squash
+  writer: null                           # ⬚ default: null (commits.writer rules apply)
 
 code_review:
   agents:                                # ✅
