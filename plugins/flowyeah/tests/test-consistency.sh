@@ -667,6 +667,12 @@ assert_not_contains "review.md note body uses form-string" '--form "body=' "$GL_
 assert_not_contains "respond.md reply body uses form-string" '--form "body=' "$GL_ADAPTER/respond.md"
 assert_not_contains "review.md builds discussion payload with jq, not a literal" '"body": "<finding_body>"' "$GL_ADAPTER/review.md"
 assert_contains "respond.md re-request removes reviewers before re-adding" '{"reviewer_ids": []}' "$GL_ADAPTER/respond.md"
+# Discussions and notes leave the reviewer's state at "unreviewed"; only
+# bulk_publish with reviewer_state declares the review to GitLab.
+assert_contains "review.md declares reviewer state via bulk_publish" 'reviewer_state=' "$GL_ADAPTER/review.md"
+assert_contains "review.md checks pending drafts before bulk_publish" 'merge_requests/<iid>/draft_notes"' "$GL_ADAPTER/review.md"
+assert_contains "review.md verifies reviewer state after submit" 'merge_requests/<iid>/reviewers"' "$GL_ADAPTER/review.md"
+assert_not_contains "review.md does not deny GitLab has a request-changes state" 'GitLab does not have a "Request Changes" state' "$GL_ADAPTER/review.md"
 
 # ── Results ──────────────────────────────────────────────
 

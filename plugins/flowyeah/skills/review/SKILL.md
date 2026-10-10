@@ -114,7 +114,7 @@ Worktree: <relative path under .flowyeah/review-worktrees/{N}/ or "none">
 | `Scoring` | 4 | Re-run scoring (agent results lost) |
 | `Interactive Approval` | 5 | Read `review-approved-{N}.md`, re-present unapproved findings |
 | `Choosing Review Type` | 6 | Re-ask review type question |
-| `Submitting Review` | 7 | GitHub submits atomically — check whether the review exists, then retry or clean up. GitLab submission is N discussion POSTs + a note + optional approve and can half-succeed: list the MR's discussions, skip findings already posted, and resume from the first missing one (see the adapter's partial-failure guidance) — never blind-retry the whole batch |
+| `Submitting Review` | 7 | GitHub submits atomically — check whether the review exists, then retry or clean up. GitLab submission is N discussion POSTs + a note + the reviewer-state call + optional approve and can half-succeed: list the MR's discussions, skip findings already posted, and resume from the first missing one (see the adapter's partial-failure guidance) — never blind-retry the whole batch |
 | `Findings Delivered` | 5b-5c | Re-present the next action menu. If `review-approved-{N}.md` is missing, re-run from step 5 (Interactive Approval). |
 | `Fixing` | after 5c | Do not resume the review pipeline. Findings are informational context. |
 | `Delegated` | after 5c | Do not resume the review pipeline. Findings are informational context for the next session. |

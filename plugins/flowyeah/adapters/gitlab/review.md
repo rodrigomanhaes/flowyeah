@@ -148,9 +148,21 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 
 ## Submit Formal Review
 
-GitLab uses **discussions** for inline review comments. Each discussion creates a resolvable thread anchored to a specific line in the diff.
+GitLab uses **discussions** for inline review comments. Each discussion creates a resolvable thread anchored to a specific line in the diff. Discussions and notes do not count as a review: the reviewer's state stays `unreviewed` until Step 5 declares it.
 
-### Step 1 — Get diff_refs
+### Step 1 — Check for pending draft notes
+
+Step 5 publishes **every** pending draft note the user has on the MR, including ones written by hand in the GitLab UI and never submitted. Check before posting anything:
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" \
+  "<url>/api/v4/projects/<project_id>/merge_requests/<iid>/draft_notes" | \
+  jq '[.[] | {id, note: .note[0:80], file: (.position.new_path // null)}]'
+```
+
+If the list is not empty, STOP and show the drafts to the user before submitting: Step 5 would publish them along with the review.
+
+### Step 2 — Get diff_refs
 
 ```bash
 DIFF_REFS=$(curl -s -H "Authorization: Bearer $TOKEN" \
@@ -160,7 +172,7 @@ DIFF_REFS=$(curl -s -H "Authorization: Bearer $TOKEN" \
 
 Extract `base_sha`, `start_sha`, and `head_sha` from the response.
 
-### Step 2 — Post inline comments as discussions
+### Step 3 — Post inline comments as discussions
 
 For each finding with a specific file and line:
 
@@ -194,9 +206,9 @@ Expect `201`. On any other status, keep the response file and check whether the 
 
 The `new_line` MUST be a line that appears in the diff. If the finding is about a line not in the diff, anchor it to the nearest diff line in the same file and say in the body which line it actually concerns — never fall back to a general note; the review skill requires every finding to land as an inline discussion.
 
-### Step 3 — Post summary note
+### Step 4 — Post summary note
 
-For the overall review summary (findings always go inline — see Step 2):
+For the overall review summary (findings always go inline — see Step 3):
 
 ```bash
 TMPDIR_FY="${TMPDIR_FY:-$(mktemp -d)}"
@@ -207,7 +219,28 @@ curl -s --request POST -H "Authorization: Bearer $TOKEN" \
   "<url>/api/v4/projects/<project_id>/merge_requests/<iid>/notes"
 ```
 
-### Step 4 — Approve or unapprove
+### Step 5 — Declare the review state
+
+Without this call GitLab keeps the reviewer as `unreviewed`, and the MR stays in the reviewer's queue no matter how many discussions were posted. `reviewer_state` takes `requested_changes` or `reviewed` (see Review Types Mapping); the call needs no pending drafts and responds `204`:
+
+```bash
+curl -s --request POST -H "Authorization: Bearer $TOKEN" \
+  --form-string "reviewer_state=<requested_changes|reviewed>" \
+  -w "%{http_code}" \
+  "<url>/api/v4/projects/<project_id>/merge_requests/<iid>/draft_notes/bulk_publish"
+```
+
+Confirm the state landed:
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" \
+  "<url>/api/v4/projects/<project_id>/merge_requests/<iid>/reviewers" | \
+  jq --arg user "$CURRENT_USER" '.[] | select(.user.username == $user) | .state'
+```
+
+`$CURRENT_USER` comes from Fetch Own Discussions, Step 1. Expect the state just sent. If the user is not in the reviewers list or the state is still `unreviewed`, report it to the user — the review was posted but GitLab does not record it as one.
+
+### Step 6 — Approve or unapprove
 
 **Approve:**
 ```bash
@@ -221,18 +254,13 @@ curl -s --request POST -H "Authorization: Bearer $TOKEN" \
   "<url>/api/v4/projects/<project_id>/merge_requests/<iid>/unapprove"
 ```
 
-GitLab does not have a "Request Changes" state like GitHub. Instead:
-- **Approve** → approve the MR
-- **Comment** → post inline discussions + summary note (default)
-- **Request Changes** → post inline discussions + summary note + do NOT approve
-
 ## Review Types Mapping
 
 | Review type | GitLab action |
 |-------------|---------------|
-| Approve | Inline discussions + summary note + `/approve` |
-| Comment | Inline discussions + summary note |
-| Request Changes | Inline discussions + summary note (no approve) |
+| Approve | Inline discussions + summary note + `reviewer_state=reviewed` + `/approve` |
+| Comment | Inline discussions + summary note + `reviewer_state=reviewed` |
+| Request Changes | Inline discussions + summary note + `reviewer_state=requested_changes` (no approve) |
 
 ## Code Link Format
 
