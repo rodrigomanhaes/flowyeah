@@ -254,6 +254,8 @@ agents:
 optional_agents: []
 ```
 
+Before proposing the default, check that its agents appear among the agent types available to the Agent tool. They come from the `pr-review-toolkit` plugin, which a fresh Claude Code install does not have. If they are missing, do not write them — the review step would fail on agents that do not exist. Ask the user to choose: install the plugin with `/plugin install pr-review-toolkit@claude-plugins-official` and keep the default, or fall back to `general-purpose`, which every install has.
+
 Ask if they want to customize the list. If asked about optional agents, suggest `pr-review-toolkit:comment-analyzer` and `pr-review-toolkit:type-design-analyzer` as examples.
 
 ### 14. Review instructions

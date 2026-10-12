@@ -399,6 +399,9 @@ assert_not_contains "build never checkouts/pulls the primary" 'git checkout $DEF
 assert_contains "build ignores artifacts via info/exclude" "info/exclude" "$BUILD_SKILL"
 assert_contains "build ignores the primary's first-run flowyeah.yml so merging the branch can overwrite it" 'echo "/flowyeah.yml" >> "$EXCLUDE"' "$BUILD_SKILL"
 assert_contains "build force-adds the copied flowyeah.yml past that exclude rule" "git add -f flowyeah.yml" "$BUILD_SKILL"
+assert_contains "README lists pr-review-toolkit as a prerequisite" "/plugin install pr-review-toolkit@claude-plugins-official" "$README"
+assert_contains "setup offers to install missing default review agents" "/plugin install pr-review-toolkit@claude-plugins-official" "$SETUP"
+assert_contains "setup offers general-purpose when default review agents are missing" "fall back to \`general-purpose\`" "$SETUP"
 assert_not_contains "build --on-branch avoids broken porcelain grep" 'grep -B1 "branch refs/heads' "$BUILD_SKILL"
 
 # The schema declares hooks.after_merge (flat) removed — build must not

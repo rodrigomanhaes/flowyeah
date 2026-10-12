@@ -27,6 +27,7 @@ The build pipeline automatically adds `.flowyeah/` and `tmp/` to `.gitignore` wh
 
 - **Claude Code 1.0.33+** — verify with `claude --version`, update with `claude update`
 - **git** — version control operations and worktree isolation
+- **pr-review-toolkit** — provides the default code review agents; install with `/plugin install pr-review-toolkit@claude-plugins-official`. Without it, setup offers `general-purpose` instead
 
 Depending on which adapters you use:
 
