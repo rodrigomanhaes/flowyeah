@@ -194,6 +194,13 @@ EXCLUDE="$(git rev-parse --git-common-dir)/info/exclude"
 git check-ignore -q .flowyeah/worktrees 2>/dev/null || echo ".flowyeah/" >> "$EXCLUDE"
 git check-ignore -q tmp/flowyeah 2>/dev/null || echo "tmp/" >> "$EXCLUDE"
 
+# First run: setup wrote flowyeah.yml here untracked, and the branch commits
+# the same file. git merge/pull aborts rather than overwrite an untracked file,
+# but overwrites an ignored one — so ignore it until the branch lands.
+if [ -f flowyeah.yml ] && [ -z "$(git ls-files flowyeah.yml)" ]; then
+  grep -qxF "/flowyeah.yml" "$EXCLUDE" || echo "/flowyeah.yml" >> "$EXCLUDE"
+fi
+
 # Base the branch on the fetched remote ref, not the primary's HEAD
 git worktree add .flowyeah/worktrees/<type>-<slug> -b <type>/<slug> origin/$DEFAULT_BRANCH
 ```
@@ -209,6 +216,8 @@ cd .flowyeah/worktrees/<type>-<slug>
 # Copy flowyeah.yml if missing (first run — not yet in any branch)
 if [ ! -f flowyeah.yml ] && [ -f "$MAIN_WORKTREE/flowyeah.yml" ]; then
   /bin/cp "$MAIN_WORKTREE/flowyeah.yml" ./flowyeah.yml
+  # -f: the /flowyeah.yml exclude rule above applies to this worktree too
+  git add -f flowyeah.yml
 fi
 
 # Version the ignore rules via this branch's .gitignore (info/exclude covers
