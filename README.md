@@ -6,14 +6,14 @@ Plan-to-PR pipeline for Claude Code. Takes any source — issues, error trackers
 
 ```
 /plugin marketplace add rodrigomanhaes/flowyeah
-/plugin install flowyeah@rodrigomanhaes-flowyeah
+/plugin install flowyeah@flowyeah-marketplace
 ```
 
 By default, the plugin installs at user scope (available in all projects). To install at a different scope:
 
 ```
-/plugin install flowyeah@rodrigomanhaes-flowyeah --scope project  # shared via .claude/settings.json
-/plugin install flowyeah@rodrigomanhaes-flowyeah --scope local    # gitignored, personal only
+/plugin install flowyeah@flowyeah-marketplace --scope project  # shared via .claude/settings.json
+/plugin install flowyeah@flowyeah-marketplace --scope local    # gitignored, personal only
 ```
 
 ## Setup
