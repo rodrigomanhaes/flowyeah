@@ -550,20 +550,22 @@ After PR/MR creation, check `hooks.pr.after_create` in `flowyeah.yml`. If config
 
 **Execution:**
 
-1. Record `Before-merge HEAD: <git rev-parse HEAD>` in `state.md`.
-2. Read the configured markdown file and follow its instructions.
-3. Compare `git rev-parse HEAD` with the recorded SHA and act on the outcome:
+1. Read the configured markdown file in the worktree. If it is missing there but present at `$MAIN_WORKTREE/<path>`, the hook is not on the default branch yet (typically just written in the primary checkout): read it from the primary — reads there are allowed — and say in the report that it is not on the default branch yet. Missing in both → **STOP** and report.
+2. Follow its instructions.
+3. Check the outcome, first matching row wins:
 
-| Outcome | Action |
-|---------|--------|
-| Hook completed, `HEAD` unchanged | Check off 7b2, proceed to step 7c. |
-| `HEAD` changed during the hook | The diff 7b validated is gone. Increment `Before-merge restarts` in `state.md` and restart from step 5 (commit → test → verification gate → push → CI). That retry skips implementation approval and code review, as 7b's fix iterations do — but 7b2 runs again: it gates the final `HEAD`. |
-| Hook failed, or its instructions say to stop | **STOP.** Report why and end the turn. The user decides: re-run the hook, proceed to step 7c anyway, or abandon the session (Pipeline Rollback). |
-| Hook file missing | **STOP** and report — step 0 validated the file, so it was removed mid-session. |
+| Outcome | How to tell | Action |
+|---------|-------------|--------|
+| Hook failed, or its instructions say to stop | — | **STOP.** Report why and end the turn. The user decides: re-run the hook; proceed to step 7c anyway — check off 7b2 as "overridden by user — <reason>" so the 7c gate lets it through; or abandon the session (Pipeline Rollback). |
+| Hook left uncommitted changes | `git status --porcelain` is not empty | **STOP.** Report the files and end the turn. Merging now would ship without them, and step 10 cannot remove a dirty worktree. The user decides whether they are committed (then `HEAD` moves — next row) or discarded. |
+| `HEAD` moved | `git rev-parse HEAD` differs from `git rev-parse @{upstream}` | The diff 7b validated is gone. In `progress.md`, uncheck `CI + code review (7b)`; increment `Before-merge restarts` in `state.md`; restart from step 5 (commit → test → verification gate → push → CI). That retry skips implementation approval and code review, as 7b's fix iterations do — but 7b2 runs again: it gates the final `HEAD`. |
+| Hook completed, `HEAD` unchanged | — | Check off 7b2, proceed to step 7c. |
+
+`@{upstream}` is the head 6c pushed and 7b's CI ran on. Comparing against it rather than a SHA recorded before the hook keeps the check right when a crash or compaction interrupts the hook after it committed: on resume, the commit is still ahead of the pushed head.
 
 **If the hook changes `HEAD` three times in one session, STOP and ask** — the same ceiling as "CI fails 3 times" in 7b. A hook that always finds something to fix would otherwise loop forever.
 
-**Not best-effort, unlike the other project hooks.** `after_create` and `after_merge` run after an irreversible act — the PR/MR exists, the merge happened — so stopping undoes nothing and they continue on failure. `before_merge` runs before one: stopping costs nothing and keeps a failed check from being merged. What the hook does is entirely up to its file; the pipeline only reads whether it finished, stopped, or moved `HEAD`.
+**Not best-effort, unlike the other project hooks.** `after_create` and `after_merge` run after an irreversible act — the PR/MR exists, the merge happened — so stopping undoes nothing and they continue on failure. `before_merge` runs before one: stopping costs nothing and keeps a failed check from being merged. What the hook does is entirely up to its file; the pipeline only reads whether it finished, stopped, left changes behind, or moved `HEAD`.
 
 ### 7c. Merge Decision
 

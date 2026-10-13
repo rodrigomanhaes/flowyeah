@@ -276,6 +276,13 @@ assert_contains "build marks 7b2 N/A without a hook" "N/A — no before_merge ho
 assert_contains "build re-runs 7b2 after a HEAD change" "7b2 runs again" "$BUILD_SKILL"
 assert_contains "build caps hook-driven restarts" "changes \`HEAD\` three times" "$BUILD_SKILL"
 assert_contains "build hooks table lists before_merge" "| \`hooks.pr.before_merge\` |" "$BUILD_SKILL"
+# A pre-hook SHA snapshot is overwritten when an interrupted 7b2 re-runs;
+# the pushed head 7b's CI ran on survives a crash or compaction.
+assert_contains "build compares HEAD with the pushed head" "git rev-parse @{upstream}" "$BUILD_SKILL"
+assert_contains "build lets the user override a stopped hook past the 7c gate" "overridden by user" "$BUILD_SKILL"
+assert_contains "build reopens 7b when the hook moves HEAD" "uncheck \`CI + code review (7b)\`" "$BUILD_SKILL"
+assert_contains "build runs a hook file not yet on the default branch" "not on the default branch yet" "$BUILD_SKILL"
+assert_contains "build stops on a hook that leaves the tree dirty" "left uncommitted changes" "$BUILD_SKILL"
 
 # ── Section: Validation rules integrity ──────────────────
 
