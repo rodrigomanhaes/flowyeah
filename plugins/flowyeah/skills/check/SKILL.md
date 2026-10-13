@@ -97,6 +97,7 @@ worktree:
 hooks:
   pr:
     after_create:                        # ⬚ not configured
+    before_merge:                        # ⬚ not configured
     after_merge:                         # ⬚ not configured
 
 adapters:

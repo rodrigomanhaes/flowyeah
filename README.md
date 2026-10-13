@@ -61,8 +61,9 @@ flowyeah:build from linear:PROJ-123
 6. Opens a PR linking back to the issue
 7. Runs code review agents in parallel and waits for CI
 8. If CI or review finds problems, fixes and re-pushes (up to 3 CI attempts before asking for help)
-9. Merges (or stops and asks, depending on your `pull_requests.merge` setting)
-10. Cleans up the worktree
+9. Runs the `before_merge` hook, if configured
+10. Merges (or stops and asks, depending on your `pull_requests.merge` setting)
+11. Cleans up the worktree
 
 ### Fix a production error
 
@@ -296,6 +297,7 @@ worktree:
 hooks:
   pr:
     after_create: null                    # Relative path to post-creation instructions
+    before_merge: null                    # Relative path to pre-merge instructions
     after_merge: null                     # Relative path to post-merge instructions
 
 adapters:

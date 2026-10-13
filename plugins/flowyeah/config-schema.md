@@ -38,6 +38,7 @@ Single source of truth for `flowyeah.yml` configuration. Referenced by setup, bu
 | `worktree.setup` | list of strings | commands | `[]` | Run after worktree creation with env exported |
 | `worktree.teardown` | list of strings | commands | `[]` | Run before worktree removal with env exported |
 | `hooks.pr.after_create` | string | file path relative to project root | none | Markdown file with instructions executed after PR/MR creation |
+| `hooks.pr.before_merge` | string | file path relative to project root | none | Markdown file with instructions executed after CI and code review pass, before the merge decision. Not best-effort: a failure stops the pipeline |
 | `hooks.pr.after_merge` | string | file path relative to project root | none | Markdown file with instructions executed after successful merge |
 | `adapters.<name>` | map | keys declared in `adapters/<name>/config-schema.md` | — | Must have `adapters/<name>/connection.md`. If `adapters/<name>/config-schema.md` exists, its keys are validated (required present, enums valid, unknown flagged) |
 
@@ -59,6 +60,8 @@ Single source of truth for `flowyeah.yml` configuration. Referenced by setup, bu
 | `git_host` must be a key in `adapters` | error | "git_host '\<name>' is not configured in adapters — add an adapters.\<name> block with its required keys" |
 | `hooks.pr.after_create` must be a relative path (if present) | error | "hooks.pr.after_create must be a relative path: '<path>'" |
 | `hooks.pr.after_create` file must exist (if present) | error | "hooks.pr.after_create file not found: '<path>'" |
+| `hooks.pr.before_merge` must be a relative path (if present) | error | "hooks.pr.before_merge must be a relative path: '<path>'" |
+| `hooks.pr.before_merge` file must exist (if present) | error | "hooks.pr.before_merge file not found: '<path>'" |
 | `hooks.pr.after_merge` must be a relative path (if present) | error | "hooks.pr.after_merge must be a relative path: '<path>'" |
 | `hooks.pr.after_merge` file must exist (if present) | error | "hooks.pr.after_merge file not found: '<path>'" |
 | `worktree.symlinks` entries must be relative paths | error | `worktree.symlinks entries must be relative paths: '<path>'` |

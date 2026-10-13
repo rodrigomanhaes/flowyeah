@@ -334,6 +334,7 @@ Hooks are markdown files with instructions that the AI follows at specific pipel
 
 **Available hook points:**
 - `after_create` — runs after PR/MR creation (e.g., post to Slack, link external trackers)
+- `before_merge` — runs after CI and code review pass, before the merge decision; stops the pipeline if it fails (e.g., a project-specific local review)
 - `after_merge` — runs after a successful merge, before marking the task done
 
 If the user wants hooks, ask for the file path for each hook point (default: `docs/flowyeah-hooks/<hook-name>.md` — must be a versioned path; `.flowyeah/` is gitignored). Remind the user they need to create the file with the instructions.
@@ -402,6 +403,7 @@ worktree:
 hooks:                             # omit section entirely if no hooks
   pr:
     after_create: <answer>         # path to markdown file, e.g. docs/flowyeah-hooks/after-pr-create.md
+    before_merge: <answer>         # path to markdown file, e.g. docs/flowyeah-hooks/before-merge.md
     after_merge: <answer>          # path to markdown file, e.g. docs/flowyeah-hooks/after-merge.md
 
 adapters:

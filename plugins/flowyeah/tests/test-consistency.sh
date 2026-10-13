@@ -256,6 +256,19 @@ assert_contains "setup.md asks for a PR/MR writer" "Use a PR/MR writer agent?" "
 assert_contains "build delegates title and body to pull_requests.writer" "pull_requests.writer" "$BUILD_SKILL"
 assert_contains "build rewrites title and body when the PR/MR already exists" "Update PR/MR" "$BUILD_SKILL"
 
+# ── Section: hooks.pr.before_merge ───────────────────────
+# The one project hook that runs before an irreversible act, so the only one
+# that may stop the pipeline instead of being best-effort.
+
+echo ""
+echo "=== hooks.pr.before_merge ==="
+
+assert_dir_in_list "setup.md generates hooks.pr.before_merge" "hooks.pr.before_merge" "$(yaml_key_paths "$SETUP" '^## Generate')"
+assert_dir_in_list "README example has hooks.pr.before_merge" "hooks.pr.before_merge" "$(yaml_key_paths "$README" '^## Project Configuration')"
+assert_contains "setup.md questions mention before_merge hook" "\`before_merge\` —" "$SETUP"
+assert_contains "schema validates before_merge path" "hooks.pr.before_merge must be a relative path" "$SCHEMA"
+assert_contains "schema validates before_merge file" "hooks.pr.before_merge file not found" "$SCHEMA"
+
 # ── Section: Validation rules integrity ──────────────────
 
 echo ""
