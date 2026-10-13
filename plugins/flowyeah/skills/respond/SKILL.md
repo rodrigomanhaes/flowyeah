@@ -17,7 +17,7 @@ flowyeah:respond [--own] [<number>]
 
 ## Invariant: Primary Checkout Is Untouched
 
-**All code mutation happens inside the worktree created (or reused) at step 5 — `.flowyeah/worktrees/<slug>/`.** The checkout the pipeline was invoked from (the "primary checkout") stays as the user left it. See `primary-checkout.md` at the plugin root for the read-only command table, what the rule excludes, and how `tree-guard.sh` enforces it.
+**All code mutation happens inside the worktree resolved at step 5 — the branch's existing worktree, or `.flowyeah/worktrees/<slug>/` created there.** The checkout the pipeline was invoked from (the "primary checkout") stays as the user left it. See `primary-checkout.md` at the plugin root for the read-only command table, what the rule excludes, and how `tree-guard.sh` enforces it.
 
 This applies through the full lifecycle: steps 0-4 (config, identify, fetch, evaluate, triage) need only read-only operations against the primary checkout; steps 5-7 (worktree setup, implement, test) operate exclusively inside the worktree (`cd` into it before any code edit); steps 8-10 (push, re-request, cleanup) push from the worktree and remove it without touching the primary.
 
@@ -112,11 +112,11 @@ Branch: <source_branch>
 Platform: <adapter>
 Comments: <count> total
 Phase: <current_phase>
-Worktree: <relative path under .flowyeah/worktrees/<slug>/ or "none">
-WorktreeOwned: <true if respond created it, false if reused from a build session>
+Worktree: <path of the worktree resolved at step 5, or "none">
+WorktreeOwned: <true if respond created it, false if it already existed>
 ```
 
-`<slug>` is the branch name with `/` flattened to `-` (see `worktree-lifecycle.md`, Directory Naming) — build worktrees follow the same rule, so branch `feat/5588` maps to `feat-5588` regardless of which skill created it. `Worktree` defaults to `none` and is set by step 5 when the worktree is resolved (created or reused). `WorktreeOwned` records whether respond created the worktree itself — only owned worktrees are torn down in step 10 (normal mode); reused build worktrees are left alone. Both fields are cleared back to `none`/`false` once cleanup completes. The hook injects them as-is on every prompt so context recovery can verify worktree state.
+`<slug>` is the branch name with `/` flattened to `-` (see `worktree-lifecycle.md`, Directory Naming) — build worktrees follow the same rule, so branch `feat/5588` maps to `feat-5588` regardless of which skill created it. `Worktree` defaults to `none` and is set by step 5 when the worktree is resolved (created or reused). `WorktreeOwned` records whether respond created the worktree itself — only owned worktrees are torn down in step 10 (normal mode); reused worktrees are left alone. Both fields are cleared back to `none`/`false` once cleanup completes. The hook injects them as-is on every prompt so context recovery can verify worktree state.
 
 **Valid `Phase` values** (map to steps, used for crash recovery):
 
@@ -262,7 +262,7 @@ Before proceeding, verify all of the following. Report every failure as STOP wit
    - If `Phase: Findings Delivered`, STOP: *"Review pipeline is still at the Next Action menu — return to that session and pick `Delegate`."*
    - If any other phase, STOP: *"Review for PR #{N} is mid-pipeline (Phase: X). Finalize or resume the review session first."*
 4. **Findings file present:** require `.flowyeah/review-approved-{N}.md` to exist and contain at least one `## Finding ` heading. If missing or empty, STOP: *"No approved findings for PR #{N}. Run `/flowyeah:review finalize {N}` and start over."*
-5. **Worktree exists for branch:** parse `Branch:` from `review-state-{N}.md`. Verify a directory exists at `.flowyeah/worktrees/<slug>/`, where `<slug>` is the branch with `/` flattened to `-` (`worktree-lifecycle.md`, Directory Naming). If not, STOP: *"No worktree for branch `X`. Run `/flowyeah:build` first to create one."*
+5. **Worktree exists for branch:** parse `Branch:` from `review-state-{N}.md` and look up its worktree as step 5 does. If none is found, STOP: *"No worktree for branch `X`. Run `/flowyeah:build` first to create one."*
 
 On success, echo: *"Responding to <count> findings from PR #{N}."*
 
@@ -519,12 +519,16 @@ Proceed to step 5 (setup worktree) if any decisions are `implement`. Otherwise, 
 
 **Only if there are items marked "implement."** If all items are "reject" or "discuss", skip to step 8.
 
-Check if a worktree for the PR branch already exists:
+Ask git for the worktree that has the PR branch checked out — it may live anywhere, not only under `.flowyeah/worktrees/`:
 
-1. Scan `.flowyeah/worktrees/` for a directory matching the branch's slug (branch with `/` flattened to `-` — `worktree-lifecycle.md`, Directory Naming; build worktrees use the same rule)
-2. Scan `.worktrees/` for the same
+```bash
+git worktree list --porcelain | awk -v ref="branch refs/heads/<branch>" \
+  '/^worktree /{n++; path=substr($0, 10)} n > 1 && $0 == ref {print path}'
+```
 
-If found, reuse the existing worktree. Otherwise, create one:
+The first entry is the primary checkout, which the invariant above keeps untouched, so the lookup skips it.
+
+If a path comes back, reuse that worktree. Otherwise, create one (git refuses a second worktree for a branch that is already checked out, so never create without looking up first):
 
 ```bash
 SLUG=$(printf '%s' "<branch>" | tr '/' '-')
@@ -536,7 +540,7 @@ Then follow the **Setup** procedure from `worktree-lifecycle.md` (at the plugin 
 1. **Symlinks** — resolve `worktree.symlinks` from `flowyeah.yml`
 2. **Environment** — resolve `worktree.env`, persist to `respond-state-{N}.md` under `## Worktree Env`, export, run `worktree.setup` commands
 
-Track whether the worktree was **created** by this respond session (vs. reused from a build session) — only cleanup worktrees that respond created.
+Track whether the worktree was **created** by this respond session (vs. reused) — only cleanup worktrees that respond created.
 
 ### 6. Implement Fixes
 
@@ -649,7 +653,7 @@ Cleanup has two paths depending on mode.
 
 #### `--own` mode
 
-Do **not** remove the worktree — it's owned by `build`. Run the items in this order — `Phase: Responded` is the completion marker crash recovery keys on, so it is written **last**; every earlier item is idempotent, so a crash mid-cleanup re-applies step 10 safely. Specifically:
+Do **not** remove the worktree — preflight item 5 required it to exist before this session. Run the items in this order — `Phase: Responded` is the completion marker crash recovery keys on, so it is written **last**; every earlier item is idempotent, so a crash mid-cleanup re-applies step 10 safely. Specifically:
 
 1. **Persist cross-round rejections:** read `.flowyeah/respond-decisions-{N}.md` and update `.flowyeah/own-rejections-{N}.md` per the rules below. Create the rejections file (with header `# Previously Rejected Findings (PR #{N})` and a single trailing blank line) if it does not exist. The rules:
    - For each `## Finding K` block in `respond-decisions-{N}.md` with `Action: reject` — upsert a `## Rejection M` block into `own-rejections-{N}.md`. The dedup key is `(File, Subject)`. If a matching entry exists, replace it: overwrite all fields (`File`, `Label`, `Confidence`, `Subject`, `Reasoning`) with the new values derived from the matching `respond-decisions-{N}.md` entry, and set `Rejected at:` to the current timestamp. Otherwise append a new entry. `M` is the next available 1-based index after the highest existing `## Rejection` heading. (Indices are never reused after deletion; gaps in the sequence are expected and benign.) See the schema in the "Cross-Round Persistence" section above for field mapping.
@@ -659,7 +663,7 @@ Do **not** remove the worktree — it's owned by `build`. Run the items in this 
 2. **Remove the findings file:** `rm -f .flowyeah/review-approved-{N}.md` (findings are consumed).
 3. **Remove respond state files:** `rm -f .flowyeah/respond-state-{N}.md .flowyeah/respond-decisions-{N}.md`. Do **not** touch `own-rejections-{N}.md` here — it persists across rounds.
 4. **Update the review session state:** rewrite `.flowyeah/review-state-{N}.md` (at the main checkout path) so that `Phase:` is `Responded`. Leave all other fields intact. Touch the file's mtime.
-5. **Do not touch** `.flowyeah/worktrees/...` or any files inside the worktree.
+5. **Do not touch** the worktree or any files inside it.
 
 Display the end-of-round guidance:
 
@@ -679,7 +683,7 @@ Follow the **Teardown** procedure from `worktree-lifecycle.md` (at the plugin ro
 
 Then remove session files (`respond-state-{N}.md` and `respond-decisions-{N}.md`).
 
-#### Normal mode (worktree was reused from a build session)
+#### Normal mode (worktree already existed)
 
 Skip worktree removal. Remove session files (`respond-state-{N}.md` and `respond-decisions-{N}.md`) only.
 

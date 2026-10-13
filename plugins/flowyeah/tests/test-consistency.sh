@@ -525,6 +525,10 @@ assert_contains "worktree-lifecycle declares the slug rule" "tr '/' '-'" "$LIFEC
 assert_not_contains "respond does not address worktree dirs by raw branch name" "worktrees/<branch>" "$RESPOND_SKILL"
 assert_not_contains "tree-guard does not point at raw-branch worktree path" 'worktrees/${CURRENT_BRANCH}' "$PLUGIN_DIR/hooks/tree-guard.sh"
 assert_not_contains "worktree-lifecycle uses numbered respond state filename" "respond-state.md" "$LIFECYCLE"
+# A branch's worktree may live outside .flowyeah/ (created by hand or by another tool);
+# git refuses a second worktree for the same branch, so respond must ask git where it is.
+assert_contains "respond locates the branch worktree through git" "git worktree list --porcelain" "$RESPOND_SKILL"
+assert_not_contains "respond preflight does not require the worktree under .flowyeah/" "Verify a directory exists at" "$RESPOND_SKILL"
 
 # ── Section: State-file lifecycle ────────────────────────
 # Every state file must have an owner that removes it — leftovers keep
