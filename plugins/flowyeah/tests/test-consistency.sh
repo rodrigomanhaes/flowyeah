@@ -268,6 +268,14 @@ assert_dir_in_list "README example has hooks.pr.before_merge" "hooks.pr.before_m
 assert_contains "setup.md questions mention before_merge hook" "\`before_merge\` —" "$SETUP"
 assert_contains "schema validates before_merge path" "hooks.pr.before_merge must be a relative path" "$SCHEMA"
 assert_contains "schema validates before_merge file" "hooks.pr.before_merge file not found" "$SCHEMA"
+assert_contains "build has the before-merge step" "### 7b2. Before-Merge Hook" "$BUILD_SKILL"
+assert_contains "build 7b routes to 7b2" "**CI passes AND review clean** → proceed to step 7b2" "$BUILD_SKILL"
+assert_contains "build 7c gates on 7b2" "**GATE — verify Step 7b2 before proceeding.**" "$BUILD_SKILL"
+assert_contains "build progress template has 7b2" "- [ ] Before-merge hook (7b2)" "$BUILD_SKILL"
+assert_contains "build marks 7b2 N/A without a hook" "N/A — no before_merge hook" "$BUILD_SKILL"
+assert_contains "build re-runs 7b2 after a HEAD change" "7b2 runs again" "$BUILD_SKILL"
+assert_contains "build caps hook-driven restarts" "changes \`HEAD\` three times" "$BUILD_SKILL"
+assert_contains "build hooks table lists before_merge" "| \`hooks.pr.before_merge\` |" "$BUILD_SKILL"
 
 # ── Section: Validation rules integrity ──────────────────
 

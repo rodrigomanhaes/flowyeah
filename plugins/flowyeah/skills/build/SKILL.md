@@ -106,6 +106,7 @@ digraph pipeline {
     pr [label="7. Create PR/MR"];
     pr_hooks [label="7a. Run PR Hooks\n(pr.after_create)"];
     ci_loop [label="7b. CI + Code Review Loop" shape=diamond];
+    before_merge [label="7b2. Before-Merge Hook\n(pr.before_merge)" shape=diamond];
     merge_decision [label="7c. Merge Decision\n(pull_requests.merge)" shape=diamond];
     hooks [label="8. Run Hooks\n(pr.after_merge)"];
     mark [label="9. Mark Task Done"];
@@ -123,7 +124,10 @@ digraph pipeline {
     approval -> implement [label="changes requested"];
     deliver -> issue_link -> pr -> pr_hooks -> ci_loop;
     ci_loop -> commit [label="issues found\nfix → commit → push\nskip approval+review"];
-    ci_loop -> merge_decision [label="CI green +\nreview clean"];
+    ci_loop -> before_merge [label="CI green +\nreview clean"];
+    before_merge -> merge_decision [label="done /\nnot configured"];
+    before_merge -> commit [label="HEAD changed"];
+    before_merge -> before_merge [label="fails / told to stop:\nSTOP, ask"];
     merge_decision -> hooks [label="auto:\nmerge via adapter"];
     merge_decision -> awaiting [label="manual:\nreport URL, pause"];
     merge_decision -> hooks [label="ask:\nuser says yes"];
@@ -529,14 +533,41 @@ After PR/MR creation, check `hooks.pr.after_create` in `flowyeah.yml`. If config
 
 **When results come back:**
 
-- **CI passes AND review clean** → proceed to step 7c (merge decision)
+- **CI passes AND review clean** → proceed to step 7b2 (before-merge hook)
 - **CI fails** → investigate, fix, create a new commit (not amend), restart from step 5 (commit → test → push). Skip code review and implementation approval on retry. Any CI failure is YOUR failure. Assume CI is evergreen.
 - **Review agents find issues** → fix, create a new commit, restart from step 5 (commit → test → push). Skip code review and implementation approval on retry — the review already told you what to fix.
 - **CI fails 3 times** → STOP and ask for guidance
 
 **Git strategy for fixes:** Always create new commits, never amend — new commits make it easy to review what changed between CI runs. With `merge_strategy: squash` (the default) they collapse at merge; with `merge` or `rebase` the fix commits become permanent history, so tidy them into meaningful commits before the final push if they would read as noise (step 5's table makes rebase-mode commits the permanent record).
 
+### 7b2. Before-Merge Hook
+
+**If `hooks.pr.before_merge` is not configured, this step is a no-op** — check off `Before-merge hook (7b2)` as "N/A — no before_merge hook" and go straight to step 7c.
+
+**When configured, it runs in every `pull_requests.merge` mode:** before the merge API call in `auto`, before the PR/MR URL is reported in `manual`, and before the "Merge now?" question in `ask` — never between the two turns of the Two-Turn Stop.
+
+**Context available:** Branch, PR/MR number+url, issue reference (if any), adapter config, diff. It runs inside the worktree with the worktree env exported, like every step from 3 on.
+
+**Execution:**
+
+1. Record `Before-merge HEAD: <git rev-parse HEAD>` in `state.md`.
+2. Read the configured markdown file and follow its instructions.
+3. Compare `git rev-parse HEAD` with the recorded SHA and act on the outcome:
+
+| Outcome | Action |
+|---------|--------|
+| Hook completed, `HEAD` unchanged | Check off 7b2, proceed to step 7c. |
+| `HEAD` changed during the hook | The diff 7b validated is gone. Increment `Before-merge restarts` in `state.md` and restart from step 5 (commit → test → verification gate → push → CI). That retry skips implementation approval and code review, as 7b's fix iterations do — but 7b2 runs again: it gates the final `HEAD`. |
+| Hook failed, or its instructions say to stop | **STOP.** Report why and end the turn. The user decides: re-run the hook, proceed to step 7c anyway, or abandon the session (Pipeline Rollback). |
+| Hook file missing | **STOP** and report — step 0 validated the file, so it was removed mid-session. |
+
+**If the hook changes `HEAD` three times in one session, STOP and ask** — the same ceiling as "CI fails 3 times" in 7b. A hook that always finds something to fix would otherwise loop forever.
+
+**Not best-effort, unlike the other project hooks.** `after_create` and `after_merge` run after an irreversible act — the PR/MR exists, the merge happened — so stopping undoes nothing and they continue on failure. `before_merge` runs before one: stopping costs nothing and keeps a failed check from being merged. What the hook does is entirely up to its file; the pipeline only reads whether it finished, stopped, or moved `HEAD`.
+
 ### 7c. Merge Decision
+
+**GATE — verify Step 7b2 before proceeding.** Check `Before-merge hook (7b2)` in `progress.md`. If it is unchecked (and not N/A), STOP and execute Step 7b2 now — a session that crashed mid-hook must not reach the merge without passing through it. A session resumed from `Awaiting Merge` already passed 7b2 and does not re-run it.
 
 **CRITICAL — you MUST respect `pull_requests.merge` before merging anything:**
 
@@ -579,6 +610,7 @@ After a successful merge, check `hooks.pr.after_merge` in `flowyeah.yml`. If con
 | Hook | When it runs | Context available |
 |------|-------------|-------------------|
 | `hooks.pr.after_create` | After PR/MR creation (step 7a) | Branch, PR/MR number+url, issue reference (if any), adapter config, diff |
+| `hooks.pr.before_merge` | After CI and code review pass, before the merge decision (step 7b2) | Branch, PR/MR number+url, issue reference (if any), adapter config, diff |
 | `hooks.pr.after_merge` | After successful merge, before marking task done | Branch, MR/PR number+url, issue reference (if any), adapter config |
 
 **Execution:**
@@ -588,7 +620,7 @@ After a successful merge, check `hooks.pr.after_merge` in `flowyeah.yml`. If con
 3. Follow the instructions in the file, using the pipeline context (branch name, MR/PR details, issue reference, adapter config from `flowyeah.yml`)
 4. If the file doesn't exist, warn the user and continue
 
-**Hooks are best-effort.** The merge already happened — the code is delivered. If hook instructions fail (API error, resource not found, permission denied), report the failure to the user with details, suggest manual action, and continue to step 9. Do not retry, do not roll back the merge.
+**Hooks are best-effort.** The merge already happened — the code is delivered. If hook instructions fail (API error, resource not found, permission denied), report the failure to the user with details, suggest manual action, and continue to step 9. Do not retry, do not roll back the merge. `before_merge` is the exception: it runs before the merge, and a failure there stops the pipeline (see step 7b2).
 
 **Hook files** are project-level artifacts, versioned with the project. They follow the same pattern as adapters: markdown instructions that the AI reads and follows.
 
@@ -597,6 +629,7 @@ After a successful merge, check `hooks.pr.after_merge` in `flowyeah.yml`. If con
 hooks:
   pr:
     after_create: docs/flowyeah-hooks/after-pr-create.md
+    before_merge: docs/flowyeah-hooks/before-merge.md
     after_merge: docs/flowyeah-hooks/after-merge.md
 ```
 
@@ -748,6 +781,7 @@ Has two sections: **Items** (implementation tasks from the plan) and **Pipeline*
 - [ ] Create PR/MR (7)
 - [ ] PR hooks (7a)
 - [ ] CI + code review (7b)
+- [ ] Before-merge hook (7b2)
 - [ ] Merge decision (7c)
 - [ ] After-merge hooks (8)
 - [ ] Mark task done (9)
@@ -768,6 +802,7 @@ Has two sections: **Items** (implementation tasks from the plan) and **Pipeline*
 - If the source was an issue tracker (Issue-Ref already set), check off Issue linkage as "N/A — source is issue tracker"
 - If `issues.create_when_missing` is `never`, check off Issue linkage as "skipped — create_when_missing: never"
 - If `hooks.pr.after_create` is not configured, check off PR hooks as "N/A — no after_create hook"
+- If `hooks.pr.before_merge` is not configured, check off Before-merge hook as "N/A — no before_merge hook"
 - If `pull_requests.merge` is `manual` (or ask→no), check off Merge decision as "paused — awaiting manual merge". Steps 8-10 stay unchecked — they run when the session resumes after the merge (see "Awaiting Merge" in step 7c)
 
 ### findings.md and the injection hooks

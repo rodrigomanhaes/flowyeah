@@ -743,6 +743,7 @@ cat > .flowyeah/progress.md <<'EOF'
 - [ ] Create PR/MR (7)
 - [ ] PR hooks (7a)
 - [ ] CI + code review (7b)
+- [ ] Before-merge hook (7b2)
 - [ ] Merge decision (7c)
 - [ ] After-merge hooks (8)
 - [ ] Mark task done (9)
@@ -754,6 +755,7 @@ assert_output_contains "pipeline reminder: shows section header" "REMAINING PIPE
 REMAINING=$(echo "$OUTPUT" | sed -n '/REMAINING PIPELINE STEPS/,$ p')
 assert_output_contains "pipeline reminder: remaining has issue linkage" "Issue linkage (6d)" "$REMAINING"
 assert_output_contains "pipeline reminder: remaining has after-merge hooks" "After-merge hooks (8)" "$REMAINING"
+assert_output_contains "pipeline reminder: remaining has before-merge hook" "Before-merge hook (7b2)" "$REMAINING"
 assert_output_contains "pipeline reminder: remaining has cleanup" "Cleanup worktree (10)" "$REMAINING"
 # Checked items must NOT appear in the REMAINING section
 assert_output_not_contains "pipeline reminder: remaining excludes checked commit" "Commit (5)" "$REMAINING"
@@ -780,6 +782,7 @@ cat > .flowyeah/progress.md <<'EOF'
 - [x] Create PR/MR (7)
 - [x] PR hooks (7a)
 - [x] CI + code review (7b)
+- [x] Before-merge hook (7b2)
 - [x] Merge decision (7c)
 - [x] After-merge hooks (8)
 - [x] Mark task done (9)
