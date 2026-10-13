@@ -409,7 +409,7 @@ Then ask: **"Approve implementation?"** with options:
 3. **Block step 6c until the evidence is fresh:** the recorded SHA must equal the current `git rev-parse HEAD`. Any commit after the run makes it stale; run it again.
 4. Verification fails → return to step 4. Do not push.
 
-This step also runs when step 7b restarts from step 5 — skipping approval and code review on retry does not skip the evidence gate.
+This step also runs when step 7b or 7b2 restarts from step 5 — skipping approval and code review on retry does not skip the evidence gate.
 
 ### 6c. Rebase → Push
 
@@ -452,7 +452,7 @@ When creating an issue, use the source adapter pointed to by `issues.adapter` to
 
 **GATE — verify Step 6d before proceeding.** Check `Issue linkage (6d)` in `progress.md`. If it is unchecked and `issues.create_when_missing` is not `never`, STOP and execute Step 6d now. Do NOT create the PR/MR until issue linkage is resolved.
 
-**Always check if an open PR/MR already exists before creating one** — fix iterations from 7b re-enter this step, and `--on-branch` sessions may attach to a branch that already has one (the hosting adapters' "Check for Existing PR" operation does this; reuse only `OPEN` ones):
+**Always check if an open PR/MR already exists before creating one** — fix iterations from 7b and restarts from 7b2 re-enter this step, and `--on-branch` sessions may attach to a branch that already has one (the hosting adapters' "Check for Existing PR" operation does this; reuse only `OPEN` ones):
 
 ```bash
 # GitHub
@@ -500,7 +500,7 @@ When delegating, pass the agent the full diff (`git diff <git.default_branch>...
 
 Code review results are reported in the terminal only — this is your current work session, not a team review artifact.
 
-**PR created ≠ done.** Creating the PR/MR is the BEGINNING of delivery, not the end. You MUST proceed through 7a → 7b → 7c without stopping. Do NOT ask "what next?" or "should I monitor CI?" — always yes. Proceed immediately.
+**PR created ≠ done.** Creating the PR/MR is the BEGINNING of delivery, not the end. You MUST proceed through 7a → 7b → 7b2 → 7c without stopping. Do NOT ask "what next?" or "should I monitor CI?" — always yes. Proceed immediately.
 
 ### 7a. Run PR Hooks
 
@@ -558,18 +558,16 @@ After PR/MR creation, check `hooks.pr.after_create` in `flowyeah.yml`. If config
 |---------|-------------|--------|
 | Hook failed, or its instructions say to stop | — | **STOP.** Report why and end the turn. The user decides: re-run the hook; proceed to step 7c anyway — check off 7b2 as "overridden by user — <reason>" so the 7c gate lets it through; or abandon the session (Pipeline Rollback). |
 | Hook left uncommitted changes | `git status --porcelain` is not empty | **STOP.** Report the files and end the turn. Merging now would ship without them, and step 10 cannot remove a dirty worktree. The user decides whether they are committed (then `HEAD` moves — next row) or discarded. |
-| `HEAD` moved | `git rev-parse HEAD` differs from `git rev-parse @{upstream}` | The diff 7b validated is gone. In `progress.md`, uncheck `CI + code review (7b)`; increment `Before-merge restarts` in `state.md`; restart from step 5 (commit → test → verification gate → push → CI). That retry skips implementation approval and code review, as 7b's fix iterations do — but 7b2 runs again: it gates the final `HEAD`. |
+| `HEAD` moved | `git rev-parse HEAD` differs from `git rev-parse @{upstream}` | The diff 7b validated is gone. Increment `Before-merge restarts` in `state.md` (absent counts as 0). If it reaches 3, the hook has changed `HEAD` three times: **STOP** and ask instead of restarting — the same ceiling as "CI fails 3 times" in 7b, since a hook that always finds something to fix would otherwise loop forever; if the user says to continue, reset `Before-merge restarts` to 0 and restart. Otherwise, in `progress.md`, uncheck `CI + code review (7b)` and restart from step 5 (commit → test → verification gate → push → CI). That retry skips implementation approval and code review, as 7b's fix iterations do — but 7b2 runs again: it gates the final `HEAD`. |
 | Hook completed, `HEAD` unchanged | — | Check off 7b2, proceed to step 7c. |
 
 `@{upstream}` is the head 6c pushed and 7b's CI ran on. Comparing against it rather than a SHA recorded before the hook keeps the check right when a crash or compaction interrupts the hook after it committed: on resume, the commit is still ahead of the pushed head.
-
-**If the hook changes `HEAD` three times in one session, STOP and ask** — the same ceiling as "CI fails 3 times" in 7b. A hook that always finds something to fix would otherwise loop forever.
 
 **Not best-effort, unlike the other project hooks.** `after_create` and `after_merge` run after an irreversible act — the PR/MR exists, the merge happened — so stopping undoes nothing and they continue on failure. `before_merge` runs before one: stopping costs nothing and keeps a failed check from being merged. What the hook does is entirely up to its file; the pipeline only reads whether it finished, stopped, left changes behind, or moved `HEAD`.
 
 ### 7c. Merge Decision
 
-**GATE — verify Step 7b2 before proceeding.** Check `Before-merge hook (7b2)` in `progress.md`. If it is unchecked (and not N/A), STOP and execute Step 7b2 now — a session that crashed mid-hook must not reach the merge without passing through it. A session resumed from `Awaiting Merge` already passed 7b2 and does not re-run it.
+**GATE — verify Step 7b2 before proceeding.** Check `Before-merge hook (7b2)` in `progress.md`. If `progress.md` has no `Before-merge hook (7b2)` line, add it unchecked below `CI + code review (7b)`. If it is unchecked (and not N/A), STOP and execute Step 7b2 now — a session that crashed mid-hook must not reach the merge without passing through it. A session resumed from `Awaiting Merge` already passed 7b2 and does not re-run it.
 
 **CRITICAL — you MUST respect `pull_requests.merge` before merging anything:**
 
@@ -599,7 +597,7 @@ After PR/MR creation, check `hooks.pr.after_create` in `flowyeah.yml`. If config
 - **Still open** → report "PR #<n> still awaiting merge" and continue with whatever else the invocation was doing.
 
 **Merge failure recovery (auto mode only):**
-- **Merge conflict** (target branch moved ahead): rebase onto target, resolve conflicts, push, wait for CI again
+- **Merge conflict** (target branch moved ahead): rebase onto target, resolve conflicts, push, wait for CI again, then uncheck `Before-merge hook (7b2)` and run step 7b2 again before retrying the merge — the rebased `HEAD` is not the one the hook saw
 - **Protected branch rejection** (insufficient permissions, required approvals): report the error and switch to `manual` mode — show the PR URL and let the user handle it
 - **Concurrent merge** (another PR merged first, branch is stale): same as merge conflict — rebase and retry once
 
@@ -711,7 +709,7 @@ loop:
 ```
 
 **Stop conditions for continuous mode:**
-- Any stop condition from the general list (ambiguous task, 3x CI failure, architectural decision needed, etc.)
+- Any stop condition from the general list (ambiguous task, 3x CI failure, before-merge hook stop, architectural decision needed, etc.)
 - User sends an interrupt message
 - All tasks in the plan are complete
 
@@ -910,6 +908,8 @@ Platform integrations live in `adapters/` at the plugin level, shared across ski
 | Ambiguous task | Present interpretations, ask |
 | No tasks remaining | Report plan status |
 | Tests fail 3x | Show failures, ask for guidance |
+| Before-merge hook stops | Failed, told to stop, left uncommitted changes, or its file is missing — report why and ask (see step 7b2) |
+| Before-merge hook changes `HEAD` 3x | Ask whether to continue (see step 7b2) |
 | Architectural decision needed | Present options, ask |
 | Missing dependency | State what's needed |
 | No code review agents | STOP and complain |

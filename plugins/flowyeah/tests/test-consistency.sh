@@ -274,7 +274,16 @@ assert_contains "build 7c gates on 7b2" "**GATE — verify Step 7b2 before proce
 assert_contains "build progress template has 7b2" "- [ ] Before-merge hook (7b2)" "$BUILD_SKILL"
 assert_contains "build marks 7b2 N/A without a hook" "N/A — no before_merge hook" "$BUILD_SKILL"
 assert_contains "build re-runs 7b2 after a HEAD change" "7b2 runs again" "$BUILD_SKILL"
-assert_contains "build caps hook-driven restarts" "changes \`HEAD\` three times" "$BUILD_SKILL"
+assert_contains "build caps hook-driven restarts" "changed \`HEAD\` three times" "$BUILD_SKILL"
+assert_contains "build defaults a missing restart counter" "absent counts as 0" "$BUILD_SKILL"
+assert_contains "build resets the restart counter when the user continues" "reset \`Before-merge restarts\` to 0" "$BUILD_SKILL"
+assert_contains "build step 7 lists 7b2 in the delivery chain" "7a → 7b → 7b2 → 7c" "$BUILD_SKILL"
+assert_contains "build verification gate runs on 7b2 restarts" "when step 7b or 7b2 restarts from step 5" "$BUILD_SKILL"
+assert_contains "build step 7 is re-entered by 7b2 restarts" "restarts from 7b2 re-enter this step" "$BUILD_SKILL"
+assert_contains "build stop table lists a stopped before-merge hook" "| Before-merge hook stops |" "$BUILD_SKILL"
+assert_contains "build stop table lists the before-merge restart cap" "| Before-merge hook changes \`HEAD\` 3x |" "$BUILD_SKILL"
+assert_contains "build re-runs 7b2 after a merge-failure rebase" "run step 7b2 again before retrying the merge" "$BUILD_SKILL"
+assert_contains "build 7c gate handles a progress file without the 7b2 line" "has no \`Before-merge hook (7b2)\` line" "$BUILD_SKILL"
 assert_contains "build hooks table lists before_merge" "| \`hooks.pr.before_merge\` |" "$BUILD_SKILL"
 # A pre-hook SHA snapshot is overwritten when an interrupted 7b2 re-runs;
 # the pushed head 7b's CI ran on survives a crash or compaction.
