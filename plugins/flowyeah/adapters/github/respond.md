@@ -121,7 +121,7 @@ GraphQL mutation using the thread node ID from the unresolved threads query. Cal
 gh api graphql -f query='
   mutation($threadId: ID!) {
     resolveReviewThread(input: {threadId: $threadId}) {
-      reviewThread { isResolved }
+      thread { isResolved }
     }
   }' -f threadId="<thread_node_id>"
 ```

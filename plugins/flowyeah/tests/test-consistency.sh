@@ -697,6 +697,11 @@ assert_not_contains "source.md does not pass bodies inline" '--body "' "$GH_ADAP
 assert_contains "hosting.md existing-PR check reads state" "number,url,title,state" "$GH_ADAPTER/hosting.md"
 assert_contains "respond.md paginates the reviews endpoint" "--paginate" "$GH_ADAPTER/respond.md"
 
+# ResolveReviewThreadPayload exposes `thread`, not `reviewThread`; GraphQL
+# validates the whole document first, so the bad field means no thread is resolved.
+assert_not_contains "respond.md resolve mutation does not select reviewThread" "reviewThread {" "$GH_ADAPTER/respond.md"
+assert_contains "respond.md resolve mutation selects thread" "thread { isResolved }" "$GH_ADAPTER/respond.md"
+
 # ── Section: GitLab adapter template validity ────────────
 # Free-text values must use --form-string (curl --form interprets leading
 # @/< as file references); re-request must remove-then-re-add reviewers.
