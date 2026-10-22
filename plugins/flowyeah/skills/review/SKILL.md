@@ -92,6 +92,7 @@ Type: review
 Mode: <own or absent>
 Status: Reviewing
 PR/MR: <number>
+URL: <web URL from step 1>
 Branch: <source_branch>
 Platform: <adapter>
 Findings: <count> total, <approved> approved
@@ -195,7 +196,7 @@ If validation fails, STOP with actionable error messages.
 
 If `<number>` is provided, use it. Otherwise, detect from current branch via the review adapter.
 
-Display PR/MR summary: title, author, branch, additions/deletions, changed files.
+Display PR/MR summary: title, author, branch, additions/deletions, changed files. Record the web URL the adapter returns (`url` on GitHub, `web_url` on GitLab) in the state file's `URL:` field.
 
 ### 1b. Detect Associated Issue
 
@@ -406,6 +407,8 @@ Present **all findings at once** as a numbered list. Every finding MUST be rende
 
 Render the card for every finding, every time — even when there is only one finding, even under `--own`, even when you are tempted to "just summarize."
 
+**Link before the cards.** The line right above the first card is the PR/MR title and its web URL from the state file's `URL:` field, so the user can open the diff while judging the findings. Print the URL bare, outside the code fence, where the terminal makes it clickable. This applies on every presentation, including a re-presentation after crash recovery.
+
 **Other reviewers' open threads:** After the findings list, if any open threads from other reviewers were found (step 2, context item 9) and you have complementary context to add (technical justification, confirmation with evidence, expanded scope), present them separately:
 
 ```
@@ -443,7 +446,7 @@ Persist approved findings to `review-approved-{N}.md` after the batch decision i
 
 #### 5b. Deliver Findings
 
-Persist approved findings to `review-approved-{N}.md` (already done in step 5). Present them as **Finding Cards** (`finding-card.md`) — one card per finding, exactly as in normal mode. Step 5's "Render before you ask" rule applies to the step 5c menu: the cards must be on screen before the menu is offered.
+Persist approved findings to `review-approved-{N}.md` (already done in step 5). Present them as **Finding Cards** (`finding-card.md`) — one card per finding, exactly as in normal mode, with the PR/MR link above them (step 5's "Link before the cards"). Step 5's "Render before you ask" rule applies to the step 5c menu: the cards must be on screen before the menu is offered.
 
 Update `review-state-{N}.md`: set `Phase: Findings Delivered`.
 

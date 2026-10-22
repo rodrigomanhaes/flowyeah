@@ -638,6 +638,8 @@ FINDING_CARD="$PLUGIN_DIR/finding-card.md"
 
 assert_contains "review step 5 renders cards before asking" "Render before you ask" "$REVIEW_SKILL"
 assert_contains "respond step 4 renders cards before asking" "Render before you ask" "$RESPOND_SKILL"
+assert_contains "review step 5 links the PR/MR above the cards" "Link before the cards" "$REVIEW_SKILL"
+assert_contains "review state file keeps the PR/MR URL for recovery" "URL: <web URL" "$REVIEW_SKILL"
 
 assert_file_exists "finding-card.md exists" "$FINDING_CARD"
 assert_contains "finding-card.md carries the card template" "Label:      " "$FINDING_CARD"
