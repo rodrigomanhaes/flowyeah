@@ -160,7 +160,7 @@ curl -s -H "Authorization: Bearer $TOKEN" \
   jq '[.[] | {id, note: .note[0:80], file: (.position.new_path // null)}]'
 ```
 
-If the list is not empty, STOP and show the drafts to the user before submitting: Step 5 would publish them along with the review.
+If the list is not empty, STOP and show the drafts to the user before submitting: Step 5 would publish them along with the review. Show each draft by file and an excerpt of its text, never by its API `id` (the id never appears in the GitLab UI). Resolve them against the review's decisions: fold what is still useful into the findings, then delete every draft (`DELETE .../draft_notes/:id`), including those that repeat a finding the user rejected. Only then continue.
 
 ### Step 2 — Get diff_refs
 

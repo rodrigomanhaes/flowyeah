@@ -391,7 +391,7 @@ Adjust all default scores based on evidence, the same as `3b`.
 - Behavior of a gem, library, or framework asserted without checking the version in use (`Gemfile.lock`, `package.json`, lockfile). A behavior that changed across majors is a false positive when claimed against the wrong one
 - A problem that predates the diff and the diff does not worsen. Say so in one line and suggest an issue — do not spend a finding, and do not re-derive the analysis
 - A change whose probable damage is smaller than the cost of making it. State what breaks and how often; "could theoretically happen" is not a frequency
-- Missing coverage for a defensive branch that is unreachable, or for behavior that is incidental rather than contractual
+- Missing coverage for a defensive branch that is unreachable, or for behavior that is incidental rather than contractual. "Unreachable" is judged against tomorrow's plausible edit, not today's code: before dropping a coverage finding as unreachable, write the concrete edit that would produce the bad state. If such an edit exists and nothing catches it, the finding stands. For a numeric threshold check, compute the value in the broken case, not only in the good one
 
 **Findings that ask for a decision, not a change,** are legitimate and are not covered by the damage rule above — a reviewer may reasonably want a conscious sign-off on a deliberate trade-off. Label them `question` or `thought` and say plainly that the sign-off is the ask. Do not dress them as `issue` or `suggestion`: that spends the author's attention on a fix request you are not actually making.
 
