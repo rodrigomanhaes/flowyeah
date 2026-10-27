@@ -93,6 +93,7 @@ Mode: <own or absent>
 Status: Reviewing
 PR/MR: <number>
 URL: <web URL from step 1>
+Round: <n>
 Branch: <source_branch>
 Platform: <adapter>
 Findings: <count> total, <approved> approved
@@ -101,6 +102,8 @@ Worktree: <relative path under .flowyeah/review-worktrees/{N}/ or "none">
 ```
 
 `Mode` is absent for normal reviews. The hook does not interpret this field — it dumps the state file as raw text. The skill's crash recovery logic reads `Mode` to decide which path to follow on resume.
+
+`Round` is the number of this review of the PR/MR by the authenticated user, counting from 1, set in step 2 (item 8).
 
 `Worktree` defaults to `none`. When the skill creates a review worktree (see "Invariant: Primary Checkout Is Untouched"), update this field to the path immediately and clear it back to `none` once the worktree is removed. The hook injects this field as-is on every prompt so context recovery can verify worktree state.
 
@@ -222,7 +225,7 @@ Collect in parallel. **All commands here are read-only against the primary check
 5. **Git history** — for each changed file: `git log --oneline -10 <file>`
 6. **Git blame** — for changed lines, run `git blame <base_sha> -- <file>` against the base SHA reported by the adapter. Do NOT check out the base branch.
 7. **Previous PR/MR feedback** — search recent merged PRs/MRs that touched the same files, collect review comments (via the review adapter's "Search Recent Merged PR/MR Feedback" operation). Look for recurring themes — if a reviewer flagged the same pattern before, it's worth flagging again
-8. **Previous review findings** — via review adapter's `Fetch Own Discussions`. Fetch all discussions/review comments authored by the authenticated user on this MR/PR. Parse Conventional Comments format to extract structured findings. If none found (first review), skip previous-review logic entirely
+8. **Previous review findings** — via review adapter's `Fetch Own Discussions`. Fetch all discussions/review comments authored by the authenticated user on this MR/PR. Parse Conventional Comments format to extract structured findings. If none found (first review), skip previous-review logic entirely. The same list gives the round number: sort the discussions by `created_at` and start a new prior round wherever two consecutive ones are more than 30 minutes apart, because a submission posts all its comments within the same minute or so (on GitHub, thread replies are excluded already, since the list keeps only threads the user opened). `Round:` is the number of prior rounds plus 1. A round that posted no inline comment leaves no trace and is not counted. In `--own` mode nothing reaches the platform, so `Round:` is the previous file's `Round:` plus 1 when a `Phase: Responded` state file is being overwritten (see "Conflict: Re-invoking `/review`"), and 1 otherwise
 9. **Other reviewers' open threads** — via the respond adapter's thread fetch (see Platform Detection), collect all open (unresolved) review threads on the current PR/MR from other reviewers. For each thread, note: author, file:line, concern raised. Use these to avoid duplicating what others already flagged and to identify opportunities to complement their feedback (e.g., adding technical context, confirming a concern, or expanding on a suggestion)
 
 #### 2.8 Classify Previous Review Findings
@@ -407,7 +410,7 @@ Present **all findings at once** as a numbered list. Every finding MUST be rende
 
 Render the card for every finding, every time — even when there is only one finding, even under `--own`, even when you are tempted to "just summarize."
 
-**Link before the cards.** The line right above the first card is the PR/MR title and its web URL from the state file's `URL:` field, so the user can open the diff while judging the findings. Print the URL bare, outside the code fence, where the terminal makes it clickable. This applies on every presentation, including a re-presentation after crash recovery.
+**Link before the cards.** Right above the first card go two lines: `PR #{N} · round {n}: {title}` (`MR !{N}` on GitLab, `{n}` from the state file's `Round:`), then the web URL from the state file's `URL:` field, so the user can open the diff while judging the findings. Print the URL bare, outside the code fence, where the terminal makes it clickable. This applies on every presentation, including a re-presentation after crash recovery. When step 2.8 classified previous findings, the summary of what happened to them, after the cards, is titled with the previous round's number (`Round {n-1}`).
 
 **Other reviewers' open threads:** After the findings list, if any open threads from other reviewers were found (step 2, context item 9) and you have complementary context to add (technical justification, confirmation with evidence, expanded scope), present them separately:
 
@@ -470,7 +473,7 @@ Before starting a new review, check both directions:
 
 For a review-state match:
 
-- `Phase: Responded` → proceed silently — the prior round is closed. Overwrite the existing state files as if no session existed. Do not prompt.
+- `Phase: Responded` → proceed silently — the prior round is closed. Read its `Round:` first (absent counts as 1), then overwrite the existing state files as if no session existed. Do not prompt.
 - `Phase: Fixing` or `Phase: Delegated` → present: "An --own review for PR #N is still active. Finalize it first, or continue fixing?"
 - Any other phase → present: "A review for PR #N is already active (phase: X). Finalize it first?"
 

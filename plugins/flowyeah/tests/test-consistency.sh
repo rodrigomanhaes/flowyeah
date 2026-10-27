@@ -640,6 +640,10 @@ assert_contains "review step 5 renders cards before asking" "Render before you a
 assert_contains "respond step 4 renders cards before asking" "Render before you ask" "$RESPOND_SKILL"
 assert_contains "review step 5 links the PR/MR above the cards" "Link before the cards" "$REVIEW_SKILL"
 assert_contains "review state file keeps the PR/MR URL for recovery" "URL: <web URL" "$REVIEW_SKILL"
+assert_contains "review state file records the round number" "Round: <n>" "$REVIEW_SKILL"
+assert_contains "review counts rounds from own discussion timestamps" "more than 30 minutes" "$REVIEW_SKILL"
+assert_contains "review --own carries the round across overwrites" "previous file's \`Round:\` plus 1" "$REVIEW_SKILL"
+assert_contains "review step 5 shows the round above the cards" "PR #{N} · round {n}: {title}" "$REVIEW_SKILL"
 
 assert_file_exists "finding-card.md exists" "$FINDING_CARD"
 assert_contains "finding-card.md carries the card template" "Label:      " "$FINDING_CARD"
