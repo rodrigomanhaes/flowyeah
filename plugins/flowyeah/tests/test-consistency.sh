@@ -638,6 +638,7 @@ FINDING_CARD="$PLUGIN_DIR/finding-card.md"
 
 assert_contains "review step 5 renders cards before asking" "Render before you ask" "$REVIEW_SKILL"
 assert_contains "respond step 4 renders cards before asking" "Render before you ask" "$RESPOND_SKILL"
+assert_contains "respond step 4 acknowledges remarks that ask for nothing in one prompt" "[a] acknowledge all  [t] triage one by one" "$RESPOND_SKILL"
 assert_contains "review step 5 links the PR/MR above the cards" "Link before the cards" "$REVIEW_SKILL"
 assert_contains "review state file keeps the PR/MR URL for recovery" "URL: <web URL" "$REVIEW_SKILL"
 assert_contains "review state file records the round number" "Round: <n>" "$REVIEW_SKILL"

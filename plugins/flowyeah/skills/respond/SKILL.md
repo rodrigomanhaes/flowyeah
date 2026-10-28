@@ -373,7 +373,7 @@ In every branch, for each comment produce:
 
 - **Assessment**: agree / disagree / needs-clarification
 - **Reasoning**: brief technical justification (verified against codebase)
-- **Recommended action**: implement / reject / discuss
+- **Recommended action**: implement / reject / discuss, or acknowledge for a remark outside a thread that asks for no change and no answer
 
 **Per-finding evaluation errors:** if evaluation fails for a specific comment/finding — an `evaluation_skill` error (timeout, exception, malformed output) **or** a failure resolving an external resource referenced by `code_review.instructions` (unreachable issue, failed fetch) — do not abort the entire run. Instead, mark that finding's critique as unavailable and proceed. In step 4, the per-finding UX shows:
 
@@ -391,7 +391,7 @@ The `[d]iscuss` option is still available — a discussion round may succeed whe
 
 Present findings from the step 2.5 actionable group one at a time (praise-ack items are never triaged). For each, show the finding plus its round-1 critique (from step 3), then enter a loop until the user decides. No code is modified in this step — all decisions are recorded and implementation happens in batch during step 6.
 
-**MANDATORY: one finding per prompt.** Do not collapse multiple findings into a single review memo, table, or batch approval form. Each finding gets its own prompt with its own `[d]/[i]/[r]` action. Persist the decision, then advance to the next finding.
+**MANDATORY: one finding per prompt.** Do not collapse multiple findings into a single review memo, table, or batch approval form. Each finding gets its own prompt with its own `[d]/[i]/[r]` action. Persist the decision, then advance to the next finding. The one exception is the prompt for remarks that ask for nothing, below.
 
 **Render before you ask.** The action prompt for a finding — whether the `[d]/[i]/[r]` text menu or a question-tool call — may only be issued in a response whose own visible message text already contains that finding's card and critique blocks. Before asking, check your output for the `═══` card header and for the code fence wrapping it; if either is missing, render the card first. A decision prompt without the card on screen asks the user to judge a finding they cannot see.
 
@@ -420,6 +420,27 @@ This shape is forbidden because it:
 - Invents a `d 3` / `r 2` syntax that is not in the skill.
 - Defers persistence — decisions only hit `respond-decisions-{N}.md` after bulk confirm, so a compaction mid-memo loses everything.
 - Merges step 3 (evaluation output) and step 4 (interactive triage) into a single blob.
+
+#### Remarks that ask for nothing
+
+Bots fill a PR with remarks outside threads that ask for nothing: deploy notices, status panels, CI reports, a re-review with no new findings. A card and a prompt for each one cost the user a decision per remark when there is only one decision to make. Before the first card, gather the remarks outside threads whose round-1 critique recommends `acknowledge`. A thread comment never joins this group, nor does a remark whose critique recommends anything else or is `unavailable`. When step 3 was skipped there are no recommendations, so there is no group.
+
+If the group has any remark, show it in one block, one line per remark with the author, the kind, the critique's reason in a few words, and the link, then ask once:
+
+```
+3 remarks outside threads ask for nothing (critique recommends acknowledge):
+
+  1. vercel (comment) · team access notice, no change asked · <url>
+  2. vercel (comment) · deploy status panel, project is not a merge check · <url>
+  3. github-actions (comment) · CI failure in a spec this PR does not touch, retry passed · <url>
+
+[a] acknowledge all  [t] triage one by one
+```
+
+- **`a`:** upsert an `Action: acknowledge` entry for every remark in the block, then present the remaining items one at a time.
+- **`t`:** the remarks go back to the list in their fetched order and each gets its card and menu.
+
+The block replaces the cards for these remarks, so it satisfies "Render before you ask" for this prompt.
 
 #### Per-finding UX
 
@@ -452,9 +473,9 @@ When the item is a remark outside a thread (it has a Remark ID instead of a thre
 [d]iscuss  [i]mplement  [r]eject  [s] reply  [a]cknowledge
 ```
 
-- **`a` — acknowledge:** the remark asks for nothing (a re-review with no new findings, a deploy notice, a status note). Record `Action: acknowledge`; step 8 reacts to it with 👍 and posts nothing. When step 3 produced a critique and the remark asks for no change and no answer, the critique recommends `acknowledge`.
+- **`a` — acknowledge:** the remark asks for nothing (a re-review with no new findings, a deploy notice, a status note). Record `Action: acknowledge`; step 8 reacts to it with 👍 and posts nothing.
 
-Only the user's `a` puts a reaction on someone else's remark. The agent never acknowledges a remark the user did not choose to, outside the praise rule of step 2.5.
+Only the user's `a`, on a card or on the block of remarks that ask for nothing, puts a reaction on someone else's remark. The agent never acknowledges a remark the user did not choose to, outside the praise rule of step 2.5.
 
 #### Example discuss round
 
