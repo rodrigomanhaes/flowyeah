@@ -1,6 +1,6 @@
 # GitLab Respond Adapter
 
-Fetches unresolved discussion threads, replies to comments, resolves discussions, and re-requests review via the GitLab API.
+Fetches unresolved discussion threads and remarks outside threads, replies to comments, resolves discussions, acknowledges remarks with an award emoji, and re-requests review via the GitLab API.
 
 **Connection:** See `connection.md` for authentication and API conventions.
 
@@ -44,6 +44,59 @@ Example: **issue (blocking):** Race condition na criação de pagamento
 ```
 
 If the body does not match Conventional Comments format, treat it as a free-form comment.
+
+## Fetch Remarks Outside Threads
+
+A reviewer can ask for something without opening a thread: a comment on the MR, or the summary a review leaves when it is submitted, which GitLab files as an ordinary note. These notes cannot be resolved. Fetch the ones that arrived after your last note outside a thread and that you have not awarded an emoji.
+
+The REST discussions endpoint does not carry award emoji, so this fetch uses GraphQL. `<full_path>` is the project's path with namespace (`group/project`).
+
+```bash
+ME=$(curl -s -H "Authorization: Bearer $TOKEN" "<url>/api/v4/user" | jq -r .username)
+QUERY=$(jq -nc --arg p "<full_path>" --arg n "<iid>" --arg c "<cursor or empty>" '{
+  query: "query($p: ID!, $n: String!, $c: String) { project(fullPath: $p) { mergeRequest(iid: $n) {
+    discussions(first: 100, after: $c) { pageInfo { hasNextPage endCursor }
+      nodes { resolvable notes { nodes { id author { username } body createdAt system url
+        awardEmoji { nodes { user { username } } } } } } } } } }",
+  variables: {p: $p, n: $n, c: (if $c == "" then null else $c end)}}')
+
+curl -s -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d "$QUERY" "<url>/api/graphql" | \
+  jq --arg me "$ME" '
+    [.data.project.mergeRequest.discussions.nodes[] | select(.resolvable | not)
+     | .notes.nodes[] | select(.system | not)
+     | {subject_id: .id, note_id: (.id | split("/") | last), author: .author.username, body,
+        created_at: .createdAt, url,
+        seen: ([.awardEmoji.nodes[]?.user.username] | index($me) != null)}]
+    | (map(select(.author == $me) | .created_at) | max) as $last
+    | map(select(.author != $me
+        and (.body | gsub("\\s"; "") != "")
+        and ($last == null or .created_at > $last)
+        and (.seen | not)))'
+```
+
+**Pagination:** if `pageInfo.hasNextPage` is `true`, repeat with the cursor set to `endCursor`, merge the note lists of every page, and apply the final `jq` filter once over the merged list.
+
+GitLab returns every timestamp of one response in the instance's time zone, so comparing them as strings is safe within the merged list.
+
+What the filter keeps, and why:
+
+- **Notes outside threads.** A discussion that is not resolvable is a plain note.
+- **No system notes.** Those are GitLab recording an action (a push, an approval), not someone talking.
+- **Every author but you, bots included.** A review bot often writes its findings in a note. A bot that posts a notice on every push edits the same note, so once you award it an emoji, it stays acknowledged.
+- **After your last note outside a thread.** Everything before it you already answered.
+- **No award emoji from you.** An award is how a note outside a thread is acknowledged (see "Acknowledge a Remark").
+
+**Output fields:**
+
+| Field | Description |
+|-------|-------------|
+| `subject_id` | GraphQL ID of the note |
+| `note_id` | Numeric note ID (used for the award emoji) |
+| `author` | Username of who wrote it |
+| `body` | Text (may use Conventional Comments format) |
+| `created_at` | When it was posted |
+| `url` | Link to it, for the reply that quotes it |
 
 ## Fetch Review/Approval State
 
@@ -96,6 +149,29 @@ curl -s --request PUT -H "Authorization: Bearer $TOKEN" \
 ```
 
 **Note:** Resolving a discussion sets all notes in that thread as resolved. There is no way to resolve individual notes within a discussion.
+
+## Reply to a Remark Outside a Thread
+
+A note outside a thread has no thread to reply in, so the answer is a new note on the MR. Mention the author and link the note, so the answer stays attached to what it answers. Same `--form-string` rule as "Reply to Discussion":
+
+```bash
+TMPDIR_FY="${TMPDIR_FY:-$(mktemp -d)}"
+# write "@<author> <reply_text>", a blank line and "> <first line of the remark> ([original](<url>))" to "$TMPDIR_FY/reply.md" first
+REPLY=$(cat "$TMPDIR_FY/reply.md")
+curl -s --request POST -H "Authorization: Bearer $TOKEN" \
+  --form-string "body=$REPLY" \
+  "<url>/api/v4/projects/<project_id>/merge_requests/<iid>/notes"
+```
+
+## Acknowledge a Remark
+
+A note outside a thread cannot be resolved. An award emoji tells its author you read it and owe nothing back, and the fetch above skips a note you awarded.
+
+```bash
+curl -s --request POST -H "Authorization: Bearer $TOKEN" \
+  --form "name=thumbsup" \
+  "<url>/api/v4/projects/<project_id>/merge_requests/<iid>/notes/<note_id>/award_emoji"
+```
 
 ## Re-request Review
 

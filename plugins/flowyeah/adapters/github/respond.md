@@ -1,6 +1,6 @@
 # GitHub Respond Adapter
 
-Fetches unresolved review threads, replies to comments, resolves conversations, and re-requests review via the GitHub API.
+Fetches unresolved review threads and remarks outside threads, replies to comments, resolves conversations, acknowledges remarks with a reaction, and re-requests review via the GitHub API.
 
 **Connection:** See `connection.md` for authentication.
 
@@ -75,6 +75,75 @@ Example: **issue (blocking):** Race condition na criação de pagamento
 
 If the body does not match Conventional Comments format, treat it as a free-form comment.
 
+## Fetch Remarks Outside Threads
+
+A reviewer can ask for something without opening a thread: in the body of a review, or in a comment on the pull request's conversation. These remarks have no thread to reply to or resolve. Fetch the ones that arrived after your last remark outside a thread and that you have not reacted to.
+
+```bash
+REPO_OWNER=$(gh repo view --json owner --jq '.owner.login')
+REPO_NAME=$(gh repo view --json name --jq '.name')
+ME=$(gh api user --jq .login)
+
+{
+gh api graphql --paginate -f query='
+  query($owner: String!, $repo: String!, $number: Int!, $endCursor: String) {
+    repository(owner: $owner, name: $repo) {
+      pullRequest(number: $number) {
+        comments(first: 100, after: $endCursor) {
+          pageInfo { hasNextPage endCursor }
+          nodes { id author { login } body createdAt url reactionGroups { viewerHasReacted } }
+        }
+      }
+    }
+  }' -f owner="$REPO_OWNER" -f repo="$REPO_NAME" -F number=<number> \
+  --jq '.data.repository.pullRequest.comments.nodes[] |
+    {subject_id: .id, kind: "comment", state: null, author: .author.login, body,
+     created_at: .createdAt, url, seen: ([.reactionGroups[]?.viewerHasReacted] | any)}'
+gh api graphql --paginate -f query='
+  query($owner: String!, $repo: String!, $number: Int!, $endCursor: String) {
+    repository(owner: $owner, name: $repo) {
+      pullRequest(number: $number) {
+        reviews(first: 100, after: $endCursor) {
+          pageInfo { hasNextPage endCursor }
+          nodes { id author { login } body state submittedAt url reactionGroups { viewerHasReacted } }
+        }
+      }
+    }
+  }' -f owner="$REPO_OWNER" -f repo="$REPO_NAME" -F number=<number> \
+  --jq '.data.repository.pullRequest.reviews.nodes[] | select(.submittedAt != null) |
+    {subject_id: .id, kind: "review", state, author: .author.login, body,
+     created_at: .submittedAt, url, seen: ([.reactionGroups[]?.viewerHasReacted] | any)}'
+} | jq -s --arg me "$ME" '
+  (map(select(.author == $me) | .created_at) | max) as $last
+  | map(select(.author != $me
+      and (.kind == "comment" or .state == "COMMENTED" or .state == "CHANGES_REQUESTED")
+      and (.body | gsub("\\s"; "") != "")
+      and ($last == null or .created_at > $last)
+      and (.seen | not)))'
+```
+
+`--paginate` on a GraphQL query walks the one connection that takes `$endCursor`, which is why comments and reviews are two queries.
+
+What the filter keeps, and why:
+
+- **Every author but you, bots included.** A review bot often writes its findings in the review body. A bot that posts a notice on every push edits the same comment, so once you react to it, it stays acknowledged.
+- **Comments, and reviews that comment or request changes.** An approval asks for nothing.
+- **A non-empty body.** Every reply in a thread is filed as a review with an empty body; its content lives in the thread.
+- **After your last remark outside a thread.** Your own reviews count, thread replies included, because each one is filed as a review. Everything before it you already answered.
+- **Not reacted to by you.** A reaction is how a remark outside a thread is acknowledged (see "Acknowledge a Remark").
+
+**Output fields:**
+
+| Field | Description |
+|-------|-------------|
+| `subject_id` | Node ID of the comment or review (used for the reaction) |
+| `kind` | `comment` or `review` |
+| `state` | Review state, `null` for a comment |
+| `author` | Login of who wrote it |
+| `body` | Text (may use Conventional Comments format) |
+| `created_at` | When it was posted or submitted |
+| `url` | Link to it, for the reply that quotes it |
+
 ## Fetch Review States
 
 Get each reviewer's most recent review state. Used to determine re-request eligibility.
@@ -125,6 +194,36 @@ gh api graphql -f query='
     }
   }' -f threadId="<thread_node_id>"
 ```
+
+## Reply to a Remark Outside a Thread
+
+A remark outside a thread has no thread to reply in, so the answer is a new comment on the pull request. Mention the author and link the remark, so the answer stays attached to what it answers.
+
+```bash
+REPO=$(gh repo view --json owner,name --jq '"\(.owner.login)/\(.name)"')
+
+gh api "repos/${REPO}/issues/<number>/comments" \
+  --method POST --raw-field body="@<author> <reply_text>
+
+> <first line of the remark> ([original](<url>))"
+```
+
+`--raw-field` because the body starts with `@`, which `--field` reads as a file path.
+
+## Acknowledge a Remark
+
+A remark outside a thread cannot be resolved. A reaction tells its author you read it and owe nothing back, and the fetch above skips a remark you reacted to.
+
+```bash
+gh api graphql -f query='
+  mutation($subjectId: ID!) {
+    addReaction(input: {subjectId: $subjectId, content: THUMBS_UP}) {
+      reaction { content }
+    }
+  }' -f subjectId="<subject_id>"
+```
+
+The same mutation serves a comment and a review: both are `Reactable`.
 
 ## Re-request Review
 

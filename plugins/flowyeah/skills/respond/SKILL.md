@@ -5,7 +5,7 @@ description: Use when addressing review feedback on a pull request or merge requ
 
 # flowyeah:respond — PR/MR Review Response Pipeline
 
-Addresses review feedback on a pull request or merge request. Fetches unresolved comments, evaluates them via a configurable skill, presents them for interactive triage, implements approved fixes, replies to comment threads, resolves conversations, and conditionally re-requests review.
+Addresses review feedback on a pull request or merge request. Fetches unresolved comments and the remarks reviewers left outside threads, evaluates them via a configurable skill, presents them for interactive triage, implements approved fixes, replies to comment threads, resolves conversations, and conditionally re-requests review.
 
 With `--own`, the source of items swaps from unresolved PR comments to findings produced by `/flowyeah:review --own [N]`. The pipeline reads `.flowyeah/review-approved-{N}.md`, runs the same evaluation + triage + implement flow, and closes the review round by setting `Phase: Responded` on the review session. No thread replies, resolves, or re-requests are sent because the findings were never public. Multiple rounds of `review --own` → `respond --own` can iterate on the same PR without explicit finalization between rounds.
 
@@ -94,7 +94,7 @@ The respond adapter is determined from `git_host` in `flowyeah.yml`:
 | `github` | `adapters/github/respond.md` |
 | `gitlab` | `adapters/gitlab/respond.md` |
 
-Load the respond adapter once at the start. **If the git host adapter has no `respond.md`, STOP** — that adapter doesn't support review responses. All platform-specific operations (fetch comments, reply, resolve, re-request) go through the adapter.
+Load the respond adapter once at the start. **If the git host adapter has no `respond.md`, STOP** — that adapter doesn't support review responses. All platform-specific operations (fetch comments and remarks, reply, resolve, acknowledge, re-request) go through the adapter.
 
 ## Session (Lightweight)
 
@@ -130,7 +130,7 @@ WorktreeOwned: <true if respond created it, false if it already existed>
 | `Setting Up Worktree` | 5 | Read `respond-decisions-{N}.md`, retry worktree setup |
 | `Implementing` | 6 | Read `respond-decisions-{N}.md`. For each `Action: implement` entry, check `git log` in the worktree for a commit whose subject references the finding (file + subject). Resume from the first implement decision with no corresponding commit. Re-apply the re-surface safety net on remaining pending decisions. |
 | `Testing` | 7 | Re-run tests |
-| `Pushing & Replying` | 8 | Check which threads already have replies, continue with remaining |
+| `Pushing & Replying` | 8 | Check which threads already have replies and which remarks already have your answer or reaction, continue with remaining |
 | `Re-requesting Review` | 9 | Check if re-request was sent, retry if not |
 | `Cleaning Up Worktree` | 10 | In `--own` mode, check `review-state-{N}.md`'s phase — if not yet `Responded`, re-apply step 10. In normal mode, check if the worktree still exists and retry removal. Always verify respond state files are gone before declaring the session clean. |
 
@@ -296,11 +296,21 @@ Via the respond adapter, fetch all unresolved review comments/threads. For each 
 - Conventional Comment parsed fields (if format matches)
 - Review state of reviewer's most recent review
 
+Then, via the adapter's "Fetch Remarks Outside Threads", fetch the remarks a reviewer left outside any thread: a review body or a comment on the PR/MR. A reviewer can ask for a change there and open no thread at all, so a PR with every thread resolved can still be waiting on you. Each remark becomes one more comment in the list, with:
+
+- Reviewer name (bots included)
+- Comment body (raw text)
+- File path: none, the card shows `(general)`
+- Remark ID: the adapter's `subject_id` (GitLab also gives `note_id`), in place of a thread ID
+- Link: the adapter's `url`
+- Conventional Comment parsed fields (if format matches)
+- Review state of reviewer's most recent review
+
 Group comments by reviewer.
 
 **Conventional Comments parsing:** when a comment's body matches the `**<label> [decorations]:** <subject>` format, parse the label, decorations, and subject. Treat non-matching comments as free-form — they are equally valid.
 
-If no unresolved comments found, report, remove `.flowyeah/respond-state-{N}.md` (and `respond-decisions-{N}.md` if created), and exit. A leftover state file would keep `tree-guard` blocking the branch indefinitely.
+If there are no unresolved threads and no remarks, report, remove `.flowyeah/respond-state-{N}.md` (and `respond-decisions-{N}.md` if created), and exit. A leftover state file would keep `tree-guard` blocking the branch indefinitely.
 
 ### 2.5 Praise Filter
 
@@ -312,6 +322,8 @@ After step 2, partition the comment list into two groups:
 - **Actionable** — everything else: other labels, free-form text, or parse failures. Hedged positives without the `praise` label (e.g., "looks good?") stay actionable on purpose — they may be questions in disguise.
 
 For each praise item, upsert a decision into `.flowyeah/respond-decisions-{N}.md` with `Action: praise-ack`. Do not invoke `evaluation_skill` and do not surface these in step 4. Pass only the actionable group forward to step 3.
+
+A praise remark (outside a thread) gets `Action: acknowledge` instead, with no `Reply:`: it has no thread to thank in, and the reaction is the thanks.
 
 **Schema — normal mode** (write a short `Reply:` in the language configured in `language`; the agent picks something context-appropriate, a one-line thanks is fine, echoing what the reviewer called out is better when it reads naturally):
 
@@ -339,7 +351,7 @@ For each praise item, upsert a decision into `.flowyeah/respond-decisions-{N}.md
 | Normal | Post `Reply` to the thread, then resolve it. Reply-only action — counts toward the "replies only" path for re-request gating. | Treated like any reply-only thread. | No special handling. |
 | `--own` | Skipped — synthetic thread has no platform counterpart. | Skipped (whole step). | Not persisted to `own-rejections-{N}.md` (praise is not a rejection). |
 
-**Short-circuit:** if the actionable group is empty (every comment was praise), skip steps 3-7 entirely. In normal mode, go directly to step 8 to post the auto-thanks and resolve. In `--own` mode, report "Only praise — nothing to respond to." and skip to step 10.
+**Short-circuit:** if the actionable group is empty (every comment was praise), skip steps 3-7 entirely. In normal mode, go directly to step 8 to post the auto-thanks and resolve, and to acknowledge praise remarks. In `--own` mode, report "Only praise — nothing to respond to." and skip to step 10.
 
 ### 3. Evaluate Comments
 
@@ -434,6 +446,16 @@ Accept a single-letter action:
 
 In normal (non-`--own`) mode, the menu also shows `[s]` (discuss-with-reviewer: reply to the reviewer and mark for thread reply in step 8). In `--own` mode, only `[d] [i] [r]` are offered — there is no reviewer to reply to.
 
+When the item is a remark outside a thread (it has a Remark ID instead of a thread ID), the card shows `File: (general)` and `Source: <author> (review body)` or `Source: <author> (comment)`, and the menu adds `[a]`:
+
+```
+[d]iscuss  [i]mplement  [r]eject  [s] reply  [a]cknowledge
+```
+
+- **`a` — acknowledge:** the remark asks for nothing (a re-review with no new findings, a deploy notice, a status note). Record `Action: acknowledge`; step 8 reacts to it with 👍 and posts nothing. When step 3 produced a critique and the remark asks for no change and no answer, the critique recommends `acknowledge`.
+
+Only the user's `a` puts a reaction on someone else's remark. The agent never acknowledges a remark the user did not choose to, outside the praise rule of step 2.5.
+
 #### Example discuss round
 
 ```
@@ -464,7 +486,7 @@ Your counter or question:
 
 #### Persistence
 
-After every decision (implement/reject), upsert an entry for that finding in `.flowyeah/respond-decisions-{N}.md` — write the block if it doesn't exist, or replace the existing block for that finding. Mid-discussion (before a terminal `[i]`, `[r]`, or `[s]` — the `[s]` reply path persists an `Action: discuss` entry with its `Reply:`), no persistence happens: decisions are only recorded when the user commits to a terminal action. Schema:
+After every decision (implement/reject/acknowledge), upsert an entry for that finding in `.flowyeah/respond-decisions-{N}.md` — write the block if it doesn't exist, or replace the existing block for that finding. Mid-discussion (before a terminal `[i]`, `[r]`, `[a]`, or `[s]` — the `[s]` reply path persists an `Action: discuss` entry with its `Reply:`), no persistence happens: decisions are only recorded when the user commits to a terminal action. Schema:
 
 ```markdown
 # Triage Decisions
@@ -503,17 +525,19 @@ After every decision (implement/reject), upsert an entry for that finding in `.f
 
 `Confidence:` carries through the score captured at step 2 — the `- Confidence:` line of the finding in `--own` mode, `—` for reviewer comments in normal mode, which have none. It is written verbatim and never invented; step 10 copies it into `own-rejections-{N}.md` so rejection rate stays readable against the score the review assigned.
 
-For normal-mode respond, `Thread:` uses the platform's real thread ID and headings use `## Comment` instead of `## Finding`. The `Final critique:` block is new in both modes and stores the **last** round's assessment (after any discussion). If the user rejects without discussing, `Final critique:` mirrors the round-1 critique. The `[s]` path (normal mode only, see Per-finding UX) produces `Action: discuss` plus a `Reply:` field capturing the user's reply to post at step 8.
+For normal-mode respond, `Thread:` uses the platform's real thread ID and headings use `## Comment` instead of `## Finding`. A remark outside a thread writes `Remark: <subject_id>` (plus `Note: <note_id>` on GitLab) and `Link: <url>` in place of `Thread:`, and `File: (general)`; an acknowledged one records `Action: acknowledge` with no `Final critique:` when the user chose `a` without discussing. The `Final critique:` block is new in both modes and stores the **last** round's assessment (after any discussion). If the user rejects without discussing, `Final critique:` mirrors the round-1 critique. The `[s]` path (normal mode only, see Per-finding UX) produces `Action: discuss` plus a `Reply:` field capturing the user's reply to post at step 8.
 
 #### Termination
 
 When all findings have a decision, exit the loop. Display a one-line summary:
 
 ```
-Triage complete: <implement_count> implement, <reject_count> reject.
+Triage complete: <implement_count> implement, <reject_count> reject, <acknowledge_count> acknowledge.
 ```
 
-Proceed to step 5 (setup worktree) if any decisions are `implement`. Otherwise, in `--own` mode, stop here with "No findings to implement — review round closed." and proceed directly to step 10 (cleanup). In normal mode, proceed to step 8 (push & reply) to post replies for rejected items and for `[s]`-path discussion replies.
+Omit `<acknowledge_count> acknowledge` when it is zero.
+
+Proceed to step 5 (setup worktree) if any decisions are `implement`. Otherwise, in `--own` mode, stop here with "No findings to implement — review round closed." and proceed directly to step 10 (cleanup). In normal mode, proceed to step 8 (push & reply) to post replies for rejected items and for `[s]`-path discussion replies, and to acknowledge remarks.
 
 ### 5. Setup Worktree
 
@@ -601,6 +625,9 @@ Run tests using `testing.command` and `testing.scope` from config. If tests fail
    - **Discuss:** post the user's reply text
    - **Praise-ack (auto):** post the `Reply` recorded at step 2.5 verbatim — do not rewrite it here
 3. **Resolve each thread after replying**
+4. **Answer each remark outside a thread** via the respond adapter:
+   - **Implemented, rejected or discussed:** post the same reply text as a new comment, through "Reply to a Remark Outside a Thread". It mentions the author and links the remark. There is nothing to resolve; your comment is the answer.
+   - **Acknowledged:** react to the remark through "Acknowledge a Remark". Post no comment.
 
 ### 9. Re-request Review
 
@@ -644,6 +671,8 @@ No push happened, so approvals remain intact. Only re-request from reviewers wit
 | `DISMISSED` | No | Review was dismissed |
 
 **GitLab:** use presence of unresolved threads as proxy (GitLab lacks a `CHANGES_REQUESTED` state). After resolving all threads from a reviewer, re-add that reviewer to the reviewers list. When code was changed, re-add all previous reviewers.
+
+**Acknowledged remarks are not replies.** When no code was changed, a reviewer whose only items this round were acknowledged gets no new request: a 👍 gives them nothing to re-evaluate.
 
 Via the respond adapter.
 
@@ -706,7 +735,8 @@ Thread replies are written in the language configured in `language` from `flowye
 | Error | Action |
 |-------|--------|
 | PR/MR not found | Ask user for number/URL |
-| No unresolved comments | Report and exit cleanly |
+| No unresolved threads and no remarks | Report and exit cleanly |
+| Reaction fails | Log warning, continue (non-critical) |
 | Evaluation skill not found | Warn, proceed without evaluation |
 | Worktree creation fails | Report error, suggest manual resolution |
 | Tests fail | Stop, report failures, don't push |
@@ -719,10 +749,10 @@ Thread replies are written in the language configured in `language` from `flowye
 After all steps complete (or on early exit), display a summary:
 
 ```
-Respond complete — N items (M implemented, K rejected, J discussed, P praise auto-acked)
+Respond complete — N items (M implemented, K rejected, J discussed, A acknowledged, P praise auto-acked)
   Code changes: yes/no | Tests: passed/skipped
   In --own mode: review round closed, Phase: Responded
   In normal mode: Re-request review: yes (2 reviewers) / no
 ```
 
-Omit the `P praise auto-acked` field when `P == 0`.
+Omit the `A acknowledged` field when `A == 0` and the `P praise auto-acked` field when `P == 0`.
