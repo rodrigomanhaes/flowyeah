@@ -99,6 +99,7 @@ digraph pipeline {
     implement [label="4. Brainstorm → Plan → TDD"];
     commit [label="5. Commit"];
     test [label="6. Test"];
+    criteria [label="6a. Criteria Check" shape=diamond];
     approval [label="6b. Implementation Approval\n(implementation.approval)" shape=diamond];
     verification [label="6b2. Verification Gate\n(process_skills.verification)" shape=diamond];
     deliver [label="6c. Rebase → Push"];
@@ -117,7 +118,9 @@ digraph pipeline {
     validate -> resolve -> pick -> worktree -> verify_wt;
     verify_wt -> implement [label="in worktree"];
     verify_wt -> worktree [label="NOT in worktree\nSTOP"];
-    implement -> commit -> test -> approval;
+    implement -> commit -> test -> criteria;
+    criteria -> approval [label="all met or\nnot verifiable here"];
+    criteria -> implement [label="unmet"];
     approval -> verification [label="approved /\nauto-approved"];
     verification -> deliver [label="fresh evidence /\nnot configured"];
     verification -> implement [label="verification fails"];
@@ -275,7 +278,7 @@ Create session directory and state files in the worktree:
 mkdir -p .flowyeah
 ```
 
-Write 4 session files (see Session Management section below). If `--intermittent` was passed, set `Investigation: intermittent` in `state.md` — this switches Step 4 from standard debugging to the escalating intermittent-failure investigation.
+Write 4 session files (see Session Management section below). `session-files.md` defines how `mission.md` carries the source's criteria. If `--intermittent` was passed, set `Investigation: intermittent` in `state.md` — this switches Step 4 from standard debugging to the escalating intermittent-failure investigation.
 
 **Worktree symlinks and environment setup:**
 
@@ -333,6 +336,7 @@ These are independent. `brainstorm` decides WHETHER brainstorming/planning happe
 
 **Full cycle (when brainstorming):**
 1. **Brainstorm** — explore task, constraints, edge cases. Invoke `process_skills.brainstorming` if configured; brainstorm inline otherwise.
+   **When `### From source` in `mission.md` is empty,** the criteria are this session's own, so nothing outside it vouches for them. Set `Status: Awaiting criteria approval` in `state.md`, show the `### Added` criteria, ask whether they are right, and end your response. Update `mission.md` with the answer, then go to the plan.
 2. **Plan** — create implementation steps. Invoke `process_skills.planning` if configured; plan inline otherwise.
 3. **TDD** — test first, minimal code, refactor. Invoke `process_skills.tdd` if configured; do TDD inline otherwise.
 4. Update `state.md` on every phase transition.
@@ -379,6 +383,20 @@ export REDIS_DB=pL7nR2wY
 **Test scope** (`testing.scope`):
 - `related` — directly changed files and related integration/feature/system/e2e specs
 - `full` — run the full test suite
+
+### 6a. Criteria Check
+
+Read `requirements-check.md` at the plugin root and apply it to `git diff origin/$DEFAULT_BRANCH...HEAD`, with `mission.md` as the reference. Give every criterion under `## Success Criteria` a verdict in `mission.md`:
+
+| Verdict | How it reads in `mission.md` |
+|---------|------------------------------|
+| Met | `- [x] <criterion>` |
+| Unmet | `- [ ] <criterion>` |
+| Only provable outside this environment (a bank accepting a file, a real device) | `- [ ] <criterion> (not verifiable here: <why>)` |
+
+Any unmet criterion, or a scope or coherence problem, returns to step 4. Do not push.
+
+This step also runs when step 7b or 7b2 restarts from step 5, because the fix commits change what the verdicts rest on.
 
 ### 6b. Implementation Approval
 
@@ -490,13 +508,14 @@ Load the git host adapter from `adapters/<git_host>/connection.md` + `adapters/<
 **Body rules:**
 - Summary of changes
 - If `Issue-Close` exists in `state.md`, include it — e.g., `Closes #5588`
+- When `Source:` in `state.md` is not an issue tracker, include a section headed exactly `## Criteria` (a literal marker `flowyeah:review` looks for, in any `language`) with every line under `## Success Criteria` in `mission.md`, word for word, with its verdict from step 6a. Nothing else records these criteria once step 10 removes the worktree.
 
 **Writer rules** — who writes the title and body:
 1. `pull_requests.writer` set → delegate both to that agent, in every `merge_strategy`.
 2. Otherwise, with `squash` or `merge` and `commits.writer` set → delegate both to `commits.writer`.
 3. Otherwise → write them inline.
 
-When delegating, pass the agent the full diff (`git diff <git.default_branch>...HEAD`), the source issue/card content with `Issue-Ref` and `Issue-Close` from `state.md`, the session plan (`Plan:` in `state.md`), `language`, and `commits.conventions` when the table above applies it. Without the issue and the plan the description degrades into a diff summary. Check the returned title and body against the title and body rules above before handing them to the adapter.
+When delegating, pass the agent the full diff (`git diff <git.default_branch>...HEAD`), the source issue/card content with `Issue-Ref` and `Issue-Close` from `state.md`, the session plan (`Plan:` in `state.md`), `mission.md`, `language`, and `commits.conventions` when the table above applies it. Without the issue and the plan the description degrades into a diff summary. Check the returned title and body against the title and body rules above before handing them to the adapter.
 
 Code review results are reported in the terminal only — this is your current work session, not a team review artifact.
 
@@ -774,6 +793,7 @@ Has two sections: **Items** (implementation tasks from the plan) and **Pipeline*
 ## Pipeline
 - [ ] Commit (5)
 - [ ] Test (6)
+- [ ] Criteria check (6a)
 - [ ] Implementation approval (6b)
 - [ ] Verification gate (6b2)
 - [ ] Rebase + push (6c)
@@ -912,6 +932,7 @@ Platform integrations live in `adapters/` at the plugin level, shared across ski
 | Before-merge hook changes `HEAD` 3x | Ask whether to continue (see step 7b2) |
 | Architectural decision needed | Present options, ask |
 | Missing dependency | State what's needed |
+| Criteria this session wrote, after brainstorm | Ask for approval (see step 4) |
 | No code review agents | STOP and complain |
 | Auth failure (401/403) | Token may have expired — report the error and ask for a fresh token |
 | Rate limited (429) | Wait for `Retry-After` duration (or 60s), retry once. If still limited, ask. |

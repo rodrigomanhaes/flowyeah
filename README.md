@@ -57,8 +57,8 @@ flowyeah:build from linear:PROJ-123
 2. Creates an isolated git worktree and claims the issue in the tracker
 3. Picks the first task — brainstorms approach if the task is complex
 4. Implements via TDD: write a failing test, make it pass, refactor
-5. Commits, runs the test suite, and pushes
-6. Opens a PR linking back to the issue
+5. Commits, runs the test suite, checks the diff against the success criteria, and pushes
+6. Opens a PR linking back to the issue, or carrying the criteria when there is no issue
 7. Runs code review agents in parallel and waits for CI
 8. If CI or review finds problems, fixes and re-pushes (up to 3 CI attempts before asking for help)
 9. Runs the `before_merge` hook, if configured
@@ -135,7 +135,7 @@ Skips branch creation, issue claiming, and status transitions. Reuses the existi
 
 ### Review a pull request
 
-`flowyeah:review` runs code review agents in parallel, validates requirements against the linked issue, and submits a formal review with inline comments.
+`flowyeah:review` runs code review agents in parallel, validates requirements against the linked issue or the criteria in the PR description, and submits a formal review with inline comments.
 
 ```
 flowyeah:review 42

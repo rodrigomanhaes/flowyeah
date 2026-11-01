@@ -66,13 +66,25 @@ Implement webhook retry with exponential backoff for failed deliveries.
 - Dead letter queue for permanently failed webhooks
 - Admin UI to view retry status
 
+## Changes from source
+- Dead letter queue added: the user asked for it in the conversation, support needs to see lost webhooks
+
 ## Success Criteria
+
+### From source
 - [ ] Failing webhooks are retried up to 5 times
 - [ ] Backoff is exponential with jitter
-- [ ] Permanently failed webhooks go to dead letter queue
 - [ ] Admin can see retry history
-- [ ] All tests pass, CI green
+
+### Added
+- [ ] Permanently failed webhooks go to dead letter queue
 ```
+
+- **`### From source`** holds what the source itself gives as acceptance or success criteria, such as a criteria list in an issue or a "done when..." the user dictated, copied word for word, including any that a spec cannot prove. Empty when the source gives none. A request for work ("make them retry", "fix the typo") states the task and goes in the mission line.
+- **`### Added`** holds the criteria this session wrote, including those for work the user added in the conversation. Tests passing and CI green are not criteria: steps 6 and 7b already gate them.
+- **`## Changes from source`** appears when the user's instruction departs from the source, in scope or in a criterion. The user's instruction wins: apply it and record what changed and why. A source criterion that was altered or dropped stays visible here.
+
+Step 6a marks the boxes.
 
 ### findings.md — Accumulated Knowledge (update after discoveries)
 

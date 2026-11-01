@@ -26,6 +26,7 @@ plugins/flowyeah/
 ├── tests/            # test-hooks.sh + test-consistency.sh (run in CI)
 ├── config-schema.md  # Single source of truth for flowyeah.yml schema
 ├── finding-card.md   # How a finding is shown (review + respond)
+├── requirements-check.md  # How a diff is compared with what was asked (build + review)
 ├── primary-checkout.md  # The don't-touch-the-primary invariant (build/review/respond)
 ├── worktree-lifecycle.md  # Directory naming rule + setup/teardown procedures
 ├── setup.md          # Shared interactive config creation (used by all skills)

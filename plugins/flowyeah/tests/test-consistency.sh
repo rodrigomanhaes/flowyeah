@@ -659,6 +659,36 @@ assert_contains "respond points at the shared card spec" "finding-card.md" "$RES
 assert_not_contains "review does not re-declare the card template" "Label:      " "$REVIEW_SKILL"
 assert_not_contains "respond does not re-declare the card template" "Label:      " "$RESPOND_SKILL"
 
+# ── Section: Requirements contract ──
+# Criteria travel from the source to the merge: mission.md keeps the source's
+# wording apart from what the session added, build checks the diff against them
+# before pushing, and a PR with no source issue carries them for review. The
+# three dimensions live in requirements-check.md, shared by build and review.
+
+echo ""
+echo "=== Requirements contract ==="
+
+REQUIREMENTS_CHECK="$PLUGIN_DIR/requirements-check.md"
+SESSION_FILES="$PLUGIN_DIR/skills/build/session-files.md"
+
+assert_file_exists "requirements-check.md exists" "$REQUIREMENTS_CHECK"
+assert_contains "requirements-check.md defines completeness" "**Completeness:**" "$REQUIREMENTS_CHECK"
+assert_contains "requirements-check.md defines scope" "**Scope:**" "$REQUIREMENTS_CHECK"
+assert_contains "requirements-check.md defines coherence" "**Coherence:**" "$REQUIREMENTS_CHECK"
+assert_contains "build points at the shared check" "requirements-check.md" "$BUILD_SKILL"
+assert_contains "review points at the shared check" "requirements-check.md" "$REVIEW_SKILL"
+assert_not_contains "review does not re-declare the dimensions" "**Completeness:**" "$REVIEW_SKILL"
+
+assert_contains "mission.md separates criteria copied from the source" "### From source" "$SESSION_FILES"
+assert_contains "mission.md separates criteria the session added" "### Added" "$SESSION_FILES"
+assert_contains "mission.md records departures from the source" "## Changes from source" "$SESSION_FILES"
+
+assert_contains "build checks criteria before pushing" "### 6a. Criteria Check" "$BUILD_SKILL"
+assert_contains "build lists the criteria check in the pipeline checklist" "- [ ] Criteria check (6a)" "$BUILD_SKILL"
+assert_contains "build asks approval of criteria the session wrote" "Awaiting criteria approval" "$BUILD_SKILL"
+assert_contains "build carries criteria into a PR with no source issue" "## Criteria" "$BUILD_SKILL"
+assert_contains "review reads criteria from the PR description" "## Criteria" "$REVIEW_SKILL"
+
 # ── Section: No personalization in distributed instructions ──
 # The plugin ships to arbitrary users — skill/adapter prose must not
 # hardcode a person's name (LICENSE and manifest author are fine).

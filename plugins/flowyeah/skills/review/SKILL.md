@@ -212,7 +212,9 @@ Extract issue slug from the branch name. The patterns depend on the project's is
 
 Fetch issue details using the appropriate source adapter (load `adapters/<source>/connection.md` + `adapters/<source>/source.md`).
 
-**If no issue found:** ask the user. If they say "none", skip requirements validation (step 2b).
+**If no issue found and the PR/MR description has a `## Criteria` section:** use that section as the reference for step 2b, without asking. Build writes it on PRs/MRs whose work did not start from an issue.
+
+**If neither exists:** ask the user. If they say "none", skip requirements validation (step 2b).
 
 ### 2. Gather Context
 
@@ -290,15 +292,9 @@ This list is **separate** from `unresolved_findings[]`. It does not get carried 
 
 ### 2b. Requirements Validation
 
-**Skip if no issue was found in step 1b.**
+**Skip if step 1b found neither an issue nor a `## Criteria` section.**
 
-Analyze in 3 dimensions:
-
-**Completeness:** Does the implementation cover everything the issue asks for? For each requirement/acceptance criterion in the issue, check if the diff contains corresponding implementation. Generate a finding for unimplemented requirements.
-
-**Scope:** Is there code unrelated to what the issue asks for? Compare changed files/logic against the issue's scope. Use good judgment — refactoring needed for the feature IS pertinent.
-
-**Coherence:** Does the implementation approach make sense to solve the described problem? Flag when the implementation seems to solve a different problem than what the issue describes.
+Read `requirements-check.md` at the plugin root and apply its three dimensions to the diff, with the reference from step 1b. Generate a finding for each unmet requirement.
 
 ### 3. Run Review Agents
 
@@ -567,7 +563,7 @@ No platform interaction. No re-running agents. No verification of whether findin
 ## Code Review
 
 ### Requirements Validation
-<!-- Only if issue was found -->
+<!-- Only if step 1b found a reference; with `## Criteria`, name the PR/MR description instead of an issue -->
 **Issue:** [slug](link) — "Issue title"
 
 #### Requirement Coverage
