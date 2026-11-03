@@ -1077,6 +1077,147 @@ assert_output_not_contains "inject: no shell error on zero-rejection file" "inte
 assert_output_not_contains "inject: no rejected-count line for empty ledger" "Previously rejected" "$OUTPUT"
 teardown
 
+# ── session ownership: full state only for this conversation's PRs ──
+
+echo ""
+echo "=== session-inject.sh (session ownership) ==="
+
+# Invoke the hook as Claude Code does on UserPromptSubmit, with the
+# conversation's session_id in the stdin payload.
+inject_as() {
+    printf '{"session_id":"%s","hook_event_name":"UserPromptSubmit"}' "$1" \
+        | bash "$SCRIPT_DIR/session-inject.sh" 2>&1
+}
+
+# Test: own review injected in full, another conversation's review as one line
+setup_repo
+touch flowyeah.yml
+mkdir -p .flowyeah
+cat > .flowyeah/review-state-42.md <<'EOF'
+# Current State
+
+Type: review
+Session: conv-a
+PR/MR: 42
+Branch: main
+Phase: Interactive Approval
+EOF
+cat > .flowyeah/review-approved-42.md <<'EOF'
+## Finding 1
+- File: app/models/payment.rb:42
+EOF
+cat > .flowyeah/review-state-55.md <<'EOF'
+# Current State
+
+Type: review
+Session: conv-b
+PR/MR: 55
+Branch: feat-payment
+Phase: Delegated
+EOF
+cat > .flowyeah/review-approved-55.md <<'EOF'
+## Finding 9
+- File: app/controllers/api.rb:10
+EOF
+echo "## Rejection 1" > .flowyeah/own-rejections-55.md
+OUTPUT=$(inject_as conv-a)
+assert_output_contains "ownership: own review state in full" "PR/MR: 42" "$OUTPUT"
+assert_output_contains "ownership: own review findings" "app/models/payment.rb:42" "$OUTPUT"
+assert_output_not_contains "ownership: other review state not dumped" "PR/MR: 55" "$OUTPUT"
+assert_output_not_contains "ownership: other review findings not dumped" "app/controllers/api.rb:10" "$OUTPUT"
+assert_output_not_contains "ownership: other review rejections not counted" "Previously rejected" "$OUTPUT"
+assert_output_contains "ownership: other review listed in one line" "review PR #55 (branch feat-payment, phase Delegated) → .flowyeah/review-state-55.md" "$OUTPUT"
+teardown
+
+# Test: state file without Session: belongs to no conversation
+setup_repo
+touch flowyeah.yml
+mkdir -p .flowyeah
+cat > .flowyeah/review-state-42.md <<'EOF'
+# Current State
+
+Type: review
+PR/MR: 42
+Branch: main
+Phase: Delegated
+EOF
+OUTPUT=$(inject_as conv-a)
+assert_output_not_contains "ownership: unowned review not dumped" "## STATE" "$OUTPUT"
+assert_output_contains "ownership: unowned review listed" "review PR #42 (branch main, phase Delegated) → .flowyeah/review-state-42.md" "$OUTPUT"
+teardown
+
+# Test: respond sessions follow the same ownership rule
+setup_repo
+touch flowyeah.yml
+mkdir -p .flowyeah
+cat > .flowyeah/respond-state-55.md <<'EOF'
+# Current State
+
+Type: respond
+Session: conv-a
+PR/MR: 55
+Branch: feat-payment
+Phase: Implementing
+EOF
+cat > .flowyeah/respond-decisions-55.md <<'EOF'
+## Comment 1
+- File: app/models/payment.rb:42
+- Action: implement
+EOF
+cat > .flowyeah/respond-state-77.md <<'EOF'
+# Current State
+
+Type: respond
+Session: conv-b
+PR/MR: 77
+Branch: fix-auth
+Phase: Interactive Triage
+EOF
+cat > .flowyeah/respond-decisions-77.md <<'EOF'
+## Comment 4
+- File: app/controllers/auth.rb:7
+- Action: reject
+EOF
+OUTPUT=$(inject_as conv-a)
+assert_output_contains "ownership: own respond state in full" "PR/MR: 55" "$OUTPUT"
+assert_output_contains "ownership: own respond decisions" "app/models/payment.rb:42" "$OUTPUT"
+assert_output_not_contains "ownership: other respond state not dumped" "PR/MR: 77" "$OUTPUT"
+assert_output_not_contains "ownership: other respond decisions not dumped" "app/controllers/auth.rb:7" "$OUTPUT"
+assert_output_contains "ownership: other respond listed in one line" "respond PR #77 (branch fix-auth, phase Interactive Triage) → .flowyeah/respond-state-77.md" "$OUTPUT"
+teardown
+
+# Test: only other conversations' sessions → no full block at all
+setup_repo
+touch flowyeah.yml
+mkdir -p .flowyeah
+cat > .flowyeah/review-state-42.md <<'EOF'
+Type: review
+Session: conv-b
+PR/MR: 42
+Branch: main
+Phase: Fixing
+EOF
+OUTPUT=$(inject_as conv-a)
+assert_output_not_contains "ownership: no full review block for foreign-only" "flowyeah:review session" "$OUTPUT"
+assert_output_contains "ownership: foreign-only still listed" "review PR #42" "$OUTPUT"
+teardown
+
+# Test: payload without session_id falls back to injecting every session
+setup_repo
+touch flowyeah.yml
+mkdir -p .flowyeah
+cat > .flowyeah/review-state-42.md <<'EOF'
+Type: review
+Session: conv-b
+PR/MR: 42
+Branch: main
+EOF
+OUTPUT=$(printf '{"hook_event_name":"UserPromptSubmit"}' | bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+assert_output_contains "ownership: no session_id injects in full" "PR/MR: 42" "$OUTPUT"
+OUTPUT=$(printf 'not json' | bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+assert_output_contains "ownership: unparsable payload injects in full" "PR/MR: 42" "$OUTPUT"
+teardown
+
 # ── tree-guard.sh tests ────────────────────────────────
 
 echo ""

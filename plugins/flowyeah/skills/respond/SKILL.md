@@ -106,6 +106,7 @@ Create `.flowyeah/respond-state-{N}.md` for compaction resilience:
 # Current State
 
 Type: respond
+Session: <value of $CLAUDE_CODE_SESSION_ID>
 Status: Responding
 PR/MR: <number>
 Branch: <source_branch>
@@ -116,7 +117,9 @@ Worktree: <path of the worktree resolved at step 5, or "none">
 WorktreeOwned: <true if respond created it, false if it already existed>
 ```
 
-`<slug>` is the branch name with `/` flattened to `-` (see `worktree-lifecycle.md`, Directory Naming) — build worktrees follow the same rule, so branch `feat/5588` maps to `feat-5588` regardless of which skill created it. `Worktree` defaults to `none` and is set by step 5 when the worktree is resolved (created or reused). `WorktreeOwned` records whether respond created the worktree itself — only owned worktrees are torn down in step 10 (normal mode); reused worktrees are left alone. Both fields are cleared back to `none`/`false` once cleanup completes. The hook injects them as-is on every prompt so context recovery can verify worktree state.
+`<slug>` is the branch name with `/` flattened to `-` (see `worktree-lifecycle.md`, Directory Naming) — build worktrees follow the same rule, so branch `feat/5588` maps to `feat-5588` regardless of which skill created it. `Worktree` defaults to `none` and is set by step 5 when the worktree is resolved (created or reused). `WorktreeOwned` records whether respond created the worktree itself — only owned worktrees are torn down in step 10 (normal mode); reused worktrees are left alone. Both fields are cleared back to `none`/`false` once cleanup completes. The hook injects them as-is on every prompt of the owning conversation so context recovery can verify worktree state.
+
+`Session` names the conversation driving this respond: read it with `echo "$CLAUDE_CODE_SESSION_ID"`. Write it when creating the file, and rewrite it whenever this skill is invoked on an existing `respond-state-{N}.md`. The hook injects the full state and triage decisions only into the conversation whose session id matches; other conversations get one line. In `--own` mode, updating `review-state-{N}.md` (step 10) leaves that file's `Session:` alone.
 
 **Valid `Phase` values** (map to steps, used for crash recovery):
 

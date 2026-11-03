@@ -89,6 +89,7 @@ Create `.flowyeah/review-state-{N}.md` for compaction resilience:
 # Current State
 
 Type: review
+Session: <value of $CLAUDE_CODE_SESSION_ID>
 Mode: <own or absent>
 Status: Reviewing
 PR/MR: <number>
@@ -101,11 +102,13 @@ Phase: <current_phase>
 Worktree: <relative path under .flowyeah/review-worktrees/{N}/ or "none">
 ```
 
+`Session` names the conversation driving this review: read it with `echo "$CLAUDE_CODE_SESSION_ID"`. Write it when creating the file, and rewrite it whenever this skill is invoked on an existing `review-state-{N}.md`, so a review resumed in a new conversation moves with it. The hook injects the full state, approved findings, and rejection count only into the conversation whose session id matches; every other conversation in the checkout gets one line naming the PR, phase, and state file.
+
 `Mode` is absent for normal reviews. The hook does not interpret this field — it dumps the state file as raw text. The skill's crash recovery logic reads `Mode` to decide which path to follow on resume.
 
 `Round` is the number of this review of the PR/MR by the authenticated user, counting from 1, set in step 2 (item 8).
 
-`Worktree` defaults to `none`. When the skill creates a review worktree (see "Invariant: Primary Checkout Is Untouched"), update this field to the path immediately and clear it back to `none` once the worktree is removed. The hook injects this field as-is on every prompt so context recovery can verify worktree state.
+`Worktree` defaults to `none`. When the skill creates a review worktree (see "Invariant: Primary Checkout Is Untouched"), update this field to the path immediately and clear it back to `none` once the worktree is removed. The hook injects this field as-is on every prompt of the owning conversation so context recovery can verify worktree state.
 
 **Valid `Phase` values** (map to steps, used for crash recovery):
 
@@ -154,7 +157,7 @@ No `mission.md`, `progress.md`, or full `findings.md` — reviews are short-live
 
 If a review session is interrupted (compaction, crash, user abort):
 
-1. The hook injects `review-state-{N}.md` into the next prompt
+1. The hook injects `review-state-{N}.md` into the next prompt of the conversation recorded in `Session:`
 2. Resume from the last recorded phase
 3. If the phase was before "Interactive Approval" (step 5), re-run from that phase
 4. If during or after approval, read `review-approved-{N}.md` to recover previously approved findings and skip re-presenting them

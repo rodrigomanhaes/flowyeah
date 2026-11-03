@@ -22,6 +22,30 @@ session_header_suffix() {
     echo "$suffix"
 }
 
+# Claude Code sends the conversation's session_id in the UserPromptSubmit
+# payload; review and respond record theirs in the state file's Session: line.
+# Without a session_id (no payload, no jq) every session is injected in full.
+CURRENT_SESSION=""
+if [ ! -t 0 ] && command -v jq >/dev/null 2>&1; then
+    CURRENT_SESSION=$(jq -r '.session_id // empty' 2>/dev/null || true)
+fi
+
+OTHER_SESSIONS=()
+
+# True when the state file belongs to this conversation. Otherwise records a
+# one-line pointer for the "other conversations" list.
+# Args: $1 = state file, $2 = kind ("review" or "respond"), $3 = PR number
+owned_or_listed() {
+    local state_file="$1" kind="$2" number="$3" owner branch phase
+    [ -n "$CURRENT_SESSION" ] || return 0
+    owner=$(grep -m1 '^Session:' "$state_file" 2>/dev/null | cut -d' ' -f2- || true)
+    [ "$owner" = "$CURRENT_SESSION" ] && return 0
+    branch=$(grep -m1 '^Branch:' "$state_file" 2>/dev/null | cut -d' ' -f2- || true)
+    phase=$(grep -m1 '^Phase:' "$state_file" 2>/dev/null | cut -d' ' -f2- || true)
+    OTHER_SESSIONS+=("${kind} PR #${number} (branch ${branch:-unknown}, phase ${phase:-unknown}) → ${state_file#"$TOPLEVEL"/}")
+    return 1
+}
+
 # ── Review sessions (one entry per active PR; PR-labeled headers) ──
 shopt -s nullglob
 REVIEW_STATE_FILES=("$TOPLEVEL"/.flowyeah/review-state-*.md)
@@ -30,6 +54,7 @@ shopt -u nullglob
 for state_file in "${REVIEW_STATE_FILES[@]}"; do
     number="${state_file##*review-state-}"
     number="${number%.md}"
+    owned_or_listed "$state_file" review "$number" || continue
     suffix=$(session_header_suffix "$state_file" "review-state-")
 
     echo "───── flowyeah:review session ${suffix} ─────"
@@ -67,6 +92,7 @@ shopt -u nullglob
 for state_file in "${RESPOND_STATE_FILES[@]}"; do
     number="${state_file##*respond-state-}"
     number="${number%.md}"
+    owned_or_listed "$state_file" respond "$number" || continue
     suffix=$(session_header_suffix "$state_file" "respond-state-")
 
     echo "───── flowyeah:respond session ${suffix} ─────"
@@ -84,6 +110,18 @@ for state_file in "${RESPOND_STATE_FILES[@]}"; do
     echo "──────────────────────────────────────────────"
     echo ""
 done
+
+if [ ${#OTHER_SESSIONS[@]} -gt 0 ]; then
+    echo "───── flowyeah: review/respond sessions of other conversations ─────"
+    echo ""
+    for entry in "${OTHER_SESSIONS[@]}"; do
+        echo "  - $entry"
+    done
+    echo ""
+    echo "Read the state file before acting on one of these PRs."
+    echo "──────────────────────────────────────────────"
+    echo ""
+fi
 
 # ── Build session: either in current worktree or scan .flowyeah/worktrees/ ──
 SESSION_DIR=""
