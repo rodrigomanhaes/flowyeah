@@ -94,7 +94,7 @@ The respond adapter is determined from `git_host` in `flowyeah.yml`:
 | `github` | `adapters/github/respond.md` |
 | `gitlab` | `adapters/gitlab/respond.md` |
 
-Load the respond adapter once at the start. **If the git host adapter has no `respond.md`, STOP** — that adapter doesn't support review responses. All platform-specific operations (fetch comments and remarks, reply, resolve, acknowledge, re-request) go through the adapter.
+Load the respond adapter once at the start. **If the git host adapter has no `respond.md`, STOP** — that adapter doesn't support review responses. All platform-specific operations (fetch comments and remarks, reply, resolve, acknowledge, re-request) go through the adapter. Identifying the PR/MR is the one exception: step 1 reuses the review adapter, which already returns the web URL.
 
 ## Session (Lightweight)
 
@@ -111,6 +111,7 @@ Status: Responding
 PR/MR: <number>
 Branch: <source_branch>
 Platform: <adapter>
+URL: <web URL from step 1>
 Comments: <count> total
 Phase: <current_phase>
 Worktree: <path of the worktree resolved at step 5, or "none">
@@ -248,9 +249,9 @@ If validation fails, STOP with actionable error messages.
 
 ### 1. Identify PR/MR
 
-If `<number>` is provided, use it. Otherwise, detect from current branch via the respond adapter.
+If `<number>` is provided, use it. Otherwise, detect from current branch. Either way, fetch the PR/MR with the "Identify the PR" section of `adapters/<git_host>/review.md` ("Identify the MR" on GitLab).
 
-Display PR/MR summary: title, author, branch, review state.
+Display PR/MR summary: title, author, branch, review state. Record the web URL the adapter returns (`url` on GitHub, `web_url` on GitLab) in the state file's `URL:` field.
 
 ### 1.5 `--own` Mode Preflight
 
@@ -397,6 +398,8 @@ Present findings from the step 2.5 actionable group one at a time (praise-ack it
 **MANDATORY: one finding per prompt.** Do not collapse multiple findings into a single review memo, table, or batch approval form. Each finding gets its own prompt with its own `[d]/[i]/[r]` action. Persist the decision, then advance to the next finding. The one exception is the prompt for remarks that ask for nothing, below.
 
 **Render before you ask.** The action prompt for a finding — whether the `[d]/[i]/[r]` text menu or a question-tool call — may only be issued in a response whose own visible message text already contains that finding's card and critique blocks. Before asking, check your output for the `═══` card header and for the code fence wrapping it; if either is missing, render the card first. A decision prompt without the card on screen asks the user to judge a finding they cannot see.
+
+**Link above each card.** Right above every card, and above the block of remarks that ask for nothing, go two lines: `PR #{N}: {title}` (`MR !{N}` on GitLab), then the web URL from the state file's `URL:` field, so the user can open the diff while judging the finding. Findings come one per message, so a link shown only once scrolls away by the third card. Print the URL bare, outside the code fence, where the terminal makes it clickable. This applies on every presentation, including a re-presentation after crash recovery.
 
 #### Anti-pattern (do not do this)
 

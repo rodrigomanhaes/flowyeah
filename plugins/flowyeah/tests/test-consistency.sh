@@ -641,6 +641,12 @@ assert_contains "respond step 4 renders cards before asking" "Render before you 
 assert_contains "respond step 4 acknowledges remarks that ask for nothing in one prompt" "[a] acknowledge all  [t] triage one by one" "$RESPOND_SKILL"
 assert_contains "review step 5 links the PR/MR above the cards" "Link before the cards" "$REVIEW_SKILL"
 assert_contains "review state file keeps the PR/MR URL for recovery" "URL: <web URL" "$REVIEW_SKILL"
+assert_contains "respond step 4 links the PR/MR above each card" "Link above each card" "$RESPOND_SKILL"
+assert_contains "respond state file keeps the PR/MR URL for recovery" "URL: <web URL" "$RESPOND_SKILL"
+# Respond takes the URL from the review adapter's Identify section.
+assert_contains "respond identifies the PR/MR through the review adapter" 'the "Identify the PR" section of `adapters/<git_host>/review.md`' "$RESPOND_SKILL"
+assert_contains "github review adapter returns the PR url" "headRefName,baseRefName,url," "$PLUGIN_DIR/adapters/github/review.md"
+assert_contains "gitlab review adapter returns the MR web_url" "target_branch, web_url," "$PLUGIN_DIR/adapters/gitlab/review.md"
 assert_contains "review state file records the round number" "Round: <n>" "$REVIEW_SKILL"
 assert_contains "review counts rounds from own discussion timestamps" "more than 30 minutes" "$REVIEW_SKILL"
 assert_contains "review --own carries the round across overwrites" "previous file's \`Round:\` plus 1" "$REVIEW_SKILL"
