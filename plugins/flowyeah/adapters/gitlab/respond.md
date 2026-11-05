@@ -12,14 +12,15 @@ Get all unresolved, resolvable discussion threads on the MR. Captures the first 
 TOKEN=$(grep "^<token_env>=" <token_source> | cut -d= -f2- | tr -d '"') && \
 curl -s -H "Authorization: Bearer $TOKEN" \
   "<url>/api/v4/projects/<project_id>/merge_requests/<iid>/discussions?per_page=100" | \
-  jq '[.[] | select(.notes[0].resolvable == true and .notes[0].resolved == false) |
+  jq --arg mr_url "<web_url of the MR>" '[.[] | select(.notes[0].resolvable == true and .notes[0].resolved == false) |
    {
      discussion_id: .id,
      author: .notes[0].author.username,
      body: .notes[0].body,
      file: (.notes[0].position.new_path // null),
      line: (.notes[0].position.new_line // null),
-     created_at: .notes[0].created_at
+     created_at: .notes[0].created_at,
+     url: ($mr_url + "#note_" + (.notes[0].id | tostring))
    }]'
 ```
 
@@ -35,6 +36,7 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 | `file` | File path (null for general comments) |
 | `line` | Line number on the new side (null for general comments) |
 | `created_at` | Timestamp for ordering |
+| `url` | Link to the note, shown above its card. The REST note has no URL; GitLab's own note URL is the MR's `web_url` plus `#note_<id>` |
 
 **Parsing Conventional Comments:** Extract structured data from the body:
 

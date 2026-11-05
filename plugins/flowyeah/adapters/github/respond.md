@@ -32,6 +32,7 @@ gh api graphql -f query='
                 path
                 line
                 createdAt
+                url
               }
             }
           }
@@ -48,7 +49,8 @@ gh api graphql -f query='
      body: .comments.nodes[0].body,
      file: .comments.nodes[0].path,
      line: .comments.nodes[0].line,
-     created_at: .comments.nodes[0].createdAt
+     created_at: .comments.nodes[0].createdAt,
+     url: .comments.nodes[0].url
    }]'
 ```
 
@@ -65,6 +67,7 @@ gh api graphql -f query='
 | `file` | File path (null for general comments) |
 | `line` | Line number (null for general comments) |
 | `created_at` | Timestamp for ordering |
+| `url` | Link to the comment, shown above its card |
 
 **Parsing Conventional Comments:** Extract structured data from the body:
 

@@ -297,6 +297,7 @@ Via the respond adapter, fetch all unresolved review comments/threads. For each 
 - Comment body (raw text)
 - File path + line (if inline)
 - Thread ID (for replying/resolving)
+- Link: the adapter's `url`
 - Conventional Comment parsed fields (if format matches)
 - Review state of reviewer's most recent review
 
@@ -399,7 +400,7 @@ Present findings from the step 2.5 actionable group one at a time (praise-ack it
 
 **Render before you ask.** The action prompt for a finding — whether the `[d]/[i]/[r]` text menu or a question-tool call — may only be issued in a response whose own visible message text already contains that finding's card and critique blocks. Before asking, check your output for the `═══` card header and for the code fence wrapping it; if either is missing, render the card first. A decision prompt without the card on screen asks the user to judge a finding they cannot see.
 
-**Link above each card.** Right above every card, and above the block of remarks that ask for nothing, go two lines: `PR #{N}: {title}` (`MR !{N}` on GitLab), then the web URL from the state file's `URL:` field, so the user can open the diff while judging the finding. Findings come one per message, so a link shown only once scrolls away by the third card. Print the URL bare, outside the code fence, where the terminal makes it clickable. This applies on every presentation, including a re-presentation after crash recovery.
+**Link above each card.** Right above every card, and above the block of remarks that ask for nothing, go two lines: `PR #{N}: {title}` (`MR !{N}` on GitLab), then the web URL from the state file's `URL:` field, so the user can open the diff while judging the finding. When the item has a link (a thread comment or a remark outside a thread), a third line follows: `Comment: <url>`, so the user can open the conversation itself. Findings from `--own` have no link and skip it. Findings come one per message, so a link shown only once scrolls away by the third card. Print the URL bare, outside the code fence, where the terminal makes it clickable. This applies on every presentation, including a re-presentation after crash recovery.
 
 #### Anti-pattern (do not do this)
 

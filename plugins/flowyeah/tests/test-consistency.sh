@@ -647,6 +647,10 @@ assert_contains "respond state file keeps the PR/MR URL for recovery" "URL: <web
 assert_contains "respond identifies the PR/MR through the review adapter" 'the "Identify the PR" section of `adapters/<git_host>/review.md`' "$RESPOND_SKILL"
 assert_contains "github review adapter returns the PR url" "headRefName,baseRefName,url," "$PLUGIN_DIR/adapters/github/review.md"
 assert_contains "gitlab review adapter returns the MR web_url" "target_branch, web_url," "$PLUGIN_DIR/adapters/gitlab/review.md"
+# Each thread comment carries its own link, shown above its card.
+assert_contains "github respond adapter returns each thread comment url" "url: .comments.nodes[0].url" "$PLUGIN_DIR/adapters/github/respond.md"
+assert_contains "gitlab respond adapter builds each discussion note url" '($mr_url + "#note_" + (.notes[0].id | tostring))' "$PLUGIN_DIR/adapters/gitlab/respond.md"
+assert_contains "respond step 4 links the comment above its card" "Comment: <url>" "$RESPOND_SKILL"
 assert_contains "review state file records the round number" "Round: <n>" "$REVIEW_SKILL"
 assert_contains "review counts rounds from own discussion timestamps" "more than 30 minutes" "$REVIEW_SKILL"
 assert_contains "review --own carries the round across overwrites" "previous file's \`Round:\` plus 1" "$REVIEW_SKILL"
