@@ -1,0 +1,101 @@
+#!/usr/bin/env -S python3 -I
+# ABOUTME: Prints the hunks of a PR/MR that its author changed between two reviewed heads, rebase included.
+# ABOUTME: flowyeah:review feeds the output to its agents from round 2 on; exit 3 means "use the full diff".
+"""usage: review-delta <old_sha> <new_sha> <target_branch>
+
+Compares the PR patch at each head (the diff from its merge base with
+origin/<target_branch>) file by file, with zero context and without line
+numbers, so a rebase that only moved the target branch yields nothing.
+Prints, for each file, the hunks of the current patch (normal context) that
+overlap a hunk the author changed. Empty output means the author changed
+nothing. Files that left the PR print nothing.
+
+Exit codes: 0 target printed (possibly empty), 2 usage, 3 a head is not
+available even after fetching it from origin.
+"""
+
+import collections
+import re
+import subprocess
+import sys
+
+HUNK_HEADER = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
+
+
+def git(*args, check=True):
+    result = subprocess.run(["git", *args], capture_output=True, text=True)
+    if check and result.returncode != 0:
+        sys.exit(f"review-delta: git {' '.join(args)} failed: {result.stderr.strip()}")
+    return result
+
+
+def ensure_commit(sha):
+    """Fetch an unreachable head by SHA when it is not local; GitHub and GitLab serve those."""
+    if git("cat-file", "-e", f"{sha}^{{commit}}", check=False).returncode == 0:
+        return True
+    git("fetch", "-q", "--no-write-fetch-head", "origin", sha, check=False)
+    return git("cat-file", "-e", f"{sha}^{{commit}}", check=False).returncode == 0
+
+
+def split_hunks(patch):
+    """Return the file header lines and a list of hunks, each a list of lines starting at '@@'."""
+    header, hunks = [], []
+    for line in patch.splitlines():
+        if line.startswith("@@"):
+            hunks.append([line])
+        elif hunks:
+            hunks[-1].append(line)
+        elif not line.startswith("index "):
+            header.append(line)
+    return header, hunks
+
+
+def new_side_range(hunk):
+    match = HUNK_HEADER.match(hunk[0])
+    start = int(match.group(1))
+    length = 1 if match.group(2) is None else int(match.group(2))
+    return start, start + max(length, 1) - 1
+
+
+def changed_ranges(old_patch, new_patch):
+    """New-side line ranges of the zero-context hunks of new_patch absent from old_patch."""
+    _, old_hunks = split_hunks(old_patch)
+    _, new_hunks = split_hunks(new_patch)
+    unmatched = collections.Counter(tuple(h[1:]) for h in old_hunks)
+    ranges = []
+    for hunk in new_hunks:
+        key = tuple(hunk[1:])
+        if unmatched[key] > 0:
+            unmatched[key] -= 1
+        else:
+            ranges.append(new_side_range(hunk))
+    return ranges
+
+
+def main(argv):
+    if len(argv) != 3:
+        print(__doc__.splitlines()[0], file=sys.stderr)
+        return 2
+    old, new, target = argv
+    git("fetch", "-q", "origin", target, check=False)
+    for sha in (old, new):
+        if not ensure_commit(sha):
+            print(f"review-delta: commit {sha} is not available locally or on origin", file=sys.stderr)
+            return 3
+    base = {sha: git("merge-base", f"origin/{target}", sha).stdout.strip() for sha in (old, new)}
+    new_files = set(filter(None, git("diff", "--name-only", "-z", base[new], new).stdout.split("\0")))
+
+    for path in sorted(new_files):
+        zero = {sha: git("diff", "-U0", base[sha], sha, "--", path).stdout for sha in (old, new)}
+        ranges = changed_ranges(zero[old], zero[new])
+        if not ranges:
+            continue
+        header, hunks = split_hunks(git("diff", base[new], new, "--", path).stdout)
+        selected = [h for h in hunks
+                    if any(lo <= r_hi and r_lo <= hi for lo, hi in [new_side_range(h)] for r_lo, r_hi in ranges)]
+        print("\n".join(header + [line for h in selected for line in h]))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

@@ -15,6 +15,15 @@ jobs:
       - name: Run hook tests
         run: bash plugins/flowyeah/tests/test-hooks.sh
 
+  review-delta:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure git identity for test repos
+        run: git config --global user.email "ci@test" && git config --global user.name "CI"
+      - name: Run review-delta tests
+        run: bash plugins/flowyeah/tests/test-review-delta.sh
+
   consistency:
     runs-on: ubuntu-latest
     steps:

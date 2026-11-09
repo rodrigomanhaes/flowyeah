@@ -22,8 +22,9 @@ plugins/flowyeah/
 │   ├── newrelic/     # connection, source
 │   └── ghactions/    # connection, source
 ├── adapters/_shared/ # Rules that apply across all adapters (write-safety)
+├── bin/              # review-delta: hunks an author changed between two reviewed heads
 ├── hooks/            # Claude Code hooks for session persistence
-├── tests/            # test-hooks.sh + test-consistency.sh (run in CI)
+├── tests/            # test-hooks.sh, test-consistency.sh, test-review-delta.sh (run in CI)
 ├── config-schema.md  # Single source of truth for flowyeah.yml schema
 ├── finding-card.md   # How a finding is shown (review + respond)
 ├── requirements-check.md  # How a diff is compared with what was asked (build + review)
@@ -49,9 +50,10 @@ When editing plugin files (skills, adapters, hooks, config schema), always edit 
 ```bash
 bash plugins/flowyeah/tests/test-hooks.sh          # hooks, tree-guard, bump-version (needs jq)
 bash plugins/flowyeah/tests/test-consistency.sh    # cross-file consistency: schema↔skills↔README, adapter templates
+bash plugins/flowyeah/tests/test-review-delta.sh   # bin/review-delta against toy repos with a bare origin (needs python3)
 ```
 
-Tests run in isolated temp git repos; jq is required (the suite fails, not skips, without it). CI is GitHub Actions (`.github/workflows/test.yml`), running both suites on every push to main and every PR.
+Tests run in isolated temp git repos; jq is required (the suite fails, not skips, without it). CI is GitHub Actions (`.github/workflows/test.yml`), running the three suites on every push to main and every PR.
 
 ## Hook Internals
 
