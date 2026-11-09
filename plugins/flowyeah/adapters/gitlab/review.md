@@ -125,6 +125,20 @@ Example: **issue (blocking):** Race condition na criação de pagamento
 
 If the body does not match Conventional Comments format, skip it (likely a manual comment, not a structured review finding).
 
+## Fetch Reviewed Head
+
+Return the head SHA the authenticated user's most recent flowyeah review round covered, read from the hidden marker `<!-- flowyeah:reviewed-head <sha> -->` that the summary note (Submit Formal Review, Step 4) carries. Empty output means no round left a marker.
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" \
+  "<url>/api/v4/projects/<project_id>/merge_requests/<iid>/notes?sort=desc&order_by=created_at&per_page=100&page=<n>" | \
+  jq -r --arg user "$CURRENT_USER" '
+    [.[] | select(.author.username == $user and .system == false)
+     | .body | capture("<!-- flowyeah:reviewed-head (?<sha>[0-9a-f]{40}) -->") | .sha][0] // empty'
+```
+
+`CURRENT_USER` and `TOKEN` come from Fetch Own Discussions, Step 1. Notes come newest first: start at `page=1` and stop at the first page that prints a SHA, or at a page with fewer than `per_page` notes. The `position.head_sha` of inline notes is not used: GitLab rewrites it as the MR advances, so notes posted in one round end up pointing at different heads.
+
 ## Search Recent Merged MR Feedback
 
 Find review comments from recently merged MRs that touched the same files. GitLab's MR list cannot filter by file, so bound the work: list the 20 most recent merged MRs, check the diffs of the few whose titles look related, and stop there — degrade gracefully rather than fetching every MR's diff:

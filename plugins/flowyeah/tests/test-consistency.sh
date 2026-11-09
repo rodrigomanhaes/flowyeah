@@ -781,6 +781,16 @@ echo "=== Incremental re-review ==="
 
 assert_dir_in_list "README example has code_review.incremental" "code_review.incremental" "$(yaml_key_paths "$README" '^## Project Configuration')"
 
+for adapter in "$GH_ADAPTER" "$GL_ADAPTER"; do
+    assert_contains "$(basename "$adapter") review.md fetches the reviewed head" "## Fetch Reviewed Head" "$adapter/review.md"
+    assert_contains "$(basename "$adapter") review.md reads the marker" "flowyeah:reviewed-head" "$adapter/review.md"
+done
+# Thread replies create empty-body reviews whose commit_id is the head at reply time.
+assert_contains "GitHub reviewed head ignores reviews without the marker" "empty body" "$GH_ADAPTER/review.md"
+# GitLab rewrites position.head_sha of old notes as the MR advances.
+assert_contains "GitLab reviewed head does not trust position.head_sha" "rewrites" "$GL_ADAPTER/review.md"
+assert_contains "GitHub Fetch PR reports the head SHA" "headRefOid" "$GH_ADAPTER/review.md"
+
 # ── Results ──────────────────────────────────────────────
 
 echo ""

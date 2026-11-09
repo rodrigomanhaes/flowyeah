@@ -9,13 +9,13 @@ Fetches pull request details and submits formal code reviews with inline comment
 **From a PR number:**
 
 ```bash
-gh pr view <number> --json number,title,state,headRefName,baseRefName,url,author,additions,deletions,changedFiles,isDraft
+gh pr view <number> --json number,title,state,headRefName,headRefOid,baseRefName,url,author,additions,deletions,changedFiles,isDraft
 ```
 
 **From the current branch:**
 
 ```bash
-gh pr view --json number,title,state,headRefName,baseRefName,url,author,additions,deletions,changedFiles,isDraft
+gh pr view --json number,title,state,headRefName,headRefOid,baseRefName,url,author,additions,deletions,changedFiles,isDraft
 ```
 
 ## Fetch Diff
@@ -133,6 +133,22 @@ Example: **issue (blocking):** Race condition na criação de pagamento
 ```
 
 If the body does not match Conventional Comments format, skip it (likely a manual comment, not a structured review finding).
+
+## Fetch Reviewed Head
+
+Return the head SHA the authenticated user's most recent flowyeah review round covered, read from the hidden marker `<!-- flowyeah:reviewed-head <sha> -->` that the review body carries. Empty output means no round left a marker.
+
+```bash
+REPO=$(gh repo view --json owner,name --jq '"\(.owner.login)/\(.name)"')
+
+gh api --paginate "repos/${REPO}/pulls/<number>/reviews" \
+  --jq ".[] | select(.user.login == \"$CURRENT_USER\")
+        | (.body | capture(\"<!-- flowyeah:reviewed-head (?<sha>[0-9a-f]{40}) -->\")) as \$m
+        | [.submitted_at, \$m.sha] | @tsv" \
+  | sort | tail -1 | cut -f2
+```
+
+`CURRENT_USER` comes from Fetch Own Discussions, Step 1. Only reviews that carry the marker count. The review's own `commit_id` is not used: a reply in a review thread creates a review with an empty body whose `commit_id` is the head at reply time, a head no round reviewed.
 
 ## Search Recent Merged PR Feedback
 
