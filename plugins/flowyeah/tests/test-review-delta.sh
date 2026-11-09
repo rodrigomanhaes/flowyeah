@@ -185,7 +185,8 @@ test_file_left_pr() {
     new=$(commit_push "pr round 2")
     run_delta "$old" "$new" main
     assert_eq "file left PR: exit 0" 0 "$CODE"
-    assert_not_contains "file left PR: B not in target" "B.txt" "$OUT"
+    assert_eq "file left PR: only the undone section" "# undone since" "$(printf '%s\n' "$OUT" | head -1 | cut -c1-14)"
+    assert_contains "file left PR: B listed as undone" "+B50 pr" "$OUT"
     teardown
 }
 
@@ -211,6 +212,128 @@ test_author_changes_mode() {
     run_delta "$old" "$new" main
     assert_contains "mode change: file in target" "+++ b/A.txt" "$OUT"
     assert_contains "mode change: the new mode" "new mode 100755" "$OUT"
+    teardown
+}
+
+test_author_reverts_part_of_round_1() {
+    setup_repo
+    local old new
+    git checkout -q -b pr
+    edit_line B.txt B50 "B50 pr"; edit_line B.txt B70 "B70 pr"
+    old=$(commit_push "pr round 1")
+    edit_line B.txt "B70 pr" B70
+    new=$(commit_push "pr round 2")
+    run_delta "$old" "$new" main
+    assert_eq "partial revert: exit 0" 0 "$CODE"
+    assert_contains "partial revert: names what was undone" "undone since" "$OUT"
+    assert_contains "partial revert: the undone line" "+B70 pr" "$OUT"
+    assert_not_contains "partial revert: kept line left out" "B50 pr" "$OUT"
+    teardown
+}
+
+test_file_removed_from_pr() {
+    setup_repo
+    local old new
+    git checkout -q -b pr
+    printf 'helper\n' > E.txt && git add E.txt
+    edit_line A.txt A50 "A50 calls E"
+    old=$(commit_push "pr round 1")
+    git rm -q E.txt
+    new=$(commit_push "pr round 2")
+    run_delta "$old" "$new" main
+    assert_contains "removed file: names what was undone" "undone since" "$OUT"
+    assert_contains "removed file: the file" "E.txt" "$OUT"
+    teardown
+}
+
+test_non_utf8_content() {
+    setup_repo
+    local old new
+    old=$(open_pr)
+    printf 'caf\xe9\n' >> B.txt
+    new=$(commit_push "pr round 2")
+    run_delta "$old" "$new" main
+    assert_eq "latin-1 content: exit 0" 0 "$CODE"
+    assert_contains "latin-1 content: B in target" "+++ b/B.txt" "$OUT"
+    teardown
+}
+
+test_renamed_file_clean_rebase() {
+    setup_repo
+    local old new
+    git checkout -q -b pr
+    git mv A.txt Z.txt && edit_line Z.txt A50 "A50 pr"
+    old=$(commit_push "pr round 1")
+    git checkout -q main
+    edit_line A.txt A10 "A10 main"
+    git commit -qam "main moves" && git push -q origin main
+    git checkout -q pr && git rebase -q main
+    git push -q -f origin pr 2>/dev/null
+    new=$(git rev-parse HEAD)
+    run_delta "$old" "$new" main
+    assert_eq "renamed file, clean rebase: empty target" "" "$OUT"
+    teardown
+}
+
+test_author_deletes_first_line() {
+    setup_repo
+    local old new
+    old=$(open_pr)
+    sed -i '1d' C.txt
+    new=$(commit_push "pr round 2")
+    run_delta "$old" "$new" main
+    assert_contains "first line deleted: the removal" "-C1" "$OUT"
+    teardown
+}
+
+test_glob_characters_in_names() {
+    setup_repo
+    local old new
+    git checkout -q -b pr
+    printf 'x1\n' > '[i].txt'; printf 'y1\n' > i.txt; git add .
+    old=$(commit_push "pr round 1")
+    printf 'x2\n' >> '[i].txt'
+    new=$(commit_push "pr round 2")
+    run_delta "$old" "$new" main
+    assert_contains "glob name: the changed file" "+x2" "$OUT"
+    assert_not_contains "glob name: the look-alike left out" "+y1" "$OUT"
+    teardown
+}
+
+test_user_git_config_ignored() {
+    setup_repo
+    local old new
+    old=$(open_pr)
+    move_main_and_rebase
+    edit_line B.txt "B50 pr" "B50 pr v2"
+    new=$(commit_push "pr round 2")
+    git config color.ui always
+    git config diff.interHunkContext 5
+    run_delta "$old" "$new" main
+    assert_contains "user config: author line" "+B50 pr v2" "$OUT"
+    assert_not_contains "user config: no color codes" $'\e[' "$OUT"
+    assert_not_contains "user config: C still left out" "C.txt" "$OUT"
+    teardown
+}
+
+# Two PR hunks four lines apart; main edits a line between them. With
+# diff.interHunkContext the zero-context hunks merge and main's edit lands
+# inside the PR hunk.
+test_user_inter_hunk_context_ignored() {
+    setup_repo
+    local old new
+    git checkout -q -b pr
+    edit_line D.txt D50 "D50 pr"; edit_line D.txt D55 "D55 pr"
+    old=$(commit_push "pr round 1")
+    git checkout -q main
+    edit_line D.txt D52 "D52 main"
+    git commit -qam "main moves" && git push -q origin main
+    git checkout -q pr && git rebase -q main
+    git push -q -f origin pr 2>/dev/null
+    new=$(git rev-parse HEAD)
+    git config diff.interHunkContext 5
+    run_delta "$old" "$new" main
+    assert_eq "inter-hunk context: clean rebase stays empty" "" "$OUT"
     teardown
 }
 
@@ -274,6 +397,14 @@ test_author_deletes_lines
 test_file_left_pr
 test_author_changes_binary
 test_author_changes_mode
+test_author_reverts_part_of_round_1
+test_file_removed_from_pr
+test_non_utf8_content
+test_renamed_file_clean_rebase
+test_author_deletes_first_line
+test_glob_characters_in_names
+test_user_git_config_ignored
+test_user_inter_hunk_context_ignored
 test_old_head_only_on_origin
 test_unknown_old_sha
 test_rejects_option_like_arguments

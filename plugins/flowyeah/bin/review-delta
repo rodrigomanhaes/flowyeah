@@ -8,11 +8,13 @@ origin/<target_branch>) file by file, with zero context and without line
 numbers, so a rebase that only moved the target branch yields nothing.
 Prints, for each file, the hunks of the current patch (normal context) that
 overlap a hunk the author changed, plus the header of a file whose mode or
-binary content the author changed. Empty output means the author changed
-nothing. Files that left the PR print nothing.
+binary content the author changed. Then, under a line starting with
+"# undone since", the hunks the PR had at the old head and no longer has,
+including files that left the PR. Empty output means the author changed
+nothing.
 
-Exit codes: 0 target printed (possibly empty), 2 usage, 3 a head is not
-available even after fetching it from origin.
+Exit codes: 0 target printed (possibly empty), 2 usage, 3 the delta cannot
+be computed (a head or the target branch is not available).
 """
 
 import collections
@@ -21,13 +23,21 @@ import subprocess
 import sys
 
 FULL_SHA = re.compile(r"^[0-9a-f]{40}$|^[0-9a-f]{64}$")
-HUNK_HEADER = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
+HUNK_HEADER = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")
+# Neutralize user config that changes diff output: color codes break parsing,
+# a wider inter-hunk context merges a main-branch edit into a PR hunk.
+DIFF_FLAGS = ["--no-color", "--no-ext-diff", "--no-textconv", "--inter-hunk-context=0", "-M"]
+HEADER_NOISE = ("index ", "similarity index ", "dissimilarity index ")
+
+
+class Unavailable(Exception):
+    pass
 
 
 def git(*args, check=True):
-    result = subprocess.run(["git", *args], capture_output=True, text=True)
+    result = subprocess.run(["git", *args], capture_output=True, encoding="utf-8", errors="surrogateescape")
     if check and result.returncode != 0:
-        sys.exit(f"review-delta: git {' '.join(args)} failed: {result.stderr.strip()}")
+        raise Unavailable(f"git {' '.join(args)}: {result.stderr.strip()}")
     return result
 
 
@@ -39,6 +49,21 @@ def ensure_commit(sha):
     return git("cat-file", "-e", f"{sha}^{{commit}}", check=False).returncode == 0
 
 
+def file_patches(base, sha, context):
+    """Map each path of the PR patch at sha (the new path of a rename) to its patch text."""
+    fields = git("diff", *DIFF_FLAGS, "--name-status", "-z", base, sha).stdout.split("\0")
+    paths, i = [], 0
+    while i < len(fields) and fields[i]:
+        two_paths = fields[i][0] in "RC"
+        paths.append(fields[i + 2] if two_paths else fields[i + 1])
+        i += 3 if two_paths else 2
+    patch = git("diff", *DIFF_FLAGS, f"-U{context}", base, sha).stdout
+    blocks = re.split(r"^(?=diff --git )", patch, flags=re.M)[1:]
+    if len(blocks) != len(paths):
+        raise Unavailable(f"{len(paths)} paths but {len(blocks)} patches between {base} and {sha}")
+    return dict(zip(paths, blocks))
+
+
 def split_hunks(patch):
     """Return the file header lines and a list of hunks, each a list of lines starting at '@@'."""
     header, hunks = [], []
@@ -47,43 +72,74 @@ def split_hunks(patch):
             hunks.append([line])
         elif hunks:
             hunks[-1].append(line)
-        elif not line.startswith("index "):
+        elif not line.startswith(HEADER_NOISE):
             header.append(line)
     return header, hunks
 
 
-def new_side_range(hunk):
-    match = HUNK_HEADER.match(hunk[0])
-    start = int(match.group(1))
-    length = 1 if match.group(2) is None else int(match.group(2))
-    return start, start + max(length, 1) - 1
+def hunk_range(hunk, side):
+    """Line range a hunk covers on one side ("old" or "new"); an empty side covers the line after it."""
+    groups = HUNK_HEADER.match(hunk[0]).groups()
+    start, length = groups[0:2] if side == "old" else groups[2:4]
+    start, length = int(start), 1 if length is None else int(length)
+    return (start, start + length - 1) if length else (start, start + 1)
 
 
-def changed_ranges(old_patch, new_patch):
-    """New-side line ranges of the zero-context hunks of new_patch absent from old_patch."""
-    _, old_hunks = split_hunks(old_patch)
-    _, new_hunks = split_hunks(new_patch)
-    unmatched = collections.Counter(tuple(h[1:]) for h in old_hunks)
+def unmatched_ranges(theirs, mine):
+    """New-side ranges of mine's zero-context hunks that theirs does not have (each match used once)."""
+    available = collections.Counter(tuple(h[1:]) for h in split_hunks(theirs)[1])
     ranges = []
-    for hunk in new_hunks:
+    for hunk in split_hunks(mine)[1]:
         key = tuple(hunk[1:])
-        if unmatched[key] > 0:
-            unmatched[key] -= 1
+        if available[key] > 0:
+            available[key] -= 1
         else:
-            ranges.append(new_side_range(hunk))
+            ranges.append(hunk_range(hunk, "new"))
     return ranges
 
 
-def header_changed(old, new, path, zero):
+def overlapping(patch, ranges):
+    header, hunks = split_hunks(patch)
+    hit = [h for h in hunks
+           if any(lo <= r_hi and r_lo <= hi for lo, hi in [hunk_range(h, "new")] for r_lo, r_hi in ranges)]
+    return header + [line for h in hit for line in h]
+
+
+def header_changed(old, new, path, old_zero, new_zero):
     """A change with no text hunk: file mode, or a binary whose content differs between the heads."""
-    old_header, _ = split_hunks(zero[old])
-    new_header, _ = split_hunks(zero[new])
-    if old_header != new_header:
+    new_header = split_hunks(new_zero)[0]
+    if split_hunks(old_zero)[0] != new_header:
         return True
     if any(line.startswith("Binary files ") for line in new_header):
         blobs = [git("rev-parse", f"{sha}:{path}", check=False).stdout.strip() for sha in (old, new)]
         return blobs[0] != blobs[1]
     return False
+
+
+def delta(old, new, target):
+    git("fetch", "-q", "origin", target, check=False)
+    for sha in (old, new):
+        if not ensure_commit(sha):
+            raise Unavailable(f"commit {sha} is not available locally or on origin")
+    base = {sha: git("merge-base", f"origin/{target}", sha).stdout.strip() for sha in (old, new)}
+    zero = {sha: file_patches(base[sha], sha, 0) for sha in (old, new)}
+    full = {sha: file_patches(base[sha], sha, 3) for sha in (old, new)}
+
+    changed = []
+    for path in sorted(zero[new]):
+        old_zero, new_zero = zero[old].get(path, ""), zero[new][path]
+        ranges = unmatched_ranges(old_zero, new_zero)
+        if ranges or header_changed(old, new, path, old_zero, new_zero):
+            changed += overlapping(full[new][path], ranges)
+
+    undone = []
+    for path in sorted(zero[old]):
+        ranges = unmatched_ranges(zero[new].get(path, ""), zero[old][path])
+        if ranges:
+            undone += overlapping(full[old][path], ranges)
+    if undone:
+        undone.insert(0, f"# undone since {old[:12]}: PR changes present at {old[:12]} and gone at {new[:12]}")
+    return changed + undone
 
 
 def main(argv):
@@ -97,23 +153,14 @@ def main(argv):
     if not (FULL_SHA.match(old) and FULL_SHA.match(new) and valid_branch and not target.startswith("-")):
         print(__doc__.splitlines()[0], file=sys.stderr)
         return 2
-    git("fetch", "-q", "origin", target, check=False)
-    for sha in (old, new):
-        if not ensure_commit(sha):
-            print(f"review-delta: commit {sha} is not available locally or on origin", file=sys.stderr)
-            return 3
-    base = {sha: git("merge-base", f"origin/{target}", sha).stdout.strip() for sha in (old, new)}
-    new_files = set(filter(None, git("diff", "--name-only", "-z", base[new], new).stdout.split("\0")))
-
-    for path in sorted(new_files):
-        zero = {sha: git("diff", "-U0", base[sha], sha, "--", path).stdout for sha in (old, new)}
-        ranges = changed_ranges(zero[old], zero[new])
-        header, hunks = split_hunks(git("diff", base[new], new, "--", path).stdout)
-        if not ranges and not header_changed(old, new, path, zero):
-            continue
-        selected = [h for h in hunks
-                    if any(lo <= r_hi and r_lo <= hi for lo, hi in [new_side_range(h)] for r_lo, r_hi in ranges)]
-        print("\n".join(header + [line for h in selected for line in h]))
+    try:
+        lines = delta(old, new, target)
+    except Unavailable as error:
+        print(f"review-delta: {error}", file=sys.stderr)
+        return 3
+    sys.stdout.reconfigure(errors="surrogateescape")
+    if lines:
+        print("\n".join(lines))
     return 0
 
 
