@@ -18,6 +18,7 @@ be computed (a head or the target branch is not available).
 """
 
 import collections
+import os
 import re
 import subprocess
 import sys
@@ -34,8 +35,9 @@ class Unavailable(Exception):
     pass
 
 
-def git(*args, check=True):
-    result = subprocess.run(["git", *args], capture_output=True, encoding="utf-8", errors="surrogateescape")
+def git(*args, check=True, env=None):
+    result = subprocess.run(["git", *args], capture_output=True, encoding="utf-8", errors="surrogateescape",
+                            env={**os.environ, **(env or {})})
     if check and result.returncode != 0:
         raise Unavailable(f"git {' '.join(args)}: {result.stderr.strip()}")
     return result
@@ -85,17 +87,38 @@ def hunk_range(hunk, side):
     return (start, start + length - 1) if length else (start, start + 1)
 
 
-def unmatched_ranges(theirs, mine):
-    """New-side ranges of mine's zero-context hunks that theirs does not have (each match used once)."""
+def unmatched(theirs, mine):
+    """Mine's zero-context hunks that theirs does not have (each match used once)."""
     available = collections.Counter(tuple(h[1:]) for h in split_hunks(theirs)[1])
-    ranges = []
+    left = []
     for hunk in split_hunks(mine)[1]:
         key = tuple(hunk[1:])
         if available[key] > 0:
             available[key] -= 1
         else:
-            ranges.append(hunk_range(hunk, "new"))
-    return ranges
+            left.append(hunk)
+    return left
+
+
+def base_line_map(base_old, base_new, path):
+    """Map a line number of path in base_old to base_new; None inside a region the base itself changed."""
+    if base_old == base_new:
+        return lambda line: line
+    patch = git("diff", *DIFF_FLAGS, "-U0", base_old, base_new, "--", path,
+                env={"GIT_LITERAL_PATHSPECS": "1"}).stdout
+    moves = [HUNK_HEADER.match(h[0]).groups() for h in split_hunks(patch)[1]]
+
+    def mapped(line):
+        offset = 0
+        for old_start, old_len, _, new_len in moves:
+            old_start, old_len = int(old_start), 1 if old_len is None else int(old_len)
+            new_len = 1 if new_len is None else int(new_len)
+            if old_start + old_len - 1 < line or (old_len == 0 and old_start < line):
+                offset += new_len - old_len
+            elif old_start <= line:
+                return None
+        return line + offset
+    return mapped
 
 
 def overlapping(patch, ranges):
@@ -128,13 +151,23 @@ def delta(old, new, target):
     changed = []
     for path in sorted(zero[new]):
         old_zero, new_zero = zero[old].get(path, ""), zero[new][path]
-        ranges = unmatched_ranges(old_zero, new_zero)
+        ranges = [hunk_range(h, "new") for h in unmatched(old_zero, new_zero)]
         if ranges or header_changed(old, new, path, old_zero, new_zero):
             changed += overlapping(full[new][path], ranges)
 
+    # An old hunk is undone when no new hunk now changes the same base lines;
+    # otherwise the author modified it, and the new hunk already shows that.
     undone = []
     for path in sorted(zero[old]):
-        ranges = unmatched_ranges(zero[new].get(path, ""), zero[old][path])
+        new_zero = zero[new].get(path, "")
+        replaced = [hunk_range(h, "old") for h in unmatched(zero[old][path], new_zero)]
+        to_new_base = base_line_map(base[old], base[new], path)
+        ranges = []
+        for hunk in unmatched(new_zero, zero[old][path]):
+            lo, hi = hunk_range(hunk, "old")
+            lo, hi = to_new_base(lo), to_new_base(hi)
+            if lo is None or hi is None or not any(lo <= r_hi and r_lo <= hi for r_lo, r_hi in replaced):
+                ranges.append(hunk_range(hunk, "new"))
         if ranges:
             undone += overlapping(full[old][path], ranges)
     if undone:

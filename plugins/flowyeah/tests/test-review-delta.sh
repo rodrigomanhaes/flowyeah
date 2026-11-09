@@ -136,6 +136,7 @@ test_rebase_with_author_change() {
     assert_not_contains "rebase + change: shifted A left out" "A.txt" "$OUT"
     assert_not_contains "rebase + change: C with main's context edit left out" "C.txt" "$OUT"
     assert_not_contains "rebase + change: untouched D left out" "D.txt" "$OUT"
+    assert_not_contains "rebase + change: a modified hunk is not undone" "undone since" "$OUT"
     teardown
 }
 
@@ -337,6 +338,36 @@ test_user_inter_hunk_context_ignored() {
     teardown
 }
 
+test_modified_hunk_after_base_shift() {
+    setup_repo
+    local old new
+    old=$(open_pr)
+    git checkout -q main
+    sed -i '1i B0 main' B.txt
+    git commit -qam "main shifts B" && git push -q origin main
+    git checkout -q pr && git rebase -q main
+    edit_line B.txt "B50 pr" "B50 pr v2"
+    new=$(commit_push "pr round 2")
+    run_delta "$old" "$new" main
+    assert_contains "shifted base: author line" "+B50 pr v2" "$OUT"
+    assert_not_contains "shifted base: modified hunk is not undone" "undone since" "$OUT"
+    teardown
+}
+
+test_modified_insertion() {
+    setup_repo
+    local old new
+    git checkout -q -b pr
+    sed -i '/^B30$/a new1' B.txt
+    old=$(commit_push "pr round 1")
+    sed -i 's/^new1$/new2/' B.txt
+    new=$(commit_push "pr round 2")
+    run_delta "$old" "$new" main
+    assert_contains "modified insertion: new line" "+new2" "$OUT"
+    assert_not_contains "modified insertion: not undone" "undone since" "$OUT"
+    teardown
+}
+
 test_old_head_only_on_origin() {
     setup_repo
     local old new
@@ -405,6 +436,8 @@ test_author_deletes_first_line
 test_glob_characters_in_names
 test_user_git_config_ignored
 test_user_inter_hunk_context_ignored
+test_modified_hunk_after_base_shift
+test_modified_insertion
 test_old_head_only_on_origin
 test_unknown_old_sha
 test_rejects_option_like_arguments
