@@ -9,13 +9,13 @@ Fetches pull request details and submits formal code reviews with inline comment
 **From a PR number:**
 
 ```bash
-gh pr view <number> --json number,title,state,headRefName,headRefOid,baseRefName,url,author,additions,deletions,changedFiles,isDraft
+gh pr view <number> --json number,title,state,headRefName,baseRefName,url,headRefOid,author,additions,deletions,changedFiles,isDraft
 ```
 
 **From the current branch:**
 
 ```bash
-gh pr view --json number,title,state,headRefName,headRefOid,baseRefName,url,author,additions,deletions,changedFiles,isDraft
+gh pr view --json number,title,state,headRefName,baseRefName,url,headRefOid,author,additions,deletions,changedFiles,isDraft
 ```
 
 ## Fetch Diff
