@@ -772,6 +772,15 @@ assert_contains "review.md checks pending drafts before bulk_publish" 'merge_req
 assert_contains "review.md verifies reviewer state after submit" 'merge_requests/<iid>/reviewers"' "$GL_ADAPTER/review.md"
 assert_not_contains "review.md does not deny GitLab has a request-changes state" 'GitLab does not have a "Request Changes" state' "$GL_ADAPTER/review.md"
 
+# ── Section: Incremental re-review ───────────────────────
+# From round 2 on, review reads the head the previous round covered from a
+# hidden marker and reviews only what bin/review-delta reports.
+
+echo ""
+echo "=== Incremental re-review ==="
+
+assert_dir_in_list "README example has code_review.incremental" "code_review.incremental" "$(yaml_key_paths "$README" '^## Project Configuration')"
+
 # ── Results ──────────────────────────────────────────────
 
 echo ""

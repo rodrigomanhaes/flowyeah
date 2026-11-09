@@ -83,6 +83,7 @@ code_review:
   evaluation_skill:                      # ⬚ not configured
   impact_analysis:                       # ⬚ not configured (built-in tracing runs)
   praise: false                          # ⬚ default: false
+  incremental: true                      # ⬚ default: true
 
 issues:
   create_when_missing: ask               # ✅

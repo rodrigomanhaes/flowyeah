@@ -385,6 +385,7 @@ code_review:
   evaluation_skill: <answer>              # omit if not configured
   impact_analysis: <answer>               # omit if not configured
   praise: <answer>                        # omit if false
+  incremental: false                      # no question asked; write only if the user asked for full-diff re-reviews
 
 issues:
   adapter: <answer>                       # omit if create_when_missing is never (question skipped)
