@@ -251,7 +251,7 @@ If the git host cannot be reached at all (missing token, `gh auth status` fails,
 
 **What gets cleaned depends on the session type**, because a merged build session is not finished work:
 
-- **Review and respond sessions** → remove. The round is over and nothing is deferred. Same file set as categories 6 and 7: `review-state-{N}.md` plus `review-approved-{N}.md` and `own-rejections-{N}.md`; `respond-state-{N}.md` plus `respond-decisions-{N}.md`. Remove a review worktree at `.flowyeah/review-worktrees/{N}/` with it.
+- **Review and respond sessions** → remove. The round is over and nothing is deferred. Same file set as categories 6 and 7: `review-state-{N}.md` plus `review-approved-{N}.md`, `review-target-{N}.diff`, and `own-rejections-{N}.md`; `respond-state-{N}.md` plus `respond-decisions-{N}.md`. Remove a review worktree at `.flowyeah/review-worktrees/{N}/` with it.
 - **Build sessions, merged** → **complete, then remove.** A build session paused at `Status: Awaiting Merge` still owes steps 8-10: after-merge hooks, marking the task `[x]` in its plan, then worktree teardown. Removing the worktree without them would skip the hooks and leave the task unchecked forever, with no handle left to notice. So clean runs them rather than skipping them — see "Completing a merged build session" below.
 - **Build sessions, closed without merging** → **report only.** The choice is rework or discard, and discarding means build's Pipeline Rollback, which writes a post-mortem to `tmp/flowyeah/aborted/`, unchecks the task, and deletes the branch. That is a judgment about unmerged work, not cleanup. Name the session and point at `/flowyeah:build`, which asks the question properly on resume.
 
@@ -348,7 +348,7 @@ shopt -u nullglob
 
 Removing a stale state file removes its companions in the same action — a state file is the only handle the other files have, so leaving them behind makes them permanently unreachable:
 
-- `review-state-{N}.md` → also `review-approved-{N}.md` and `own-rejections-{N}.md` (if present) — same set as `/flowyeah:review finalize`
+- `review-state-{N}.md` → also `review-approved-{N}.md`, `review-target-{N}.diff`, and `own-rejections-{N}.md` (if present) — same set as `/flowyeah:review finalize`
 - `respond-state-{N}.md` → also `respond-decisions-{N}.md` (if present)
 
 ```
@@ -365,6 +365,10 @@ Remove 1 stale state file (and 2 companions)? (yes/no)
 shopt -s nullglob
 for f in .flowyeah/own-rejections-*.md .flowyeah/review-approved-*.md; do
   number="${f##*-}"; number="${number%.md}"
+  [ -f ".flowyeah/review-state-${number}.md" ] || echo "orphaned: $f"
+done
+for f in .flowyeah/review-target-*.diff; do
+  number="${f##*-}"; number="${number%.diff}"
   [ -f ".flowyeah/review-state-${number}.md" ] || echo "orphaned: $f"
 done
 for f in .flowyeah/respond-decisions-*.md; do
@@ -409,7 +413,7 @@ Closed review rounds to finalize:
 Finalize 1 closed review round? (yes/no)
 ```
 
-"Finalize" here means running the same teardown as `/flowyeah:review finalize {N}` (see the finalize subcommand in `skills/review/SKILL.md`): if the state file's `Worktree:` field is set and not `none`, remove that review worktree first (`git worktree remove --force`, then `rm -rf` if the directory survives), then delete `review-state-{N}.md`, `review-approved-{N}.md`, `own-rejections-{N}.md`, and any leftover `respond-state-{N}.md`/`respond-decisions-{N}.md`. Not a destructive operation on the PR itself.
+"Finalize" here means running the same teardown as `/flowyeah:review finalize {N}` (see the finalize subcommand in `skills/review/SKILL.md`): if the state file's `Worktree:` field is set and not `none`, remove that review worktree first (`git worktree remove --force`, then `rm -rf` if the directory survives), then delete `review-state-{N}.md`, `review-approved-{N}.md`, `review-target-{N}.diff`, `own-rejections-{N}.md`, and any leftover `respond-state-{N}.md`/`respond-decisions-{N}.md`. Not a destructive operation on the PR itself.
 
 ### Cleanup Rules
 

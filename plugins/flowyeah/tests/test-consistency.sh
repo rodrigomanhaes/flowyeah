@@ -581,6 +581,9 @@ assert_contains "review finalize cleans up leftover respond state" "respond-stat
 assert_contains "status scans review worktrees" "review-worktrees" "$STATUS_SKILL"
 assert_contains "status checks Worktree: references before calling a worktree orphaned" "Worktree:" "$STATUS_SKILL"
 assert_contains "status clean handles respond-decisions files" "respond-decisions" "$STATUS_SKILL"
+# review finalize deletes review-target-{N}.diff; status clean claims the same set.
+assert_contains "status clean removes the review target diff" "review-target-{N}.diff" "$STATUS_SKILL"
+assert_contains "status orphan sweep covers review target diffs" ".flowyeah/review-target-*.diff" "$STATUS_SKILL"
 assert_not_contains "status counts nested subtasks in plans" "grep -c '^\- \[" "$STATUS_SKILL"
 
 # ── Section: Merged-session cleanup ──────────────────────
