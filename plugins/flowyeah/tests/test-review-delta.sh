@@ -379,9 +379,8 @@ test_old_head_only_on_origin() {
     # object, unreachable ones included.
     git clone -q "file://$ROOT/origin.git" "$ROOT/fresh" 2>/dev/null
     cd "$ROOT/fresh"
-    if git cat-file -e "$old^{commit}" 2>/dev/null; then
-        echo "SETUP ERROR: fresh clone already has the force-pushed head"
-    fi
+    assert_eq "old head fetched from origin: setup leaves it out of the fresh clone" "absent" \
+        "$(git cat-file -e "$old^{commit}" 2>/dev/null && echo present || echo absent)"
     run_delta "$old" "$new" main
     assert_eq "old head fetched from origin: exit 0" 0 "$CODE"
     assert_contains "old head fetched from origin: author line" "+B50 pr v2" "$OUT"
