@@ -140,7 +140,10 @@ Skips branch creation, issue claiming, and status transitions. Reuses the existi
 ```
 flowyeah:review 42
 flowyeah:review          # auto-detects PR from current branch
+flowyeah:review --full 42   # review the whole diff this round
 ```
+
+From the second review of a PR on, the agents review only what the author changed since the head the previous round reviewed, rebase included. A rebase with no edits leaves nothing to review, and the round only posts its summary. Each round records its head in a hidden HTML comment at the end of the review summary. `--full`, or `code_review.incremental: false`, reviews the whole diff. Requirements validation always looks at the whole diff.
 
 **What happens:**
 
