@@ -590,8 +590,10 @@ No platform interaction. No re-running agents. No verification of whether findin
 ```markdown
 ## Code Review
 
-<!-- Only with `Scope: incremental since …` or `Scope: nothing new`, in the configured `language` -->
-Round {n}: reviewed what changed since `<short previous head>`.
+<!-- Only with `Scope: incremental since …`, in the configured `language` -->
+Reviewed what changed since `<short previous head>`, the head the previous round reviewed.
+<!-- Only with `Scope: nothing new`, in the configured `language` -->
+No changes by the author since `<short previous head>`, the head the previous round reviewed, only updates from the target branch: nothing new to review.
 
 ### Requirements Validation
 <!-- Only if step 1b found a reference; with `## Criteria`, name the PR/MR description instead of an issue -->

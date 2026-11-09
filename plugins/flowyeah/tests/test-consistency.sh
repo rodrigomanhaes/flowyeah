@@ -813,6 +813,9 @@ assert_contains "requirements validation keeps the full diff" "2b always uses th
 assert_contains "review --own carries the head across overwrites" "Read its \`Round:\` and \`Head:\` first" "$REVIEW_SKILL"
 assert_contains "review falls back on any review-delta failure" "Any other exit" "$REVIEW_SKILL"
 assert_contains "review tells agents about undone changes" "# undone since" "$REVIEW_SKILL"
+# Round: undercounts rounds without inline comments, so the summary line carries no number.
+assert_not_contains "summary line does not number the round" "Round {n}: reviewed what changed" "$REVIEW_SKILL"
+assert_contains "summary says when there was nothing to review" "nothing new to review" "$REVIEW_SKILL"
 assert_not_contains "agents get the target, not the PR diff, with instructions" "alongside the PR diff and changed files" "$REVIEW_SKILL"
 assert_contains "review skips the headRefOid cross-check on forks" "from a fork" "$REVIEW_SKILL"
 for adapter in "$GH_ADAPTER" "$GL_ADAPTER"; do
