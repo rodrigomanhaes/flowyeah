@@ -12,6 +12,7 @@ Must have parseable header lines for crash recovery summaries:
 # Current State
 
 Type: build
+Session: <value of $CLAUDE_CODE_SESSION_ID>
 Status: Implementing
 Step: 4 (Implement) — TDD phase
 Mode: single                          # single | continuous
@@ -50,6 +51,8 @@ Writing failing feature spec for webhook retry behavior.
 ## Next Action
 Complete the feature spec, then implement the controller action.
 ```
+
+`Session` names the conversation driving this build: read it with `echo "$CLAUDE_CODE_SESSION_ID"`. Write it when creating the file, and rewrite it whenever this skill resumes the session (crash recovery, the Awaiting Merge resume), so a build resumed in a new conversation moves with it. The hooks act only for the conversation whose session id matches; any other conversation gets nothing from them.
 
 **Update when:** every pipeline step transition, every phase transition within step 4, after completing subtasks, after discovering dead ends, after making key decisions. The more context here, the better a resumed session performs.
 
@@ -114,7 +117,7 @@ Two hooks (installed via this plugin's `hooks/hooks.json`) power session recover
 
 2. **`PostToolUse` on Edit/Write** — `session-remind.sh` nudges to update state.md after making changes.
 
-Both scripts are guarded: exit silently if no `flowyeah.yml` in project or no active `.flowyeah/` session.
+Both scripts are guarded: they exit silently if the project has no `flowyeah.yml`, or if no state file's `Session:` line names the conversation running the hook (the `session_id` in the hook payload).
 
 ### Context Compaction Recovery
 

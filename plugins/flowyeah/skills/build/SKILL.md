@@ -611,7 +611,7 @@ After PR/MR creation, check `hooks.pr.after_create` in `flowyeah.yml`. If config
 
 **On resume** — whenever a later invocation encounters a session with `Status: Awaiting Merge` (crash-recovery scan, bare `flowyeah:build`, or the user asking about it), query the PR state via the **Query PR State** / **Query MR State** section of `adapters/<git_host>/hosting.md`:
 
-- **Merged** → complete the deferred steps for that session: step 8 (after-merge hooks), step 9 (mark task done), step 10 (cleanup worktree).
+- **Merged** → rewrite `Session:` in its `state.md` with this conversation's `$CLAUDE_CODE_SESSION_ID`, then complete the deferred steps for that session: step 8 (after-merge hooks), step 9 (mark task done), step 10 (cleanup worktree).
 - **Closed without merging** → ask the user: run Pipeline Rollback (save post-mortem, uncheck task, remove worktree), or keep the session for rework.
 - **Still open** → report "PR #<n> still awaiting merge" and continue with whatever else the invocation was doing.
 
@@ -763,6 +763,7 @@ Full schema, the worked example, and the update cadence live in `session-files.m
 
 ```
 Type: build
+Session: <$CLAUDE_CODE_SESSION_ID>  # step 3; rewritten on every resume
 Status: <phase, or "Awaiting Merge" when paused at 7c>
 Step: <number and name>
 Mode: single | continuous
@@ -842,7 +843,7 @@ After a crash, the user returns to the main checkout. Run `flowyeah:build`:
    2. fix-5590          → Payment validation (Step 7b: CI wait)
    3. chore-update-deps → Update dependencies (Step 7: Creating MR)
    ```
-4. `cd` into chosen worktree and continue from state.md
+4. `cd` into chosen worktree, rewrite `Session:` in its `state.md` with this conversation's `$CLAUDE_CODE_SESSION_ID` (the hooks inject state only into the conversation it names), and continue from state.md
 
 ### Pipeline Rollback
 

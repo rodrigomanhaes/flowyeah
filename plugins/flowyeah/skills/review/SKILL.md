@@ -104,7 +104,7 @@ Phase: <current_phase>
 Worktree: <relative path under .flowyeah/review-worktrees/{N}/ or "none">
 ```
 
-`Session` names the conversation driving this review: read it with `echo "$CLAUDE_CODE_SESSION_ID"`. Write it when creating the file, and rewrite it whenever this skill is invoked on an existing `review-state-{N}.md`, so a review resumed in a new conversation moves with it. The hook injects the full state, approved findings, and rejection count only into the conversation whose session id matches; every other conversation in the checkout gets one line naming the PR, phase, and state file.
+`Session` names the conversation driving this review: read it with `echo "$CLAUDE_CODE_SESSION_ID"`. Write it when creating the file, and rewrite it whenever this skill is invoked on an existing `review-state-{N}.md`, so a review resumed in a new conversation moves with it. The hooks act only for the conversation whose session id matches: it gets the full state, approved findings, and rejection count; every other conversation in the checkout gets nothing.
 
 `Mode` is absent for normal reviews. The hook does not interpret this field — it dumps the state file as raw text. The skill's crash recovery logic reads `Mode` to decide which path to follow on resume.
 

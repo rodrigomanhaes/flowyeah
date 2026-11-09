@@ -84,20 +84,53 @@ assert_exit_eq() {
     fi
 }
 
+# Invoke a hook as Claude Code does, with the conversation's session_id in
+# the stdin payload. Args: $1 = session id
+inject_as() {
+    printf '{"session_id":"%s","hook_event_name":"UserPromptSubmit"}' "$1" \
+        | bash "$SCRIPT_DIR/session-inject.sh" 2>&1
+}
+
+remind_as() {
+    printf '{"session_id":"%s","hook_event_name":"PostToolUse"}' "$1" \
+        | bash "$SCRIPT_DIR/session-remind.sh" 2>&1
+}
+
+# Give every state file without a Session: line to conversation "test-conv",
+# for tests about what a session's injection contains rather than whose it is.
+claim_sessions() {
+    local f
+    for f in .flowyeah/state.md .flowyeah/review-state-*.md .flowyeah/respond-state-*.md \
+             .flowyeah/worktrees/*/.flowyeah/state.md; do
+        [ -f "$f" ] || continue
+        grep -q '^Session:' "$f" || echo "Session: test-conv" >> "$f"
+    done
+}
+
+inject_owned() {
+    claim_sessions
+    inject_as test-conv
+}
+
+remind_owned() {
+    claim_sessions
+    remind_as test-conv
+}
+
 # ── session-remind.sh tests ─────────────────────────────
 
 echo "=== session-remind.sh ==="
 
 # Test: silent when no flowyeah session
 setup_repo
-OUTPUT=$(bash "$SCRIPT_DIR/session-remind.sh" 2>&1 || true)
+OUTPUT=$(remind_owned || true)
 assert_empty "remind: silent without session" "$OUTPUT"
 teardown
 
 # Test: silent when no git repo
 WORKDIR=$(mktemp -d)
 cd "$WORKDIR"
-OUTPUT=$(bash "$SCRIPT_DIR/session-remind.sh" 2>&1 || true)
+OUTPUT=$(remind_owned || true)
 assert_empty "remind: silent outside git repo" "$OUTPUT"
 cd /; rm -rf "$WORKDIR"
 
@@ -105,7 +138,7 @@ cd /; rm -rf "$WORKDIR"
 setup_repo
 mkdir -p .flowyeah
 echo "# Current State" > .flowyeah/state.md
-OUTPUT=$(bash "$SCRIPT_DIR/session-remind.sh" 2>&1 || true)
+OUTPUT=$(remind_owned || true)
 assert_empty "remind: silent without flowyeah.yml even with state.md" "$OUTPUT"
 teardown
 
@@ -114,7 +147,7 @@ setup_repo
 touch flowyeah.yml
 mkdir -p .flowyeah
 echo "# Current State" > .flowyeah/state.md
-OUTPUT=$(bash "$SCRIPT_DIR/session-remind.sh" 2>&1)
+OUTPUT=$(remind_owned)
 assert_output_contains "remind: outputs reminder with build session" "Update .flowyeah/state.md" "$OUTPUT"
 teardown
 
@@ -123,7 +156,7 @@ setup_repo
 touch flowyeah.yml
 mkdir -p .flowyeah
 echo -e "# Current State\nBranch: main" > .flowyeah/review-state-42.md
-OUTPUT=$(bash "$SCRIPT_DIR/session-remind.sh" 2>&1)
+OUTPUT=$(remind_owned)
 assert_output_contains "remind: outputs reminder with review session" "review-state-42.md" "$OUTPUT"
 teardown
 
@@ -134,14 +167,14 @@ echo "=== session-inject.sh ==="
 
 # Test: silent when no flowyeah.yml
 setup_repo
-OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1 || true)
+OUTPUT=$(inject_owned || true)
 assert_empty "inject: silent without flowyeah.yml" "$OUTPUT"
 teardown
 
 # Test: silent when flowyeah.yml exists but no session
 setup_repo
 touch flowyeah.yml
-OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1 || true)
+OUTPUT=$(inject_owned || true)
 assert_empty "inject: silent with flowyeah.yml but no session" "$OUTPUT"
 teardown
 
@@ -166,7 +199,7 @@ cat > .flowyeah/progress.md <<'EOF'
 - [x] Design
 - [ ] Implement
 EOF
-OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+OUTPUT=$(inject_owned)
 assert_output_contains "inject: shows session type" "flowyeah:build session" "$OUTPUT"
 assert_output_contains "inject: shows MISSION section" "## MISSION" "$OUTPUT"
 assert_output_contains "inject: shows mission content" "Implement webhook retry" "$OUTPUT"
@@ -189,7 +222,7 @@ Status: Reviewing
 PR/MR: 42
 Branch: main
 EOF
-OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+OUTPUT=$(inject_owned)
 assert_output_contains "inject review: shows session type" "flowyeah:review session" "$OUTPUT"
 assert_output_contains "inject review: shows STATE" "## STATE" "$OUTPUT"
 assert_output_contains "inject review: shows PR number" "PR/MR: 42" "$OUTPUT"
@@ -227,7 +260,7 @@ cat > .flowyeah/review-approved-42.md <<'EOF'
 - Body: |
     **suggestion (non-blocking):** Extract method
 EOF
-OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+OUTPUT=$(inject_owned)
 assert_output_contains "inject review approved: shows APPROVED section" "## APPROVED FINDINGS" "$OUTPUT"
 assert_output_contains "inject review approved: shows finding 1" "## Finding 1" "$OUTPUT"
 assert_output_contains "inject review approved: shows file" "app/models/payment.rb:42" "$OUTPUT"
@@ -267,7 +300,7 @@ cat > .flowyeah/own-rejections-42.md <<'EOF'
 - Reasoning: |
     YAGNI.
 EOF
-OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+OUTPUT=$(inject_owned)
 assert_output_contains "inject own-rejections: shows count line" "Previously rejected: 2" "$OUTPUT"
 teardown
 
@@ -284,7 +317,7 @@ PR/MR: 42
 Branch: main
 Mode: own
 EOF
-OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+OUTPUT=$(inject_owned)
 assert_output_not_contains "inject no rejections: no count line" "Previously rejected:" "$OUTPUT"
 teardown
 
@@ -312,7 +345,7 @@ cat > .flowyeah/own-rejections-77.md <<'EOF'
 - Reasoning: |
     Bar.
 EOF
-OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+OUTPUT=$(inject_owned)
 assert_output_not_contains "inject other PR rejections: no count line" "Previously rejected:" "$OUTPUT"
 teardown
 
@@ -329,7 +362,7 @@ PR/MR: 42
 Branch: main
 Phase: Gathering Context
 EOF
-OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+OUTPUT=$(inject_owned)
 assert_output_not_contains "inject review no approved: no APPROVED section" "## APPROVED FINDINGS" "$OUTPUT"
 teardown
 
@@ -355,7 +388,7 @@ Status: Reviewing
 PR/MR: 42
 Branch: main
 EOF
-OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+OUTPUT=$(inject_owned)
 assert_output_contains "inject coexist: shows review session" "flowyeah:review session" "$OUTPUT"
 assert_output_contains "inject coexist: shows review PR" "PR/MR: 42" "$OUTPUT"
 assert_output_contains "inject coexist: shows build session" "Active session found" "$OUTPUT"
@@ -382,7 +415,7 @@ Status: Reviewing
 PR/MR: 55
 Branch: feat-payment
 EOF
-OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+OUTPUT=$(inject_owned)
 assert_output_contains "inject review multi: shows first PR" "PR/MR: 42" "$OUTPUT"
 assert_output_contains "inject review multi: shows second PR" "PR/MR: 55" "$OUTPUT"
 assert_output_contains "inject review multi: header labels first PR" "flowyeah:review session (PR #42, branch main)" "$OUTPUT"
@@ -401,7 +434,7 @@ Status: Reviewing
 PR/MR: 42
 Branch: feat-payment
 EOF
-OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+OUTPUT=$(inject_owned)
 assert_output_contains "inject review no branch match: shows session anyway" "flowyeah:review session" "$OUTPUT"
 assert_output_contains "inject review no branch match: header shows PR and branch" "(PR #42, branch feat-payment)" "$OUTPUT"
 teardown
@@ -443,7 +476,7 @@ cat > .flowyeah/review-approved-55.md <<'EOF'
 - File: app/controllers/api.rb:10
 - Label: suggestion (non-blocking)
 EOF
-OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+OUTPUT=$(inject_owned)
 assert_output_contains "inject review approved pairing: shows PR 42 findings" "app/models/payment.rb:42" "$OUTPUT"
 assert_output_contains "inject review approved pairing: shows PR 55 findings" "app/controllers/api.rb:10" "$OUTPUT"
 # Pairing: PR 42's findings appear between its header and the next session separator
@@ -466,7 +499,7 @@ Status: Reviewing
 PR/MR: 42
 Branch: main
 EOF
-OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+OUTPUT=$(inject_owned)
 assert_output_contains "inject review detached HEAD: still shows review session" "flowyeah:review session" "$OUTPUT"
 assert_output_contains "inject review detached HEAD: header has PR label" "(PR #42, branch main)" "$OUTPUT"
 teardown
@@ -476,7 +509,7 @@ setup_repo
 touch flowyeah.yml
 mkdir -p .flowyeah
 echo "# Current State" > .flowyeah/state.md
-OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+OUTPUT=$(inject_owned)
 assert_output_contains "inject: defaults to build type" "flowyeah:build session" "$OUTPUT"
 assert_output_contains "inject: shows MISSION for default type" "## MISSION" "$OUTPUT"
 teardown
@@ -495,7 +528,7 @@ ActiveJob retry_on has a quirk with exponential backoff.
 ## Details
 Long details here...
 EOF
-OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+OUTPUT=$(inject_owned)
 assert_output_contains "inject: extracts findings summary" "ActiveJob retry_on" "$OUTPUT"
 assert_output_not_contains "inject: excludes findings details" "Long details here" "$OUTPUT"
 teardown
@@ -515,7 +548,7 @@ Type: build
 Task: Payment validation
 Step: 7b
 EOF
-OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+OUTPUT=$(inject_owned)
 assert_output_contains "inject multi: shows count" "2 active sessions" "$OUTPUT"
 assert_output_contains "inject multi: lists first session" "feat-webhook" "$OUTPUT"
 assert_output_contains "inject multi: lists second session" "fix-payment" "$OUTPUT"
@@ -536,7 +569,7 @@ Type: build
 Task: Auth/session cleanup
 Step: 2
 EOF
-OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+OUTPUT=$(inject_owned)
 assert_output_contains "inject special chars: shows task with /" "API/webhook" "$OUTPUT"
 assert_output_contains "inject special chars: shows task with &" "& retry" "$OUTPUT"
 teardown
@@ -551,7 +584,7 @@ cat > .flowyeah/state.md <<'EOF'
 Type: garbage
 Status: Unknown
 EOF
-OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+OUTPUT=$(inject_owned)
 assert_output_contains "inject invalid type: defaults to build" "flowyeah:build session" "$OUTPUT"
 assert_output_contains "inject invalid type: shows MISSION" "## MISSION" "$OUTPUT"
 teardown
@@ -569,7 +602,7 @@ cat > .flowyeah/worktrees/feat-webhook/.flowyeah/mission.md <<'EOF'
 # Mission
 Implement webhook retry.
 EOF
-OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+OUTPUT=$(inject_owned)
 assert_output_contains "inject single remote: finds session" "Active session found" "$OUTPUT"
 assert_output_contains "inject single remote: injects state" "## STATE" "$OUTPUT"
 teardown
@@ -588,7 +621,7 @@ Type: build
 Status: Implementing
 Task: Feature from worktree
 EOF
-OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+OUTPUT=$(inject_owned)
 assert_output_contains "inject worktree: shows build session" "flowyeah:build session" "$OUTPUT"
 assert_output_contains "inject worktree: shows task" "Feature from worktree" "$OUTPUT"
 cd "$WORKDIR"
@@ -610,7 +643,7 @@ implementation:
 EOF
 mkdir -p .flowyeah
 echo -e "Type: build\nStatus: Implementing\nStep: 4" > .flowyeah/state.md
-OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+OUTPUT=$(inject_owned)
 assert_output_not_contains "inject: no PROCESS SKILLS without config" "## PROCESS SKILLS" "$OUTPUT"
 teardown
 
@@ -630,7 +663,7 @@ implementation:
 EOF
 mkdir -p .flowyeah
 echo -e "Type: build\nStatus: Implementing\nStep: 4" > .flowyeah/state.md
-OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+OUTPUT=$(inject_owned)
 assert_output_contains "inject: shows PROCESS SKILLS section" "## PROCESS SKILLS" "$OUTPUT"
 assert_output_contains "inject: shows brainstorming skill" "superpowers:brainstorming" "$OUTPUT"
 assert_output_contains "inject: shows planning skill" "superpowers:writing-plans" "$OUTPUT"
@@ -651,7 +684,7 @@ implementation:
 EOF
 mkdir -p .flowyeah
 echo -e "Type: build\nStatus: Implementing\nStep: 4" > .flowyeah/state.md
-OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+OUTPUT=$(inject_owned)
 assert_output_contains "inject partial: shows PROCESS SKILLS" "## PROCESS SKILLS" "$OUTPUT"
 assert_output_contains "inject partial: shows tdd skill" "superpowers:test-driven-development" "$OUTPUT"
 assert_output_contains "inject partial: shows debugging skill" "superpowers:systematic-debugging" "$OUTPUT"
@@ -672,7 +705,7 @@ implementation:
 EOF
 mkdir -p .flowyeah
 echo -e "Type: build\nStatus: Implementing\nStep: 4" > .flowyeah/state.md
-OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+OUTPUT=$(inject_owned)
 assert_output_contains "inject quoted: shows tdd skill without quotes" "superpowers:test-driven-development" "$OUTPUT"
 assert_output_contains "inject quoted: shows debugging skill without quotes" "superpowers:systematic-debugging" "$OUTPUT"
 assert_output_not_contains "inject quoted: no double quotes in output" '"superpowers' "$OUTPUT"
@@ -691,7 +724,7 @@ implementation:
 EOF
 mkdir -p .flowyeah
 echo -e "Type: build\nStatus: Implementing\nStep: 4" > .flowyeah/state.md
-OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+OUTPUT=$(inject_owned)
 assert_output_contains "inject comments: shows tdd skill" "superpowers:test-driven-development" "$OUTPUT"
 assert_output_not_contains "inject comments: no inline comment in tdd" "# TDD" "$OUTPUT"
 assert_output_not_contains "inject comments: no inline comment in debugging" "# debug" "$OUTPUT"
@@ -711,7 +744,7 @@ implementation:
 EOF
 mkdir -p .flowyeah
 echo -e "Type: build\nStatus: Implementing\nStep: 4" > .flowyeah/state.md
-OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+OUTPUT=$(inject_owned)
 assert_output_contains "inject null: shows tdd skill" "superpowers:test-driven-development" "$OUTPUT"
 assert_output_not_contains "inject null: no brainstorming (null)" "brainstorming" "$OUTPUT"
 assert_output_not_contains "inject null: no planning (empty)" "planning" "$OUTPUT"
@@ -749,7 +782,7 @@ cat > .flowyeah/progress.md <<'EOF'
 - [ ] Mark task done (9)
 - [ ] Cleanup worktree (10)
 EOF
-OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+OUTPUT=$(inject_owned)
 assert_output_contains "pipeline reminder: shows section header" "REMAINING PIPELINE STEPS" "$OUTPUT"
 # Extract only the REMAINING section to avoid false positives from progress.md dump
 REMAINING=$(echo "$OUTPUT" | sed -n '/REMAINING PIPELINE STEPS/,$ p')
@@ -788,7 +821,7 @@ cat > .flowyeah/progress.md <<'EOF'
 - [x] Mark task done (9)
 - [x] Cleanup worktree (10)
 EOF
-OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+OUTPUT=$(inject_owned)
 assert_output_not_contains "pipeline all done: no REMAINING section" "REMAINING PIPELINE STEPS" "$OUTPUT"
 teardown
 
@@ -804,7 +837,7 @@ cat > .flowyeah/progress.md <<'EOF'
 - [x] Design
 - [ ] Implement
 EOF
-OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+OUTPUT=$(inject_owned)
 assert_output_not_contains "pipeline no section: no REMAINING section" "REMAINING PIPELINE STEPS" "$OUTPUT"
 teardown
 
@@ -821,7 +854,7 @@ cat > .flowyeah/progress.md <<'EOF'
 - [ ] Test (6)
 - [ ] Create PR/MR (7)
 EOF
-OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+OUTPUT=$(inject_owned)
 # The REMAINING section should come after the last separator line
 AFTER_LAST_SEP=$(echo "$OUTPUT" | tac | sed '/──────────────────────────────────────────────/q' | tac)
 assert_output_contains "pipeline position: REMAINING after separator" "REMAINING PIPELINE STEPS" "$AFTER_LAST_SEP"
@@ -832,7 +865,7 @@ setup_repo
 touch flowyeah.yml
 mkdir -p .flowyeah
 echo -e "Type: build\nStatus: Implementing\nStep: 4" > .flowyeah/state.md
-OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+OUTPUT=$(inject_owned)
 assert_output_not_contains "pipeline no file: no REMAINING section" "REMAINING PIPELINE STEPS" "$OUTPUT"
 teardown
 
@@ -863,7 +896,7 @@ cat > .flowyeah/worktrees/feat-webhook/.flowyeah/progress.md <<'EOF'
 - [ ] Mark task done (9)
 - [ ] Cleanup worktree (10)
 EOF
-OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+OUTPUT=$(inject_owned)
 assert_output_contains "pipeline worktree: shows REMAINING section" "REMAINING PIPELINE STEPS" "$OUTPUT"
 REMAINING=$(echo "$OUTPUT" | sed -n '/REMAINING PIPELINE STEPS/,$ p')
 assert_output_contains "pipeline worktree: remaining has after-merge hooks" "After-merge hooks (8)" "$REMAINING"
@@ -890,7 +923,7 @@ Platform: github
 Comments: 8 total
 Phase: Interactive Triage
 EOF
-OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+OUTPUT=$(inject_owned)
 assert_output_contains "inject respond: shows session type" "flowyeah:respond session" "$OUTPUT"
 assert_output_contains "inject respond: shows STATE" "## STATE" "$OUTPUT"
 assert_output_contains "inject respond: shows PR number" "PR/MR: 55" "$OUTPUT"
@@ -926,7 +959,7 @@ cat > .flowyeah/respond-decisions-55.md <<'EOF'
 - Action: reject
 - Reply: YAGNI
 EOF
-OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+OUTPUT=$(inject_owned)
 assert_output_contains "inject respond decisions: shows DECISIONS section" "## TRIAGE DECISIONS" "$OUTPUT"
 assert_output_contains "inject respond decisions: shows comment 1" "## Comment 1" "$OUTPUT"
 assert_output_contains "inject respond decisions: shows file" "app/models/payment.rb:42" "$OUTPUT"
@@ -945,7 +978,7 @@ Status: Responding
 PR/MR: 55
 Phase: Fetching Comments
 EOF
-OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+OUTPUT=$(inject_owned)
 assert_output_not_contains "inject respond no decisions: no DECISIONS section" "## TRIAGE DECISIONS" "$OUTPUT"
 teardown
 
@@ -969,7 +1002,7 @@ cat > .flowyeah/respond-decisions-55.md <<'EOF'
 - File: app/models/payment.rb:42
 - Action: implement
 EOF
-OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+OUTPUT=$(inject_owned)
 assert_output_contains "inject respond finding: shows DECISIONS section" "## TRIAGE DECISIONS" "$OUTPUT"
 assert_output_contains "inject respond finding: shows finding 1" "## Finding 1" "$OUTPUT"
 assert_output_contains "inject respond finding: shows file" "app/models/payment.rb:42" "$OUTPUT"
@@ -996,7 +1029,7 @@ Type: respond
 Status: Responding
 PR/MR: 77
 EOF
-OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+OUTPUT=$(inject_owned)
 assert_output_contains "inject respond coexist: shows respond session" "flowyeah:respond session" "$OUTPUT"
 assert_output_contains "inject respond coexist: shows respond PR" "PR/MR: 77" "$OUTPUT"
 assert_output_contains "inject respond coexist: shows build session" "Active session found" "$OUTPUT"
@@ -1024,7 +1057,7 @@ PR/MR: 77
 Branch: fix-auth
 Phase: Fetching Comments
 EOF
-OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+OUTPUT=$(inject_owned)
 assert_output_contains "inject respond multi: shows first PR" "PR/MR: 55" "$OUTPUT"
 assert_output_contains "inject respond multi: shows second PR" "PR/MR: 77" "$OUTPUT"
 assert_output_contains "inject respond multi: shows first branch" "feat-payment" "$OUTPUT"
@@ -1038,7 +1071,7 @@ setup_repo
 touch flowyeah.yml
 mkdir -p .flowyeah
 echo -e "# Current State\nPR/MR: 55" > .flowyeah/respond-state-55.md
-OUTPUT=$(bash "$SCRIPT_DIR/session-remind.sh" 2>&1)
+OUTPUT=$(remind_owned)
 assert_output_contains "remind: outputs reminder with respond session" "Update respond-state-55.md" "$OUTPUT"
 teardown
 
@@ -1048,7 +1081,7 @@ setup_repo
 touch flowyeah.yml
 mkdir -p .flowyeah
 echo -e "# Current State\nPR/MR: 55" > .flowyeah/respond-state-55.md
-OUTPUT=$(bash "$SCRIPT_DIR/session-remind.sh" 2>&1)
+OUTPUT=$(remind_owned)
 assert_output_contains "remind: emits hookSpecificOutput envelope" '"hookSpecificOutput"' "$OUTPUT"
 assert_output_contains "remind: emits additionalContext field" '"additionalContext"' "$OUTPUT"
 teardown
@@ -1060,7 +1093,7 @@ mkdir -p .flowyeah
 echo -e "# Current State\nPR/MR: 42" > .flowyeah/review-state-42.md
 echo -e "# Current State\nPR/MR: 55" > .flowyeah/respond-state-55.md
 echo -e "# Current State\nPR/MR: 43" > .flowyeah/review-state-43.md
-OUTPUT=$(bash "$SCRIPT_DIR/session-remind.sh" 2>&1)
+OUTPUT=$(remind_owned)
 assert_output_contains "remind coexist: names first review file" "review-state-42.md" "$OUTPUT"
 assert_output_contains "remind coexist: names second review file" "review-state-43.md" "$OUTPUT"
 assert_output_contains "remind coexist: names respond file" "respond-state-55.md" "$OUTPUT"
@@ -1072,7 +1105,7 @@ touch flowyeah.yml
 mkdir -p .flowyeah
 echo -e "# Current State\nPR/MR: 42\nBranch: main" > .flowyeah/review-state-42.md
 echo "# Previously Rejected Findings (PR #42)" > .flowyeah/own-rejections-42.md
-OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
+OUTPUT=$(inject_owned)
 assert_output_not_contains "inject: no shell error on zero-rejection file" "integer expected" "$OUTPUT"
 assert_output_not_contains "inject: no rejected-count line for empty ledger" "Previously rejected" "$OUTPUT"
 teardown
@@ -1082,14 +1115,7 @@ teardown
 echo ""
 echo "=== session-inject.sh (session ownership) ==="
 
-# Invoke the hook as Claude Code does on UserPromptSubmit, with the
-# conversation's session_id in the stdin payload.
-inject_as() {
-    printf '{"session_id":"%s","hook_event_name":"UserPromptSubmit"}' "$1" \
-        | bash "$SCRIPT_DIR/session-inject.sh" 2>&1
-}
-
-# Test: own review injected in full, another conversation's review as one line
+# Test: own review injected in full, another conversation's review not at all
 setup_repo
 touch flowyeah.yml
 mkdir -p .flowyeah
@@ -1126,7 +1152,8 @@ assert_output_contains "ownership: own review findings" "app/models/payment.rb:4
 assert_output_not_contains "ownership: other review state not dumped" "PR/MR: 55" "$OUTPUT"
 assert_output_not_contains "ownership: other review findings not dumped" "app/controllers/api.rb:10" "$OUTPUT"
 assert_output_not_contains "ownership: other review rejections not counted" "Previously rejected" "$OUTPUT"
-assert_output_contains "ownership: other review listed in one line" "review PR #55 (branch feat-payment, phase Delegated) → .flowyeah/review-state-55.md" "$OUTPUT"
+assert_output_not_contains "ownership: other review not named" "review-state-55.md" "$OUTPUT"
+assert_output_not_contains "ownership: other review PR not named" "PR #55" "$OUTPUT"
 teardown
 
 # Test: state file without Session: belongs to no conversation
@@ -1142,8 +1169,7 @@ Branch: main
 Phase: Delegated
 EOF
 OUTPUT=$(inject_as conv-a)
-assert_output_not_contains "ownership: unowned review not dumped" "## STATE" "$OUTPUT"
-assert_output_contains "ownership: unowned review listed" "review PR #42 (branch main, phase Delegated) → .flowyeah/review-state-42.md" "$OUTPUT"
+assert_empty "ownership: unowned review injects nothing" "$OUTPUT"
 teardown
 
 # Test: respond sessions follow the same ownership rule
@@ -1183,10 +1209,10 @@ assert_output_contains "ownership: own respond state in full" "PR/MR: 55" "$OUTP
 assert_output_contains "ownership: own respond decisions" "app/models/payment.rb:42" "$OUTPUT"
 assert_output_not_contains "ownership: other respond state not dumped" "PR/MR: 77" "$OUTPUT"
 assert_output_not_contains "ownership: other respond decisions not dumped" "app/controllers/auth.rb:7" "$OUTPUT"
-assert_output_contains "ownership: other respond listed in one line" "respond PR #77 (branch fix-auth, phase Interactive Triage) → .flowyeah/respond-state-77.md" "$OUTPUT"
+assert_output_not_contains "ownership: other respond not named" "respond-state-77.md" "$OUTPUT"
 teardown
 
-# Test: only other conversations' sessions → no full block at all
+# Test: only other conversations' sessions → nothing at all
 setup_repo
 touch flowyeah.yml
 mkdir -p .flowyeah
@@ -1198,11 +1224,10 @@ Branch: main
 Phase: Fixing
 EOF
 OUTPUT=$(inject_as conv-a)
-assert_output_not_contains "ownership: no full review block for foreign-only" "flowyeah:review session" "$OUTPUT"
-assert_output_contains "ownership: foreign-only still listed" "review PR #42" "$OUTPUT"
+assert_empty "ownership: foreign-only injects nothing" "$OUTPUT"
 teardown
 
-# Test: payload without session_id falls back to injecting every session
+# Test: without a session_id no state file can be shown to belong here
 setup_repo
 touch flowyeah.yml
 mkdir -p .flowyeah
@@ -1213,9 +1238,85 @@ PR/MR: 42
 Branch: main
 EOF
 OUTPUT=$(printf '{"hook_event_name":"UserPromptSubmit"}' | bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
-assert_output_contains "ownership: no session_id injects in full" "PR/MR: 42" "$OUTPUT"
+assert_empty "ownership: no session_id injects nothing" "$OUTPUT"
 OUTPUT=$(printf 'not json' | bash "$SCRIPT_DIR/session-inject.sh" 2>&1)
-assert_output_contains "ownership: unparsable payload injects in full" "PR/MR: 42" "$OUTPUT"
+assert_empty "ownership: unparsable payload injects nothing" "$OUTPUT"
+OUTPUT=$(bash "$SCRIPT_DIR/session-inject.sh" 2>&1 </dev/null)
+assert_empty "ownership: no payload injects nothing" "$OUTPUT"
+teardown
+
+# Test: build session inside its worktree follows the same ownership rule
+setup_repo
+touch flowyeah.yml
+mkdir -p .flowyeah
+cat > .flowyeah/state.md <<'EOF'
+Type: build
+Session: conv-b
+Task: Webhook retry
+EOF
+OUTPUT=$(inject_as conv-a)
+assert_empty "ownership: other conversation's build injects nothing" "$OUTPUT"
+OUTPUT=$(inject_as conv-b)
+assert_output_contains "ownership: own build injected" "Webhook retry" "$OUTPUT"
+teardown
+
+# Test: from the main checkout, only this conversation's build worktree surfaces
+setup_repo
+touch flowyeah.yml
+mkdir -p .flowyeah/worktrees/feat-webhook/.flowyeah .flowyeah/worktrees/fix-payment/.flowyeah
+cat > .flowyeah/worktrees/feat-webhook/.flowyeah/state.md <<'EOF'
+Type: build
+Session: conv-a
+Task: Webhook retry
+Step: 4
+EOF
+cat > .flowyeah/worktrees/fix-payment/.flowyeah/state.md <<'EOF'
+Type: build
+Session: conv-b
+Task: Payment validation
+Step: 7b
+EOF
+echo "Payment mission" > .flowyeah/worktrees/fix-payment/.flowyeah/mission.md
+OUTPUT=$(inject_as conv-a)
+assert_output_contains "ownership: own build worktree injected in full" "## STATE" "$OUTPUT"
+assert_output_contains "ownership: own build worktree task" "Webhook retry" "$OUTPUT"
+assert_output_not_contains "ownership: other build worktree not named" "fix-payment" "$OUTPUT"
+assert_output_not_contains "ownership: other build task not named" "Payment validation" "$OUTPUT"
+OUTPUT=$(inject_as conv-c)
+assert_empty "ownership: build worktrees of others inject nothing" "$OUTPUT"
+teardown
+
+echo ""
+echo "=== session-remind.sh (session ownership) ==="
+
+# Test: remind names only this conversation's state files
+setup_repo
+touch flowyeah.yml
+mkdir -p .flowyeah
+echo -e "Type: review\nSession: conv-a\nPR/MR: 42" > .flowyeah/review-state-42.md
+echo -e "Type: review\nSession: conv-b\nPR/MR: 55" > .flowyeah/review-state-55.md
+echo -e "Type: review\nPR/MR: 43" > .flowyeah/review-state-43.md
+echo -e "Type: respond\nSession: conv-b\nPR/MR: 77" > .flowyeah/respond-state-77.md
+OUTPUT=$(remind_as conv-a)
+assert_output_contains "remind ownership: names own review" "review-state-42.md" "$OUTPUT"
+assert_output_not_contains "remind ownership: skips other conversation's review" "review-state-55.md" "$OUTPUT"
+assert_output_not_contains "remind ownership: skips unowned review" "review-state-43.md" "$OUTPUT"
+assert_output_not_contains "remind ownership: skips other conversation's respond" "respond-state-77.md" "$OUTPUT"
+OUTPUT=$(remind_as conv-c)
+assert_empty "remind ownership: nothing when no state file is ours" "$OUTPUT"
+OUTPUT=$(bash "$SCRIPT_DIR/session-remind.sh" 2>&1 </dev/null)
+assert_empty "remind ownership: nothing without a payload" "$OUTPUT"
+teardown
+
+# Test: remind follows ownership for the build state.md too
+setup_repo
+touch flowyeah.yml
+mkdir -p .flowyeah
+echo -e "Type: build\nSession: conv-b" > .flowyeah/state.md
+OUTPUT=$(remind_as conv-a)
+assert_empty "remind ownership: other conversation's build" "$OUTPUT"
+OUTPUT=$(remind_as conv-b)
+assert_output_contains "remind ownership: own build" "Update .flowyeah/state.md" "$OUTPUT"
 teardown
 
 # ── tree-guard.sh tests ────────────────────────────────
