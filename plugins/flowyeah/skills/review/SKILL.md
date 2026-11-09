@@ -8,7 +8,7 @@ description: Use when reviewing a pull request or merge request. Use --own to se
 Reviews a pull request or merge request. Runs review agents, validates requirements, checks for critical patterns, and submits a formal review with inline comments. With `--own`, collects findings for self-audit without submitting. With `finalize`, tears down review state.
 
 ```
-flowyeah:review [--own] [<number>]
+flowyeah:review [--own] [--full] [<number>]
 flowyeah:review finalize [<number>]
 ```
 
@@ -22,7 +22,7 @@ If a step appears to require a primary-checkout mutation, STOP and ask the user 
 
 ## Argument Parsing
 
-If the first positional argument is `finalize`, the second positional (if present) is the PR number to finalize; otherwise, auto-detect from current branch. For non-finalize invocations, treat the positional as a PR number. The `--own` flag can appear in any position. `finalize` ignores `--own` — it operates on whatever active review session exists regardless of mode.
+If the first positional argument is `finalize`, the second positional (if present) is the PR number to finalize; otherwise, auto-detect from current branch. For non-finalize invocations, treat the positional as a PR number. The `--own` flag can appear in any position. `finalize` ignores `--own` — it operates on whatever active review session exists regardless of mode. `--full` can also appear in any position and combine with `--own`: this round reviews the full diff whatever `code_review.incremental` says (see step 2.9). `finalize` ignores it.
 
 ## Pipeline
 
@@ -64,7 +64,7 @@ digraph review {
 
 Uses `flowyeah.yml` from the project root (see `config-schema.md` at the plugin root for full schema and defaults). **If missing, load `setup.md` from the plugin root and follow its interactive setup instructions before proceeding.**
 
-The review skill uses: `code_review.agents`, `code_review.optional_agents`, `code_review.instructions`, `code_review.impact_analysis`, `git_host`, `language`, and adapter configs for issue detection.
+The review skill uses: `code_review.agents`, `code_review.optional_agents`, `code_review.instructions`, `code_review.impact_analysis`, `code_review.incremental`, `git_host`, `language`, and adapter configs for issue detection.
 
 **If `code_review.agents` is empty or missing: STOP and complain.**
 
@@ -95,6 +95,8 @@ Status: Reviewing
 PR/MR: <number>
 URL: <web URL from step 1>
 Round: <n>
+Head: <head SHA pinned in step 2>
+Scope: <full | incremental since <short sha> | nothing new>
 Branch: <source_branch>
 Platform: <adapter>
 Findings: <count> total, <approved> approved
@@ -107,6 +109,8 @@ Worktree: <relative path under .flowyeah/review-worktrees/{N}/ or "none">
 `Mode` is absent for normal reviews. The hook does not interpret this field — it dumps the state file as raw text. The skill's crash recovery logic reads `Mode` to decide which path to follow on resume.
 
 `Round` is the number of this review of the PR/MR by the authenticated user, counting from 1, set in step 2 (item 8).
+
+`Head` is the PR/MR head this round reviews, pinned in step 2 (item 1). The review body's marker carries it, so the next round starts from what this one actually saw. `Scope` is what step 2.9 chose.
 
 `Worktree` defaults to `none`. When the skill creates a review worktree (see "Invariant: Primary Checkout Is Untouched"), update this field to the path immediately and clear it back to `none` once the worktree is removed. The hook injects this field as-is on every prompt of the owning conversation so context recovery can verify worktree state.
 
@@ -223,7 +227,7 @@ Fetch issue details using the appropriate source adapter (load `adapters/<source
 
 Collect in parallel. **All commands here are read-only against the primary checkout** — no `checkout`, no `restore`, no `switch`. See "Invariant: Primary Checkout Is Untouched" if a step seems to require materializing files at a different ref.
 
-1. **PR/MR diff** — via review adapter (`gh pr diff <N>` for GitHub, GitLab diff endpoint). Do NOT reconstruct via `git diff <base>...<head>` after a checkout.
+1. **PR/MR diff** — via review adapter (`gh pr diff <N>` for GitHub, GitLab diff endpoint). Do NOT reconstruct via `git diff <base>...<head>` after a checkout. Pin the head this diff belongs to in the state file's `Head:` (`headRefOid` on GitHub, `diff_refs.head_sha` on GitLab) and use that SHA wherever this skill says `<head_sha>`. On GitHub `headRefOid` has been seen lagging a rebase by minutes: after `git fetch origin <source_branch>`, compare it with `git rev-parse origin/<source_branch>`, and when they differ, fetch the PR again before going on.
 2. **Files changed** — via review adapter. New-side file content, when needed beyond what the diff shows, comes from `git show <head_sha>:<file>` (read-only) — do not check out the PR branch into the primary checkout.
 3. **Commit messages** — via review adapter
 4. **CLAUDE.md files** — find all: global (`~/.claude/CLAUDE.md`), project root, `.claude/CLAUDE.md`, `.claude/standards/*.md`
@@ -293,17 +297,37 @@ For entries with `File: (general)` (no precise line), the diff-overlap rule cann
 
 This list is **separate** from `unresolved_findings[]`. It does not get carried forward as a user-visible finding (see step 4, consolidation rule 7) — it is used only as agent context (see step 3, Run Review Agents).
 
+#### 2.9 Choose the Review Target
+
+The **target** is what steps 3, 3b, and 3c review. Decide it in this order, record the result in `Scope:`, and stop at the first rule that applies:
+
+1. `--full` was passed → `Scope: full`.
+2. `code_review.incremental` is `false` → `Scope: full`.
+3. No previous head → `Scope: full`. The previous head comes from the review adapter's `Fetch Reviewed Head`; in `--own` mode it is the `Head:` of the `Phase: Responded` state file being overwritten, read before overwriting it like `Round:`. Count the first review by this rule, not by `Round:`: item 8 does not count rounds without inline comments, so `Round:` can read 1 on a PR/MR that already has a marker.
+4. Otherwise run the delta script, from the primary checkout (it only fetches objects and reads):
+
+   ```bash
+   <plugin root>/bin/review-delta <previous head> <Head> <target branch> > .flowyeah/review-target-{N}.diff
+   ```
+
+   `<plugin root>` is two directories above this skill's base directory, shown when the skill loads. `<target branch>` is `baseRefName` on GitHub, `target_branch` on GitLab.
+   - Exit 0 with output → `Scope: incremental since <short previous head>`; the target is `.flowyeah/review-target-{N}.diff`.
+   - Exit 0 with empty output → `Scope: nothing new`: the author only rebased or pushed nothing. Skip steps 3, 3b, and 3c; step 4 consolidates step 2b's findings and the carried-forward `unresolved_findings[]`, and the round still posts its summary, so the marker moves to the new head.
+   - Exit 3 → `Scope: full`: the previous head is gone from both the local repository and the remote. Say so in the review summary.
+
+With `Scope: full` the target is the step 2 diff.
+
 ### 2b. Requirements Validation
 
 **Skip if step 1b found neither an issue nor a `## Criteria` section.**
 
-Read `requirements-check.md` at the plugin root and apply its three dimensions to the diff, with the reference from step 1b. Generate a finding for each unmet requirement.
+Read `requirements-check.md` at the plugin root and apply its three dimensions to the diff, with the reference from step 1b. Generate a finding for each unmet requirement. Step 2b always uses the full diff, never the target from step 2.9: it asks whether the whole PR/MR delivers what was asked, and a requirement delivered in an earlier round would read as missing from a delta.
 
 ### 3. Run Review Agents
 
 Launch agents from `code_review.agents` in parallel using the Task tool:
 
-- Pass each agent the PR diff and changed files
+- Pass each agent the target from step 2.9 and the changed files. With `Scope: full` the target is the PR diff. With `Scope: incremental since …`, pass `.flowyeah/review-target-{N}.diff`, the names of the PR's other changed files (names only, no diff), and this instruction: "The target holds what the author changed since the previous review round. Raise findings about the target and about what it affects. A finding the target causes anchors on the target line that triggers it, and its body names the affected code as `file:line`. Do not hunt for problems in the rest of the PR; a problem you meet there by chance is still a finding, anchored on its own line."
 - Each agent returns findings as: file, line, issue, severity, confidence (0-100)
 
 If `code_review.instructions` is configured, include the file contents as additional context passed to each agent alongside the PR diff and changed files. Instructions may reference external resources (a docs URL, a linked issue); agents resolve those using available tools (WebFetch, source adapters) to verify compliance rather than treating the reference as passive text.
@@ -318,7 +342,7 @@ If `previously_rejected_findings[]` from step 2.8a is non-empty (only possible i
 
 ### 3b. Critical Checks
 
-Run directly (not delegated to agents):
+Run directly (not delegated to agents), on the target from step 2.9. Outside the target they already ran in an earlier round, and a finding the user excluded then would come back every round, since an excluded finding is never posted for step 2.8 to see:
 
 **Database Concurrency:** For any migration adding an index, verify if it should be unique. Application-level validations are NOT sufficient for concurrency — DB constraints are required. If a unique index exists, check for `RecordNotUnique` rescue.
 
@@ -332,9 +356,9 @@ Run directly (not delegated to agents):
 
 ### 3c. Impact Analysis
 
-Run directly (like `3b`). Runs on **every** review — not gated on an issue being found.
+Run directly (like `3b`), on the target from step 2.9. Runs on **every** review — not gated on an issue being found — except a `Scope: nothing new` round, where there is no target. A signature the target changes is still traced to callers anywhere in the repository.
 
-**Executor.** If `code_review.impact_analysis` is configured, delegate this entire step to the named agent, passing it the PR diff, the identified changed public surface (below), and the trigger-line anchoring contract. That agent may create the review worktree at `.flowyeah/review-worktrees/{N}/` for LSP/codegraph-grade tracing (see "Invariant: Primary Checkout Is Untouched"). Because the delegated agent runs in its own context and cannot be relied on to record or tear down that worktree, set `Worktree:` in `review-state-{N}.md` to `.flowyeah/review-worktrees/{N}/` **before** invoking the agent — so `finalize` and crash recovery can reclaim it even if the agent exits without cleaning up. After the agent returns, if no worktree remains, clear `Worktree:` back to `none` (the recovery reconciliation rules handle a recorded-but-absent path). Otherwise, run the built-in logic below. The step **always runs — it cannot be disabled**; only its executor is swappable.
+**Executor.** If `code_review.impact_analysis` is configured, delegate this entire step to the named agent, passing it the target from step 2.9, the identified changed public surface (below), and the trigger-line anchoring contract. That agent may create the review worktree at `.flowyeah/review-worktrees/{N}/` for LSP/codegraph-grade tracing (see "Invariant: Primary Checkout Is Untouched"). Because the delegated agent runs in its own context and cannot be relied on to record or tear down that worktree, set `Worktree:` in `review-state-{N}.md` to `.flowyeah/review-worktrees/{N}/` **before** invoking the agent — so `finalize` and crash recovery can reclaim it even if the agent exits without cleaning up. After the agent returns, if no worktree remains, clear `Worktree:` back to `none` (the recovery reconciliation rules handle a recorded-but-absent path). Otherwise, run the built-in logic below. The step **always runs — it cannot be disabled**; only its executor is swappable.
 
 From the diff, identify the **changed public surface**: modified or removed method signatures, return shapes, serializers, event/webhook payloads, job arguments, and changed defaults. For each element, trace outward across three dimensions using **read-only commands only** (no checkout, no worktree in the built-in path):
 
@@ -502,7 +526,7 @@ Skipping this question and picking the event yourself is never sanctioned — th
 Load the review adapter and follow its instructions to:
 
 1. Build inline comments array — **every approved finding** becomes an inline comment. If a finding lacks a precise line, find the best anchor (see Error Handling). No findings go in the review body — the body is a summary, not a fallback destination. Every finding is a stop-point for the reviewed developer: it must create an open thread they need to resolve, which the review body cannot do.
-2. Build review body (consolidated summary only — requirements validation, previous review follow-up, and overview. No findings.)
+2. Build review body (consolidated summary only — requirements validation, previous review follow-up, and overview. No findings.) Drop the template's instruction comments, but keep its last line, the `flowyeah:reviewed-head` marker: without it the next round reviews the full diff again.
 3. Submit the formal review with the event type chosen in step 6
 
 **All inline comments use [Conventional Comments](https://conventionalcomments.org/) format:**
@@ -525,7 +549,7 @@ Ask for final confirmation before posting.
 
 This differs from `COMMENT` and `REQUEST CHANGES`, where all findings (including praise) are posted as inline comments. The review adapter's event documentation has the details.
 
-After posting (or if the user discards), remove `.flowyeah/review-state-{N}.md` and `.flowyeah/review-approved-{N}.md` to end the session. If `Worktree:` is set in the state file, also run `git worktree remove --force <path>` and `rm -rf` the directory if anything remains. **Do not** remove `.flowyeah/own-rejections-{N}.md` here — that file persists until the user explicitly runs `/flowyeah:review finalize {N}` (a normal-mode submitted review is unrelated to the `--own` rejection ledger).
+After posting (or if the user discards), remove `.flowyeah/review-state-{N}.md`, `.flowyeah/review-approved-{N}.md`, and `.flowyeah/review-target-{N}.diff` (if present) to end the session. If `Worktree:` is set in the state file, also run `git worktree remove --force <path>` and `rm -rf` the directory if anything remains. **Do not** remove `.flowyeah/own-rejections-{N}.md` here — that file persists until the user explicitly runs `/flowyeah:review finalize {N}` (a normal-mode submitted review is unrelated to the `--own` rejection ledger).
 
 ### `finalize` Subcommand
 
@@ -547,7 +571,7 @@ flowyeah:review finalize [<number>]
 After resolving the target:
 1. Read the state file. Display: PR number, findings count, mode, worktree path (if any).
 2. If `Worktree:` is set and not `none`: run `git worktree remove --force <path>`, then `rm -rf <path>` if the directory still exists. Report any failure but proceed with the remaining cleanup — the state file deletion must not be blocked by a stuck worktree.
-3. Delete `review-state-{N}.md`, `review-approved-{N}.md` (if present), and `own-rejections-{N}.md` (if present).
+3. Delete `review-state-{N}.md`, `review-approved-{N}.md` (if present), `review-target-{N}.diff` (if present), and `own-rejections-{N}.md` (if present).
 4. Delete `respond-state-{N}.md` and `respond-decisions-{N}.md` if present — respond has no finalize of its own, so a respond round that crashed mid-pipeline leaves them behind, and they keep `tree-guard` blocking the branch after "finalized" was reported.
 5. Never touch anything under `.flowyeah/worktrees/` — those belong to build sessions, not to review.
 6. Report: "Review session finalized."
@@ -564,6 +588,9 @@ No platform interaction. No re-running agents. No verification of whether findin
 
 ```markdown
 ## Code Review
+
+<!-- Only with `Scope: incremental since …` or `Scope: nothing new`, in the configured `language` -->
+Round {n}: reviewed what changed since `<short previous head>`.
 
 ### Requirements Validation
 <!-- Only if step 1b found a reference; with `## Criteria`, name the PR/MR description instead of an issue -->
@@ -585,7 +612,11 @@ No platform interaction. No re-running agents. No verification of whether findin
 
 ### Code Review Summary
 [consolidated summary of findings]
+
+<!-- flowyeah:reviewed-head <Head> -->
 ```
+
+The last line is the marker the next round's `Fetch Reviewed Head` reads. Fill it with the state file's `Head:`, the head pinned in step 2, never re-read at submit time: the author may have pushed while the agents ran, and the next round must start from what this one reviewed. Every round writes it, `--full` and `Scope: nothing new` included. It is an HTML comment, so neither platform shows it on the page.
 
 ## Timing
 
@@ -610,4 +641,5 @@ Review comments are written in the language configured in `language`. Default: `
 | PR/MR not found | Ask user for number/URL |
 | Agent fails | **STOP.** Report which agent failed and its error, then ask the user: retry it, proceed without it, or abort. Do not present findings until the user decides. |
 | Remote communication failure (401, 403, 429, 5xx, timeout) | Retry up to 2 times with a short pause. If still failing, **STOP and report the error to the user.** Do not attempt alternative approaches or workarounds. For writes that may have landed (GitLab's per-finding discussion POSTs especially), verify what was created and retry only the missing pieces — see the `Submitting Review` recovery row. |
+| `bin/review-delta` exits 3 (previous head not found locally or on the remote) | Review the full diff (`Scope: full`) and say in the summary that the previous round's head was unavailable. |
 | Inline comment position not in diff | Find the best anchor: the most relevant changed line in the same file, or the file's first changed line. If the file has no changed lines at all (finding from a cross-cutting concern), anchor on the most relevant file's first changed hunk. Every finding MUST become an inline comment — never move findings to the review body. |

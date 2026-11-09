@@ -791,6 +791,19 @@ assert_contains "GitHub reviewed head ignores reviews without the marker" "empty
 assert_contains "GitLab reviewed head does not trust position.head_sha" "rewrites" "$GL_ADAPTER/review.md"
 assert_contains "GitHub Fetch PR reports the head SHA" "headRefOid" "$GH_ADAPTER/review.md"
 
+assert_contains "review takes --full" "--full" "$REVIEW_SKILL"
+assert_contains "review reads code_review.incremental" "code_review.incremental" "$REVIEW_SKILL"
+assert_contains "review chooses the target in its own step" "2.9 Choose the Review Target" "$REVIEW_SKILL"
+assert_contains "review runs bin/review-delta" "bin/review-delta" "$REVIEW_SKILL"
+assert_contains "review state records the pinned head" "Head: " "$REVIEW_SKILL"
+assert_contains "review state records the scope" "Scope: <full" "$REVIEW_SKILL"
+assert_contains "review skips agents when the author changed nothing" "nothing new" "$REVIEW_SKILL"
+assert_contains "review body carries the marker" "<!-- flowyeah:reviewed-head <Head> -->" "$REVIEW_SKILL"
+# The author can push while the agents run; the marker must name what was reviewed.
+assert_contains "marker uses the head pinned in step 2" "never re-read at submit time" "$REVIEW_SKILL"
+# Requirements coverage is a question about the whole PR.
+assert_contains "requirements validation keeps the full diff" "2b always uses the full diff" "$REVIEW_SKILL"
+
 # ── Results ──────────────────────────────────────────────
 
 echo ""
