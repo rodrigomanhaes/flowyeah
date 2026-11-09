@@ -822,6 +822,13 @@ for adapter in "$GH_ADAPTER" "$GL_ADAPTER"; do
     assert_contains "$(basename "$adapter") submit fills the marker from the pinned head" "state file's \`Head:\`" "$adapter/review.md"
 done
 
+# The author can push while a round runs: the review lands on the head the
+# round pinned, not on whatever the PR/MR head is at submit time.
+assert_contains "GitHub review is submitted on the pinned head" '"commit_id": "<Head>"' "$GH_ADAPTER/review.md"
+assert_contains "GitLab inline positions come from the pinned head's version" 'merge_requests/<iid>/versions?per_page=100' "$GL_ADAPTER/review.md"
+assert_contains "GitLab approval is pinned to the reviewed head" 'sha=<Head>' "$GL_ADAPTER/review.md"
+assert_contains "GitLab approval handles a moved head" '409 Conflict' "$GL_ADAPTER/review.md"
+
 # ── Results ──────────────────────────────────────────────
 
 echo ""

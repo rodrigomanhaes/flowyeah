@@ -179,6 +179,7 @@ REPO=$(gh repo view --json owner,name --jq '"\(.owner.login)/\(.name)"')
 
 gh api "repos/${REPO}/pulls/<number>/reviews" --method POST --input - <<'JSON'
 {
+  "commit_id": "<Head>",
   "event": "<EVENT>",
   "body": "<review_summary>",
   "comments": [
@@ -193,6 +194,8 @@ JSON
 ```
 
 Finding bodies are multi-line — inside JSON strings, escape newlines as `\n` and double quotes as `\"`.
+
+`commit_id` is the review state file's `Head:`. Without it GitHub files the review, approval included, under the PR's latest commit, which the author may have pushed while the round ran; the inline `line` numbers were computed on the `Head:` diff.
 
 The summary ends with the review skill's `<!-- flowyeah:reviewed-head <sha> -->` marker. Fill it with the state file's `Head:`, the head pinned when the round started, not with a head SHA fetched now: the author may have pushed while the round ran.
 

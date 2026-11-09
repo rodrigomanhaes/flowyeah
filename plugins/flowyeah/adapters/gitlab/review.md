@@ -176,15 +176,18 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 
 If the list is not empty, STOP and show the drafts to the user before submitting: Step 5 would publish them along with the review. Show each draft by file and an excerpt of its text, never by its API `id` (the id never appears in the GitLab UI). Resolve them against the review's decisions: fold what is still useful into the findings, then delete every draft (`DELETE .../draft_notes/:id`), including those that repeat a finding the user rejected. Only then continue.
 
-### Step 2 — Get diff_refs
+### Step 2 — Get the position SHAs of the reviewed version
+
+Take them from the MR version whose head is the review state file's `Head:`, not from the MR's current `diff_refs`: the finding lines were computed on that version's diff, and the author may have pushed since.
 
 ```bash
-DIFF_REFS=$(curl -s -H "Authorization: Bearer $TOKEN" \
-  "<url>/api/v4/projects/<project_id>/merge_requests/<iid>" | \
-  jq '.diff_refs')
+curl -s -H "Authorization: Bearer $TOKEN" \
+  "<url>/api/v4/projects/<project_id>/merge_requests/<iid>/versions?per_page=100" | \
+  jq --arg head "<Head>" '[.[] | select(.head_commit_sha == $head)][0]
+    | {base_sha: .base_commit_sha, start_sha: .start_commit_sha, head_sha: .head_commit_sha}'
 ```
 
-Extract `base_sha`, `start_sha`, and `head_sha` from the response.
+Versions come newest first; when more than 100 exist, page with `&page=2`, ... until one matches. If none matches (the three fields come back `null`), STOP and tell the user: the MR no longer lists the version this round reviewed. GitLab accepts a position on an older version and carries the discussion forward to the current one.
 
 ### Step 3 — Post inline comments as discussions
 
@@ -261,8 +264,11 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 **Approve:**
 ```bash
 curl -s --request POST -H "Authorization: Bearer $TOKEN" \
+  --data-urlencode "sha=<Head>" \
   "<url>/api/v4/projects/<project_id>/merge_requests/<iid>/approve"
 ```
+
+`sha` is the review state file's `Head:`, so the approval covers the head the round reviewed. When the author pushed during the round, GitLab answers `409 Conflict` and records no approval. Tell the user that the approval was not recorded because the MR moved to a head this round did not review; the next round reviews the new commits.
 
 **Unapprove (revoke approval):**
 ```bash
