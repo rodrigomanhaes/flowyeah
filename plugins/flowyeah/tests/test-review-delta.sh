@@ -189,6 +189,31 @@ test_file_left_pr() {
     teardown
 }
 
+test_author_changes_binary() {
+    setup_repo
+    local old new
+    git checkout -q -b pr
+    printf '\x00\x01round1' > bin.dat && git add bin.dat
+    old=$(commit_push "pr round 1")
+    printf '\x00\x01round2' > bin.dat
+    new=$(commit_push "pr round 2")
+    run_delta "$old" "$new" main
+    assert_contains "binary change: file in target" "bin.dat" "$OUT"
+    teardown
+}
+
+test_author_changes_mode() {
+    setup_repo
+    local old new
+    old=$(open_pr)
+    chmod +x A.txt
+    new=$(commit_push "pr round 2")
+    run_delta "$old" "$new" main
+    assert_contains "mode change: file in target" "+++ b/A.txt" "$OUT"
+    assert_contains "mode change: the new mode" "new mode 100755" "$OUT"
+    teardown
+}
+
 test_old_head_only_on_origin() {
     setup_repo
     local old new
@@ -233,6 +258,8 @@ test_clean_rebase
 test_file_added_in_round_2
 test_author_deletes_lines
 test_file_left_pr
+test_author_changes_binary
+test_author_changes_mode
 test_old_head_only_on_origin
 test_unknown_old_sha
 test_usage

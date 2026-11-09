@@ -7,7 +7,8 @@ Compares the PR patch at each head (the diff from its merge base with
 origin/<target_branch>) file by file, with zero context and without line
 numbers, so a rebase that only moved the target branch yields nothing.
 Prints, for each file, the hunks of the current patch (normal context) that
-overlap a hunk the author changed. Empty output means the author changed
+overlap a hunk the author changed, plus the header of a file whose mode or
+binary content the author changed. Empty output means the author changed
 nothing. Files that left the PR print nothing.
 
 Exit codes: 0 target printed (possibly empty), 2 usage, 3 a head is not
@@ -72,6 +73,18 @@ def changed_ranges(old_patch, new_patch):
     return ranges
 
 
+def header_changed(old, new, path, zero):
+    """A change with no text hunk: file mode, or a binary whose content differs between the heads."""
+    old_header, _ = split_hunks(zero[old])
+    new_header, _ = split_hunks(zero[new])
+    if old_header != new_header:
+        return True
+    if any(line.startswith("Binary files ") for line in new_header):
+        blobs = [git("rev-parse", f"{sha}:{path}", check=False).stdout.strip() for sha in (old, new)]
+        return blobs[0] != blobs[1]
+    return False
+
+
 def main(argv):
     if len(argv) != 3:
         print(__doc__.splitlines()[0], file=sys.stderr)
@@ -88,9 +101,9 @@ def main(argv):
     for path in sorted(new_files):
         zero = {sha: git("diff", "-U0", base[sha], sha, "--", path).stdout for sha in (old, new)}
         ranges = changed_ranges(zero[old], zero[new])
-        if not ranges:
-            continue
         header, hunks = split_hunks(git("diff", base[new], new, "--", path).stdout)
+        if not ranges and not header_changed(old, new, path, zero):
+            continue
         selected = [h for h in hunks
                     if any(lo <= r_hi and r_lo <= hi for lo, hi in [new_side_range(h)] for r_lo, r_hi in ranges)]
         print("\n".join(header + [line for h in selected for line in h]))
