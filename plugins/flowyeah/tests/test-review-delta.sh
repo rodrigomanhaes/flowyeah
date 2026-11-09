@@ -244,6 +244,20 @@ test_unknown_old_sha() {
     teardown
 }
 
+test_rejects_option_like_arguments() {
+    setup_repo
+    local new
+    new=$(open_pr)
+    run_delta "--upload-pack=touch $ROOT/pwned" "$new" main
+    assert_eq "option as old sha: exit 2" 2 "$CODE"
+    assert_eq "option as old sha: nothing ran" "no" "$([ -e "$ROOT/pwned" ] && echo yes || echo no)"
+    run_delta "$new" "$new" "--upload-pack=touch $ROOT/pwned"
+    assert_eq "option as target branch: exit 2" 2 "$CODE"
+    run_delta "abc123" "$new" main
+    assert_eq "short sha: exit 2" 2 "$CODE"
+    teardown
+}
+
 test_usage() {
     setup_repo
     run_delta only two
@@ -262,6 +276,7 @@ test_author_changes_binary
 test_author_changes_mode
 test_old_head_only_on_origin
 test_unknown_old_sha
+test_rejects_option_like_arguments
 test_usage
 
 echo ""

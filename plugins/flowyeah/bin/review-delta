@@ -20,6 +20,7 @@ import re
 import subprocess
 import sys
 
+FULL_SHA = re.compile(r"^[0-9a-f]{40}$|^[0-9a-f]{64}$")
 HUNK_HEADER = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
 
 
@@ -90,6 +91,12 @@ def main(argv):
         print(__doc__.splitlines()[0], file=sys.stderr)
         return 2
     old, new, target = argv
+    # The SHAs come from a review body on the platform: anything but a full
+    # hex SHA would reach `git fetch` as an option.
+    valid_branch = git("check-ref-format", "--branch", target, check=False).returncode == 0
+    if not (FULL_SHA.match(old) and FULL_SHA.match(new) and valid_branch and not target.startswith("-")):
+        print(__doc__.splitlines()[0], file=sys.stderr)
+        return 2
     git("fetch", "-q", "origin", target, check=False)
     for sha in (old, new):
         if not ensure_commit(sha):
