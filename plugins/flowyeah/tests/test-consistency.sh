@@ -780,6 +780,9 @@ echo ""
 echo "=== Incremental re-review ==="
 
 assert_dir_in_list "README example has code_review.incremental" "code_review.incremental" "$(yaml_key_paths "$README" '^## Project Configuration')"
+assert_contains "schema validates code_review.incremental as a boolean" "\`code_review.incremental\` must be a boolean" "$SCHEMA"
+# bin/review-delta is the first script the plugin runs with python3 at review time.
+assert_contains "README prerequisites list python3" "**python3**" <(sed -n '/^## Prerequisites/,/^## /p' "$README")
 
 for adapter in "$GH_ADAPTER" "$GL_ADAPTER"; do
     assert_contains "$(basename "$adapter") review.md fetches the reviewed head" "## Fetch Reviewed Head" "$adapter/review.md"

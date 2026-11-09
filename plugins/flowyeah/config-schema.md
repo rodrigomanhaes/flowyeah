@@ -55,6 +55,7 @@ Single source of truth for `flowyeah.yml` configuration. Referenced by setup, bu
 | `code_review.instructions` must be a relative path (if present) | error | "code_review.instructions must be a relative path: '<path>'" |
 | `code_review.instructions` file must exist (if present) | error | "code_review.instructions file not found: '<path>'" |
 | `code_review.impact_analysis` must be a non-empty string (if present) | error | "code_review.impact_analysis must be a non-empty agent name" |
+| `code_review.incremental` must be a boolean (if present) | error | "code_review.incremental must be true or false" |
 | `issues.adapter` required when `create_when_missing` is `ask` or `always` | error | "issues.adapter is required when create_when_missing is '\<value>'" |
 | `issues.adapter` must support issue creation (gitlab, github, or linear) | error | "issues.adapter '\<name>' does not support issue creation (only gitlab, github, linear)" |
 | `issues.adapter` must be a key in `adapters` | error | "issues.adapter '\<name>' is not configured in adapters" |
