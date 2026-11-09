@@ -803,6 +803,15 @@ assert_contains "review body carries the marker" "<!-- flowyeah:reviewed-head <H
 assert_contains "marker uses the head pinned in step 2" "never re-read at submit time" "$REVIEW_SKILL"
 # Requirements coverage is a question about the whole PR.
 assert_contains "requirements validation keeps the full diff" "2b always uses the full diff" "$REVIEW_SKILL"
+# --own reads the previous head in the conflict check, before step 0 overwrites the file.
+assert_contains "review --own carries the head across overwrites" "Read its \`Round:\` and \`Head:\` first" "$REVIEW_SKILL"
+assert_contains "review falls back on any review-delta failure" "Any other exit" "$REVIEW_SKILL"
+assert_contains "review tells agents about undone changes" "# undone since" "$REVIEW_SKILL"
+assert_not_contains "agents get the target, not the PR diff, with instructions" "alongside the PR diff and changed files" "$REVIEW_SKILL"
+assert_contains "review skips the headRefOid cross-check on forks" "from a fork" "$REVIEW_SKILL"
+for adapter in "$GH_ADAPTER" "$GL_ADAPTER"; do
+    assert_contains "$(basename "$adapter") submit fills the marker from the pinned head" "state file's \`Head:\`" "$adapter/review.md"
+done
 
 # ── Results ──────────────────────────────────────────────
 

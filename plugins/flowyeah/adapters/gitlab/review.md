@@ -224,6 +224,8 @@ The `new_line` MUST be a line that appears in the diff. If the finding is about 
 
 For the overall review summary (findings always go inline — see Step 3):
 
+The summary ends with the review skill's `<!-- flowyeah:reviewed-head <sha> -->` marker. Fill it with the state file's `Head:`, the head pinned when the round started, not with a head SHA fetched now: the author may have pushed while the round ran.
+
 ```bash
 TMPDIR_FY="${TMPDIR_FY:-$(mktemp -d)}"
 # write <review_summary> to "$TMPDIR_FY/review-summary.md" first

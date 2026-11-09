@@ -194,6 +194,8 @@ JSON
 
 Finding bodies are multi-line — inside JSON strings, escape newlines as `\n` and double quotes as `\"`.
 
+The summary ends with the review skill's `<!-- flowyeah:reviewed-head <sha> -->` marker. Fill it with the state file's `Head:`, the head pinned when the round started, not with a head SHA fetched now: the author may have pushed while the round ran.
+
 **Event values:**
 - `APPROVE` — approve the PR
 - `COMMENT` — comment without approving or requesting changes

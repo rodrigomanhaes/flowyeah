@@ -227,7 +227,7 @@ Fetch issue details using the appropriate source adapter (load `adapters/<source
 
 Collect in parallel. **All commands here are read-only against the primary checkout** — no `checkout`, no `restore`, no `switch`. See "Invariant: Primary Checkout Is Untouched" if a step seems to require materializing files at a different ref.
 
-1. **PR/MR diff** — via review adapter (`gh pr diff <N>` for GitHub, GitLab diff endpoint). Do NOT reconstruct via `git diff <base>...<head>` after a checkout. Pin the head this diff belongs to in the state file's `Head:` (`headRefOid` on GitHub, `diff_refs.head_sha` on GitLab) and use that SHA wherever this skill says `<head_sha>`. On GitHub `headRefOid` has been seen lagging a rebase by minutes: after `git fetch origin <source_branch>`, compare it with `git rev-parse origin/<source_branch>`, and when they differ, fetch the PR again before going on.
+1. **PR/MR diff** — via review adapter (`gh pr diff <N>` for GitHub, GitLab diff endpoint). Do NOT reconstruct via `git diff <base>...<head>` after a checkout. Pin the head this diff belongs to in the state file's `Head:` (`headRefOid` on GitHub, `diff_refs.head_sha` on GitLab) and use that SHA wherever this skill says `<head_sha>`. On GitHub `headRefOid` has been seen lagging a rebase by minutes: after `git fetch origin <source_branch>`, compare it with `git rev-parse origin/<source_branch>`, and when they differ, fetch the PR view and its diff again before going on, so `Head:` and the diff describe the same commit. Skip this check for a PR from a fork, whose branch is not on `origin`.
 2. **Files changed** — via review adapter. New-side file content, when needed beyond what the diff shows, comes from `git show <head_sha>:<file>` (read-only) — do not check out the PR branch into the primary checkout.
 3. **Commit messages** — via review adapter
 4. **CLAUDE.md files** — find all: global (`~/.claude/CLAUDE.md`), project root, `.claude/CLAUDE.md`, `.claude/standards/*.md`
@@ -313,7 +313,8 @@ The **target** is what steps 3, 3b, and 3c review. Decide it in this order, reco
    `<plugin root>` is two directories above this skill's base directory, shown when the skill loads. `<target branch>` is `baseRefName` on GitHub, `target_branch` on GitLab.
    - Exit 0 with output → `Scope: incremental since <short previous head>`; the target is `.flowyeah/review-target-{N}.diff`.
    - Exit 0 with empty output → `Scope: nothing new`: the author only rebased or pushed nothing. Skip steps 3, 3b, and 3c; step 4 consolidates step 2b's findings and the carried-forward `unresolved_findings[]`, and the round still posts its summary, so the marker moves to the new head.
-   - Exit 3 → `Scope: full`: the previous head is gone from both the local repository and the remote. Say so in the review summary.
+   - Exit 3 → `Scope: full`: the previous head or the target branch is not available locally or on the remote. Say so in the review summary.
+   - Any other exit → `Scope: full`, and quote the script's stderr in the review summary.
 
 With `Scope: full` the target is the step 2 diff.
 
@@ -327,10 +328,10 @@ Read `requirements-check.md` at the plugin root and apply its three dimensions t
 
 Launch agents from `code_review.agents` in parallel using the Task tool:
 
-- Pass each agent the target from step 2.9 and the changed files. With `Scope: full` the target is the PR diff. With `Scope: incremental since …`, pass `.flowyeah/review-target-{N}.diff`, the names of the PR's other changed files (names only, no diff), and this instruction: "The target holds what the author changed since the previous review round. Raise findings about the target and about what it affects. A finding the target causes anchors on the target line that triggers it, and its body names the affected code as `file:line`. Do not hunt for problems in the rest of the PR; a problem you meet there by chance is still a finding, anchored on its own line."
+- Pass each agent the target from step 2.9 and the changed file names. With `Scope: full` the target is the PR diff. With `Scope: incremental since …`, pass `.flowyeah/review-target-{N}.diff`, the names of the PR's other changed files (names only, no diff), and this instruction: "The target holds what the author changed since the previous review round. Raise findings about the target and about what it affects. A finding the target causes anchors on the target line that triggers it, and its body names the affected code as `file:line`. Do not hunt for problems in the rest of the PR; a problem you meet there by chance is still a finding, anchored on its own line. A section starting with `# undone since` lists changes the PR had in the previous round and no longer has: look for code that still relies on them."
 - Each agent returns findings as: file, line, issue, severity, confidence (0-100)
 
-If `code_review.instructions` is configured, include the file contents as additional context passed to each agent alongside the PR diff and changed files. Instructions may reference external resources (a docs URL, a linked issue); agents resolve those using available tools (WebFetch, source adapters) to verify compliance rather than treating the reference as passive text.
+If `code_review.instructions` is configured, include the file contents as additional context passed to each agent alongside the target and the changed file names. Instructions may reference external resources (a docs URL, a linked issue); agents resolve those using available tools (WebFetch, source adapters) to verify compliance rather than treating the reference as passive text.
 
 If `unresolved_findings[]` from step 2.8 is non-empty, pass them to each agent as additional context: "The following findings were raised in a previous review and remain unresolved. Do not re-flag these — they will be carried forward separately." This prevents agents from producing duplicates.
 
@@ -496,7 +497,7 @@ Before starting a new review, check both directions:
 
 For a review-state match:
 
-- `Phase: Responded` → proceed silently — the prior round is closed. Read its `Round:` first (absent counts as 1), then overwrite the existing state files as if no session existed. Do not prompt.
+- `Phase: Responded` → proceed silently — the prior round is closed. Read its `Round:` and `Head:` first (absent `Round:` counts as 1; `Head:` is step 2.9's previous head), then overwrite the existing state files as if no session existed. Do not prompt.
 - `Phase: Fixing` or `Phase: Delegated` → present: "An --own review for PR #N is still active. Finalize it first, or continue fixing?"
 - Any other phase → present: "A review for PR #N is already active (phase: X). Finalize it first?"
 
@@ -641,5 +642,5 @@ Review comments are written in the language configured in `language`. Default: `
 | PR/MR not found | Ask user for number/URL |
 | Agent fails | **STOP.** Report which agent failed and its error, then ask the user: retry it, proceed without it, or abort. Do not present findings until the user decides. |
 | Remote communication failure (401, 403, 429, 5xx, timeout) | Retry up to 2 times with a short pause. If still failing, **STOP and report the error to the user.** Do not attempt alternative approaches or workarounds. For writes that may have landed (GitLab's per-finding discussion POSTs especially), verify what was created and retry only the missing pieces — see the `Submitting Review` recovery row. |
-| `bin/review-delta` exits 3 (previous head not found locally or on the remote) | Review the full diff (`Scope: full`) and say in the summary that the previous round's head was unavailable. |
+| `bin/review-delta` exits 3 (previous head or target branch not found locally or on the remote), or any exit other than 0 | Review the full diff (`Scope: full`) and say in the summary why the delta was unavailable, quoting the script's stderr. |
 | Inline comment position not in diff | Find the best anchor: the most relevant changed line in the same file, or the file's first changed line. If the file has no changed lines at all (finding from a cross-cutting concern), anchor on the most relevant file's first changed hunk. Every finding MUST become an inline comment — never move findings to the review body. |
