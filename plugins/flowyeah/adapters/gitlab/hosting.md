@@ -133,7 +133,9 @@ curl -s --request PUT -H "Authorization: Bearer $TOKEN" \
 
 **Limitation:** GitLab's merge API only supports `squash` and regular merge. The `rebase` strategy is a project-level setting — it cannot be requested per merge request via API. If `merge_strategy: rebase` is set, warn the user that GitLab will use a regular merge unless the project is configured for rebase merges in GitLab settings.
 
-If merge fails (e.g., conflicts), report the error and ask the user.
+Before the PUT, read the MR (`GET /projects/<project_id>/merge_requests/<iid>`) and compare its `sha` with the head the user approved. If it moved (another conversation pushed to the branch), STOP and show `git diff <approved>..<sha>`.
+
+If merge fails (e.g., conflicts), report the error and ask the user. A `405` comes with no reason in the body: read `detailed_merge_status` from the same GET before any other write. On a project with fast-forward merges, `need_rebase` shows up on a green, conflict-free MR whenever the target branch moved; rebase and wait for the new pipeline.
 
 ## Update MR (optional)
 

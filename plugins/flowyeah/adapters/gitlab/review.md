@@ -220,6 +220,7 @@ Expect `201`. On any other status, keep the response file and check whether the 
 - `new_path` — file path relative to repo root
 - `new_line` — line number on the **new side** of the diff (added/modified lines)
 - `old_path` / `old_line` — use for commenting on removed lines
+- An unchanged context line needs all four: `old_path`/`old_line` and `new_path`/`new_line`. With `new_line` alone GitLab answers `400 line_code can't be blank`.
 
 The `new_line` MUST be a line that appears in the diff. If the finding is about a line not in the diff, anchor it to the nearest diff line in the same file and say in the body which line it actually concerns — never fall back to a general note; the review skill requires every finding to land as an inline discussion.
 
