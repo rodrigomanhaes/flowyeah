@@ -4,6 +4,8 @@ The canonical way a finding is shown to the user. `flowyeah:review` uses it at s
 
 The card is not decoration; it is the contract. Never substitute a prose paragraph, a compressed bullet list, or a table for it.
 
+Outside the card, refer to a finding by its file:line or its subject, never by a label the user never saw (T1, C3).
+
 ## The card
 
 ```

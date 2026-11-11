@@ -380,6 +380,8 @@ In every branch, for each comment produce:
 - **Reasoning**: brief technical justification (verified against codebase)
 - **Recommended action**: implement / reject / discuss, or acknowledge for a remark outside a thread that asks for no change and no answer
 
+**The finding and its fix are two claims.** A finding usually comes from an execution that proved the defect; the fix at its end is a sentence written afterwards. For every comment recommended `implement`, check the prescribed fix the way the defect was checked: run it, do not read it (the attribute it reads exists on that object, the index it names covers the filtered column, the new assertion kills a mutant). The defect rarely falls; the prescription often does. Say in `Reasoning` which part of the prescribed fix changes.
+
 **Per-finding evaluation errors:** if evaluation fails for a specific comment/finding — an `evaluation_skill` error (timeout, exception, malformed output) **or** a failure resolving an external resource referenced by `code_review.instructions` (unreachable issue, failed fetch) — do not abort the entire run. Instead, mark that finding's critique as unavailable and proceed. In step 4, the per-finding UX shows:
 
 ```
@@ -600,7 +602,7 @@ Navigate to the worktree. Read `.flowyeah/respond-decisions-{N}.md` (main checko
 
 For each decision with `Action: implement`, in the order they appear:
 
-1. **Read context:** file, surrounding lines, related code paths identified by the final critique.
+1. **Read context:** file, surrounding lines, related code paths identified by the final critique. If the finding names a file the branch does not touch, check `git diff <merge-base>..HEAD -- <file>` and `git diff --numstat origin/<default_branch> -- <file>` first. Untouched by the branch but changed on the default branch means the worktree is stale: bring the default branch in (rebase when `pull_requests.rebase` is true) before editing, or the edit lands on text the merge will replace.
 2. **Make the change** informed by the `Final critique:` reasoning — not just the finding's raw body. The critique may have been revised through discussion and reflects the user's latest understanding.
 3. **Commit** using `commits.writer` from config. Commit message should reference the finding (file + subject). One commit per implemented decision is the default.
 
@@ -627,6 +629,12 @@ User responses:
 - **`s`** — change finding `<j>`'s action to `reject` and record the reason ("skipped after re-surface: superseded by finding <i>'s fix"). Continue.
 
 The 20-line proximity window is a heuristic. Cross-file refactors won't trigger the safety net — that's acceptable; the user can always interrupt the implementation manually if they notice a bigger landscape shift.
+
+#### Before closing the round
+- Reread the whole document each fix touched for what the fix now contradicts: a sentence that was true before the new rule may be false after it.
+- Read the fixes committed in this round against each other, not only against their own scenario: two fixes can undo each other.
+- A sweep ("replace every reference to X") is checked as exhaustive with a grep before the round closes; a partial sweep leaves no symptom.
+- Check pointers at the PR head and at the current default branch: a rebase can kill a path that was right in the PR.
 
 #### After all implement decisions are done
 

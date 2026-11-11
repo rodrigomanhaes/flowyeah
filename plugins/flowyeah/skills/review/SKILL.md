@@ -221,7 +221,7 @@ Fetch issue details using the appropriate source adapter (load `adapters/<source
 
 **If no issue found and the PR/MR description has a `## Criteria` section:** use that section as the reference for step 2b, without asking. Build writes it on PRs/MRs whose work did not start from an issue.
 
-**If neither exists:** ask the user. If they say "none", skip requirements validation (step 2b).
+**If neither exists:** treat the PR/MR as having no issue. Skip requirements validation (step 2b) and say so in one line. Do not ask: a PR/MR that names no issue in its title, description or branch has none.
 
 ### 2. Gather Context
 
@@ -296,6 +296,10 @@ For entries with `File: (general)` (no precise line), the diff-overlap rule cann
 **Output (persisted rejections):** one list — `previously_rejected_findings[]`. Each entry preserves `File:`, `Label:`, `Confidence:`, `Subject:`, and `Reasoning:`. `Confidence:` is preserved but deliberately **not** passed to the agents in step 3 — it exists so the ledger can be read back as calibration data (which score bands get rejected), and telling an agent that a prior finding scored low would bias it against raising a legitimate concern rather than inform it.
 
 This list is **separate** from `unresolved_findings[]`. It does not get carried forward as a user-visible finding (see step 4, consolidation rule 7) — it is used only as agent context (see step 3, Run Review Agents).
+
+##### 2.8b Measure Convergence Before Another `--own` Round
+
+**Before another `--own` round, measure convergence** from the previous rounds' approved files: findings per round (falling?), where they land (the deliverable or an accessory?), whether the file that attracts them is growing, and how many were born from the previous round's fixes. When an accessory concentrates the findings, report the numbers to the user and stop: cutting scope is the user's decision, not the review's.
 
 #### 2.9 Choose the Review Target
 
