@@ -567,6 +567,36 @@ assert_not_contains "worktree-lifecycle uses numbered respond state filename" "r
 assert_contains "respond locates the branch worktree through git" "git worktree list --porcelain" "$RESPOND_SKILL"
 assert_not_contains "respond preflight does not require the worktree under .flowyeah/" "Verify a directory exists at" "$RESPOND_SKILL"
 
+# ── Section: Build reviewer checkouts ────────────────────
+# Review agents can write, and have edited production files to test a
+# hypothesis. Step 7b gives each one its own detached checkout inside the
+# build worktree, so the build owns it by containment: status never sees it
+# as an orphan, and its name cannot collide with a review's PR-numbered
+# checkout under .flowyeah/review-worktrees/.
+
+echo ""
+echo "=== Build reviewer checkouts ==="
+
+section_of() {
+    awk -v h="$1" '$0 == h {f=1; next} f && /^#{2,3} / {exit} f' "$2"
+}
+CI_LOOP="$(mktemp)"
+CRASH_RECOVERY="$(mktemp)"
+section_of "### 7b. CI + Code Review Loop" "$BUILD_SKILL" > "$CI_LOOP"
+section_of "### Crash Recovery" "$BUILD_SKILL" > "$CRASH_RECOVERY"
+
+assert_contains "7b gives each agent a checkout inside the build worktree" ".flowyeah/review-checkouts/<agent>/" "$CI_LOOP"
+assert_contains "7b pins the checkouts to the pushed head" "git rev-parse @{upstream}" "$CI_LOOP"
+assert_contains "7b creates detached checkouts" "git worktree add -q --detach" "$CI_LOOP"
+assert_contains "7b tells agents not to run tests in the checkout" "Do not run tests" "$CI_LOOP"
+assert_contains "7b checks each checkout for mutations" 'git -C "$CHECKOUT" status --porcelain' "$CI_LOOP"
+assert_contains "crash recovery removes reviewer checkouts left by a dead round" "review-checkouts" "$CRASH_RECOVERY"
+# Removing the build worktree deletes the nested checkouts without a word and
+# leaves their registrations behind as prunable.
+assert_contains "teardown removes reviewer checkouts before the build worktree" "review-checkouts" "$LIFECYCLE"
+assert_contains "teardown prunes registrations whose directory is gone" "git worktree prune" "$LIFECYCLE"
+rm -f "$CI_LOOP" "$CRASH_RECOVERY"
+
 # ── Section: State-file lifecycle ────────────────────────
 # Every state file must have an owner that removes it — leftovers keep
 # tree-guard armed against the branch indefinitely.

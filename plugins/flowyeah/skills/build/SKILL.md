@@ -543,14 +543,36 @@ After PR/MR creation, check `hooks.pr.after_create` in `flowyeah.yml`. If config
 
 **While waiting for CI:**
 
-1. **Run code review agents** from `flowyeah.yml`:
+1. **Give each agent its own checkout to read from.** Review agents can write, and they have edited production files to test a hypothesis. In this worktree such an edit would end up in the next commit, and in a shared checkout one agent would measure another's edit. Create one detached checkout for each agent that item 2 launches, at `.flowyeah/review-checkouts/<agent>/`, on the head 6c pushed:
+
+   ```bash
+   HEAD_SHA=$(git rev-parse @{upstream})
+   NAME=$(printf '%s' "<agent>" | tr ':/' '--')
+   git worktree add -q --detach ".flowyeah/review-checkouts/$NAME" "$HEAD_SHA"
+   ```
+
+   The checkouts sit inside this worktree's `.flowyeah/`, so the build owns them by containment: `flowyeah:status` scans one level under `.flowyeah/worktrees/` and never reports them as orphans, and `.flowyeah/review-worktrees/` stays the namespace of `flowyeah:review`, keyed by PR/MR number. Each agent's prompt gives the absolute path of its own checkout as the code to read and says: "Read-only. Do not edit files. Do not run tests." A finding that needs execution to be proven comes back as a hypothesis, and you verify it in this worktree after every agent has returned. A new round creates fresh checkouts at the new head.
+
+2. **Run code review agents** from `flowyeah.yml`:
    - **`code_review.agents`** — always launch all of these.
    - **`code_review.optional_agents`** — launch based on what changed (e.g., security-analyst if auth code was touched, code-quality-analyst for large refactors). Use judgment.
    - **If `code_review.agents` is empty or missing: STOP and complain. Do NOT continue without code review.**
 
    If `code_review.instructions` is configured, include the file contents as additional context passed to each agent alongside the diff and changed files.
 
-**When results come back:**
+**When results come back:** remove the checkouts first, before fixing anything. Their copies of the code would otherwise be in reach of any test runner or linter that does not honor `.gitignore`. This worktree's own `git status` does not show an edit made inside a checkout, so ask each one:
+
+```bash
+shopt -s nullglob
+for CHECKOUT in .flowyeah/review-checkouts/*/; do
+  git -C "$CHECKOUT" status --porcelain   # non-empty: that agent edited its checkout
+  git worktree remove --force "$CHECKOUT"
+done
+shopt -u nullglob
+git worktree prune
+```
+
+A non-empty status means that agent edited files: report the agent and the files, and treat its findings as measured on modified code: confirm each one against the pushed head before acting on it. Then:
 
 - **CI passes AND review clean** → proceed to step 7b2 (before-merge hook)
 - **CI fails** → investigate, fix, create a new commit (not amend), restart from step 5 (commit → test → push). Skip code review and implementation approval on retry. Any CI failure is YOUR failure. Assume CI is evergreen.
@@ -695,8 +717,9 @@ Before removal, refresh the default branch ref — the next worktree is created 
 ```bash
 cd "$MAIN_WORKTREE"
 git fetch origin $DEFAULT_BRANCH
-git worktree remove <worktree-path>
 ```
+
+Then remove the worktree as Teardown step 3 describes: reviewer checkouts left by step 7b first, then the worktree, then `git worktree prune`.
 
 ## Continuous Mode (`--continuous`)
 
@@ -754,7 +777,8 @@ Session state lives in `.flowyeah/` inside the worktree. It survives context com
     ├── state.md       # WHERE — current position + decision context
     ├── mission.md     # WHY — goal, scope, success criteria
     ├── progress.md    # WHAT — task checklist with stats
-    └── findings.md    # LEARNED — discoveries, gotchas, insights
+    ├── findings.md    # LEARNED — discoveries, gotchas, insights
+    └── review-checkouts/  # step 7b only: one detached checkout per review agent
 ```
 
 ### state.md — the fields other things parse
@@ -843,7 +867,8 @@ After a crash, the user returns to the main checkout. Run `flowyeah:build`:
    2. fix-5590          → Payment validation (Step 7b: CI wait)
    3. chore-update-deps → Update dependencies (Step 7: Creating MR)
    ```
-4. `cd` into chosen worktree, rewrite `Session:` in its `state.md` with this conversation's `$CLAUDE_CODE_SESSION_ID` (the hooks inject state only into the conversation it names), and continue from state.md
+5. `cd` into chosen worktree, rewrite `Session:` in its `state.md` with this conversation's `$CLAUDE_CODE_SESSION_ID` (the hooks inject state only into the conversation it names), and continue from state.md
+6. If `.flowyeah/review-checkouts/` holds anything, the agents that read from it ended with the crashed conversation and their results are lost. Remove the checkouts with the loop from step 7b (reporting any that an agent edited), and if the session was in step 7b, dispatch the review agents again
 
 ### Pipeline Rollback
 
@@ -851,7 +876,7 @@ When a pipeline step fails irrecoverably (e.g., 3 CI failures, a merge conflict 
 
 1. **Before worktree cleanup:** save `state.md` and `findings.md` to `tmp/flowyeah/aborted/<key>/` for post-mortem
 2. **Reset the plan task:** uncheck `[x]` → `[ ]` in `tmp/flowyeah/plans/<key>.md` if it was prematurely marked
-3. **Clean up worktree:** remove with `git worktree remove` (before branch deletion — git refuses to delete a branch checked out in a worktree)
+3. **Clean up worktree:** remove it as `worktree-lifecycle.md` Teardown step 3 describes (before branch deletion — git refuses to delete a branch checked out in a worktree)
 4. **Clean up branches:** delete the remote branch if the PR was already created but not merged, then the local branch: `git branch -D <branch>`. Without the local deletion, the claim rule in step 2 sees the leftover branch as a claim and skips the retried task on every future run. **Skip both deletions when `On-Branch: true`** — the branch existed before flowyeah and should not be deleted on rollback.
 5. **Report:** summarize what happened, what was saved, and what the user should do next
 

@@ -150,9 +150,18 @@ export REDIS_DB=pL7nR2wY
 
 ### 3. Remove worktree
 
+A build session that ended during step 7b can leave reviewer checkouts nested in `<worktree-path>/.flowyeah/review-checkouts/`. Removing the worktree deletes them silently and leaves their registrations behind as prunable, so remove them first and report any that a review agent edited:
+
 ```bash
 cd "$MAIN_WORKTREE"
+shopt -s nullglob
+for CHECKOUT in <worktree-path>/.flowyeah/review-checkouts/*/; do
+  git -C "$CHECKOUT" status --porcelain
+  git worktree remove --force "$CHECKOUT"
+done
+shopt -u nullglob
 git worktree remove <worktree-path>
+git worktree prune
 ```
 
-If removal fails (e.g., uncommitted changes), report the error. Do not force-remove without user confirmation.
+`git worktree prune` drops the registration of any worktree whose directory no longer exists, such as a checkout deleted along with its parent. If removal fails (e.g., uncommitted changes), report the error. Do not force-remove without user confirmation; the `--force` above applies only to reviewer checkouts, which hold no work of the session.
