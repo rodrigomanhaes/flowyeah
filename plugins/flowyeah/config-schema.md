@@ -15,7 +15,7 @@ Single source of truth for `flowyeah.yml` configuration. Referenced by setup, bu
 | `implementation.approval` | string | `always` \| `auto` | `auto` | `always` = present for approval before push; `auto` = AI assesses risk |
 | `implementation.process_skills.brainstorming` | string | skill name | none | **Mandatory** when configured — skill invoked for brainstorming phase. If absent, brainstorm inline. Independent of `implementation.brainstorm` (which controls whether the phase runs, not how) |
 | `implementation.process_skills.planning` | string | skill name | none | **Mandatory** when configured — skill invoked for planning phase. If absent, plan inline. Independent of `implementation.brainstorm` |
-| `implementation.process_skills.tdd` | string | skill name | none | **Mandatory** when configured — skill invoked for TDD phase. If absent, do TDD inline. Applies even when `brainstorm: auto` skips to direct TDD |
+| `implementation.process_skills.tdd` | string | skill name | none | **Mandatory** when configured — skill invoked for TDD phase, in build and for respond's behavior fixes. If absent, do TDD inline. Applies even when `brainstorm: auto` skips to direct TDD |
 | `implementation.process_skills.debugging` | string | skill name | none | **Mandatory** when configured — skill invoked for debugging/investigation. If absent, debug inline |
 | `implementation.process_skills.verification` | string | skill name | none | **Mandatory** when configured — skill invoked after implementation approval and before push. If absent, no verification gate beyond step 6 |
 | `commits.conventions` | string | `conventional` \| `freeform` | `conventional` | Applied to commits or PR title depending on `merge_strategy` |

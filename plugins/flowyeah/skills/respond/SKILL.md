@@ -603,8 +603,12 @@ Navigate to the worktree. Read `.flowyeah/respond-decisions-{N}.md` (main checko
 For each decision with `Action: implement`, in the order they appear:
 
 1. **Read context:** file, surrounding lines, related code paths identified by the final critique. If the finding names a file the branch does not touch, check `git diff <merge-base>..HEAD -- <file>` and `git diff --numstat origin/<default_branch> -- <file>` first. Untouched by the branch but changed on the default branch means the worktree is stale: bring the default branch in (rebase when `pull_requests.rebase` is true) before editing, or the edit lands on text the merge will replace.
-2. **Make the change** informed by the `Final critique:` reasoning — not just the finding's raw body. The critique may have been revised through discussion and reflects the user's latest understanding.
-3. **Commit** using `commits.writer` from config. Commit message should reference the finding (file + subject). One commit per implemented decision is the default.
+2. **Make the change** informed by the `Final critique:` reasoning — not just the finding's raw body. The critique may have been revised through discussion and reflects the user's latest understanding. How the change is made depends on what it touches:
+   - **Behavior:** the fix changes production code. Test first: write the test that reproduces the defect, run it, and see it fail before editing the production code; then make the change and see it pass. Invoke `implementation.process_skills.tdd` when configured; run that cycle inline otherwise.
+   - **Test only:** the fix adds or strengthens a test and leaves production code as it is. A new test passes on its first run, which proves nothing. Break the code the test guards (a one-line mutation), run the test and see it fail, restore the code, and check with `git diff` that the mutation is gone.
+   - **Text:** comment, file header, documentation, PR/MR description. No test.
+3. **Record the proof:** add a `- Proof:` line to the finding's block in `respond-decisions-{N}.md`, after `Action:`. Behavior: the test command and the failure it showed before the change. Test only: the mutation and the failure it caused. Text: `text`. A behavior or test-only finding is implemented when its block has a `Proof:` line showing a failure.
+4. **Commit** using `commits.writer` from config. Commit message should reference the finding (file + subject). One commit per implemented decision is the default.
 
 **Grouping:** when the decisions already queued for implementation naturally touch the same file or the same concern, you may group them into a single commit. Do not force grouping if it obscures intent. One-commit-per-finding is always acceptable.
 
